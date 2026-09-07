@@ -311,6 +311,12 @@ RTMP, SRT, HLS, or Icecast output builders while adding API behavior.
 
 ## Configuration transition
 
+Use TOML for Streamo configuration files. Parse TOML before validating the
+resulting data with the Pydantic configuration models. Do not add JSON
+configuration compatibility. JSON Lines used by the RPC/control protocol and
+any `.jsonl` files remain JSON Lines and are not part of this configuration
+format change.
+
 Backward compatibility is not required. Replace these top-level fields:
 
 - `twitch_key`, `twitch_url`;
@@ -325,8 +331,8 @@ must not change the composition clock used by image scheduling.
 
 The first migrated configuration should be a `TwitchService`, preserving the
 current output and Helix behavior without a compatibility parser for the old
-JSON shape. Add complete example configurations for Twitch video, generic
-RTMPS video, and Icecast audio.
+JSON configuration. Add complete `.toml` example configurations for Twitch
+video, generic RTMPS video, and Icecast audio.
 
 ## Implementation steps
 
@@ -349,13 +355,16 @@ RTMPS video, and Icecast audio.
    endpoint host, advertised capabilities, and remote health when available.
 8. Keep `preview` service-independent. It must bypass adapter preparation and
    remote APIs, while using the selected encoding profile where practical.
-9. Replace the README configuration and RPC sections and document how to test a
-   custom endpoint without exposing its key.
+9. Replace the README configuration examples and paths with TOML. Keep the RPC
+   examples and transport as JSON Lines, and document how to test a custom
+   endpoint without exposing its key.
 
 ## Verification
 
-- Parse one valid configuration for every service subclass and every ingest
+- Parse TOML configuration files for every service subclass and every ingest
   protocol.
+- Verify RPC/control messages remain JSON Lines after the configuration
+  migration.
 - Reject invalid protocol/service, media/container, key/URL, mountpoint, and
   backup-endpoint combinations.
 - Assert serialized models and validation errors never reveal `SecretStr`
