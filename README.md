@@ -134,9 +134,9 @@ sample_rate = 48000
 channels = 2
 ```
 
-Twitch and YouTube can perform provider API operations. The other adapters send
-the configured FFmpeg output directly to ingest and reject provider-specific
-control commands.
+Twitch, YouTube, and Kick can perform provider API operations. The other
+adapters send the configured FFmpeg output directly to ingest and reject
+provider-specific control commands.
 
 ## YouTube authorization
 
@@ -218,6 +218,78 @@ or HLS ingest address from YouTube. `category` is a YouTube video category ID,
 and `scheduled_start` must include a timezone. A Google OAuth consent screen in
 Testing status can issue refresh tokens that expire after seven days; use a
 Production consent screen for a persistent installation.
+
+## Kick authorization
+
+Create an application at the Kick developer site and register
+`http://127.0.0.1:8765/` as its redirect URL. Put the application credentials in
+a private TOML file:
+
+```toml
+client_id = "replace-with-client-id"
+client_secret = "replace-with-client-secret"
+```
+
+Authorize Streamo using:
+
+```bash
+uv run streamo auth kick --client-secrets kick-client.toml
+```
+
+Streamo uses OAuth 2.1 with PKCE and requests `channel:read`, `channel:write`,
+`chat:write`, and `streamkey:read`. It stores the reusable credentials in
+`~/.config/streamo/kick-auth.toml` with mode `0600`. Kick rotates refresh tokens;
+Streamo writes each replacement to that file atomically. The access token and
+stream key are not written to configuration files.
+
+The same SSH tunnel works when the target has no browser:
+
+```bash
+ssh -L 8765:127.0.0.1:8765 target
+uv run streamo auth kick \
+  --client-secrets kick-client.toml \
+  --no-browser \
+  --callback-port 8765
+```
+
+Open the printed URL in the local browser. The registered redirect URL must use
+the same callback port. Once authorization succeeds, configure the channel by
+its Kick URL slug; no ingest section is needed:
+
+```toml
+device_name = "X18"
+channel = 17
+video = "visual-bed.mp4"
+
+[streaming_service]
+service = "kick"
+credentials = "~/.config/streamo/kick-auth.toml"
+channel = "replace-with-channel-slug"
+
+[streaming_service.encoding]
+container = "flv"
+
+[streaming_service.encoding.audio]
+codec = "aac"
+bitrate = "160k"
+sample_rate = 48000
+channels = 2
+
+[streaming_service.encoding.video]
+codec = "h264"
+bitrate = "2500k"
+resolution = "1280x720"
+frame_rate = 30
+keyframe_interval = 2
+
+[streaming_service.metadata]
+title = "Live at the club"
+category = "15"
+tags = ["music", "live"]
+```
+
+At preparation time Streamo updates the channel metadata and retrieves its
+RTMPS URL and stream key. `category` is Kick's numeric category ID.
 
 ## Running Streamo
 
@@ -303,10 +375,15 @@ the Twitch scopes required by the operations being used:
 - `moderator:manage:announcements` for announcements
 - `clips:edit` for clips
 
+Kick configurations with OAuth credentials support `update_stream_info` and
+`chat`. The update accepts `title`, `category` or `category_id`, and `tags`;
+categories are numeric Kick IDs. Chat accepts a `message` string.
+
 The `status` result includes audio levels and timing, FFmpeg state and bitrate,
 the service name, the ingest hostname without secrets, available capabilities,
-and `remote_health`. YouTube reports its stream and ingest health there;
-adapters without a health API report `null`. Stream keys, passwords,
+and `remote_health`. YouTube reports its stream and ingest health there, while
+Kick reports live state and viewer count. Adapters without a health API report
+`null`. Stream keys, passwords,
 passphrases, access tokens, and complete publish URLs are excluded from status
 and failure diagnostics.
 

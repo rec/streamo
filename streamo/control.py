@@ -10,6 +10,7 @@ from urllib.request import url2pathname, urlopen
 
 from reccy.protocol import ipc, rpc
 
+from .kick_api import KickApiError
 from .services import (
     COMMAND_CAPABILITIES,
     StreamingServiceAdapter,
@@ -185,6 +186,7 @@ class ControlController:
         except (
             TwitchApiError,
             YouTubeApiError,
+            KickApiError,
             UnsupportedServiceOperation,
         ) as error:
             return ipc.Error(type="error", message=str(error))

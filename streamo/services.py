@@ -291,7 +291,20 @@ class FacebookService(StreamingService, frozen=True):
 class KickService(StreamingService, frozen=True):
     service: Literal["kick"]
     name: str = "Kick"
+    ingest: RtmpIngest | None = None
+    credentials: Path | None = None
     channel: str | None = None
+    api_url: str = "https://api.kick.com/public/v1"
+
+    @model_validator(mode="after")
+    def validate_kick(self) -> Self:
+        if self.encoding.video is None:
+            raise ValueError("kick requires video encoding")
+        if self.credentials is None and self.ingest is None:
+            raise ValueError("Kick requires ingest or credentials")
+        if self.credentials is not None and self.channel is None:
+            raise ValueError("Kick credentials require channel")
+        return self
 
 
 class VimeoService(StreamingService, frozen=True):
@@ -534,7 +547,53 @@ class FacebookServiceAdapter(GenericServiceAdapter):
 
 
 class KickServiceAdapter(GenericServiceAdapter):
-    pass
+    def __init__(self, service: StreamingServiceConfiguration) -> None:
+        from .kick_api import KickApi
+
+        assert isinstance(service, KickService)
+        super().__init__(service)
+        self.kick = KickApi.from_service(service)
+        if self.kick is not None:
+            self.capabilities.extend(
+                [
+                    ServiceCapability.PREPARE,
+                    ServiceCapability.METADATA,
+                    ServiceCapability.HEALTH,
+                    ServiceCapability.CHAT,
+                ]
+            )
+
+    def prepare(self, metadata: StreamMetadata) -> PreparedStream:
+        assert isinstance(self.service, KickService)
+        if self.kick is None:
+            return super().prepare(metadata)
+        ingest, remote_ids = self.kick.prepare(metadata)
+        service = KickService.model_validate(
+            {**self.service.model_dump(), "ingest": ingest, "metadata": metadata}
+        )
+        self.service = service
+        return PreparedStream(service=service, remote_ids=remote_ids)
+
+    def perform(self, command: str, payload: Mapping[str, object]) -> dict[str, object]:
+        capability = command_capability(command)
+        if capability not in self.capabilities or self.kick is None:
+            raise UnsupportedServiceOperation(
+                f"{self.service.name} does not support {capability.value} "
+                "with its current configuration"
+            )
+        return self.kick.perform(command, payload)
+
+    def update_metadata(self, metadata: StreamMetadata) -> None:
+        if self.kick is None:
+            return super().update_metadata(metadata)
+        self.kick.update_metadata(metadata)
+        self.service = self.service.model_copy(update={"metadata": metadata})
+
+    def health(self) -> RemoteStreamStatus | None:
+        if self.kick is None:
+            return None
+        state, detail = self.kick.health()
+        return RemoteStreamStatus(state=state, detail=detail)
 
 
 class VimeoServiceAdapter(GenericServiceAdapter):

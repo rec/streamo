@@ -156,6 +156,29 @@ def test_youtube_api_configuration_requires_video() -> None:
         )
 
 
+def test_kick_api_configuration_requires_channel() -> None:
+    with pytest.raises(ValidationError, match="Kick credentials require channel"):
+        KickService.model_validate(
+            {
+                "service": "kick",
+                "credentials": "kick-auth.toml",
+                "encoding": encoding(),
+            }
+        )
+
+
+def test_kick_api_configuration_requires_video() -> None:
+    with pytest.raises(ValidationError, match="kick requires video encoding"):
+        KickService.model_validate(
+            {
+                "service": "kick",
+                "credentials": "kick-auth.toml",
+                "channel": "channel-name",
+                "encoding": encoding(include_video=False),
+            }
+        )
+
+
 def test_rtmp_requires_flv_and_matching_backup_fields() -> None:
     with pytest.raises(ValidationError, match="flv container"):
         CustomService(
