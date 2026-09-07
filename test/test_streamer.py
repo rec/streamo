@@ -4,12 +4,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import twitcho.streamer
 from twitcho.config import Twitcho
 from twitcho.control import RuntimeState
 from twitcho.streamer import (
     _audio_callback,
     ffmpeg_command,
+    ffplay_command,
     select_stereo_pair,
     title_filter,
     video_size,
@@ -68,35 +68,53 @@ def test_ffmpeg_command_overlays_title_card(tmp_path: Path) -> None:
     assert "loop=loop=-1:size=1800:start=0" in graph
 
 
-def test_ffmpeg_command_randomly_overlays_image(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    image_dir = tmp_path / "images"
-    image_dir.mkdir()
-    image = image_dir / "participant.png"
-    image.touch()
+def test_ffmpeg_command_overlays_live_image_pipe() -> None:
     config = _config().model_copy(
         update={
-            "image_dir": image_dir,
             "image_interval": 60,
             "image_duration": 10,
             "image_fade": 3,
-            "image_chance": 1,
             "video_frame_rate": 24,
             "video_resolution": "1280x720",
         }
     )
-    monkeypatch.setattr(twitcho.streamer.random, "random", lambda: 0.0)
-    monkeypatch.setattr(twitcho.streamer.random, "choice", lambda paths: paths[0])
 
-    command = ffmpeg_command(config)
+    command = ffmpeg_command(config, image_pipe=7)
     graph = command[command.index("-filter_complex") + 1]
 
-    assert image.as_posix() in command
-    assert "color=c=black@0.0:s=1280x720:r=24:d=50.000000" in command
-    assert "[base][image_loop]overlay=(W-w)/2:(H-h)/2" in graph
-    assert "fade=t=out:st=7.000000:d=3.000000:alpha=1" in graph
-    assert "loop=loop=-1:size=1440:start=0" in graph
+    assert command[command.index("rawvideo") - 1 :][0:10] == [
+        "-f",
+        "rawvideo",
+        "-pixel_format",
+        "rgba",
+        "-video_size",
+        "1280x720",
+        "-framerate",
+        "24",
+        "-i",
+        "pipe:7",
+    ]
+    assert "[2:v]setpts=PTS-STARTPTS[image_live]" in graph
+    assert "[base][image_live]overlay=(W-w)/2:(H-h)/2" in graph
+
+
+def test_ffmpeg_command_places_live_images_after_title(tmp_path: Path) -> None:
+    title = tmp_path / "title.png"
+    title.touch()
+    config = _config().model_copy(update={"title_card": title, "image_interval": 60})
+
+    command = ffmpeg_command(config, image_pipe=8)
+    graph = command[command.index("-filter_complex") + 1]
+
+    assert "[base][title_loop]overlay=(W-w)/2:(H-h)/2:eof_action=repeat[base1]" in graph
+    assert "[base1][image_live]overlay=(W-w)/2:(H-h)/2" in graph
+
+
+def test_ffmpeg_command_previews_nut_on_stdout() -> None:
+    command = ffmpeg_command(_config(), preview=True)
+
+    assert command[-3:] == ["-f", "nut", "pipe:1"]
+    assert ffplay_command()[-3:] == ["-f", "nut", "pipe:0"]
 
 
 def test_video_size_parses_resolution() -> None:

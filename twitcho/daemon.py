@@ -12,7 +12,16 @@ from .config import TWITCHO_SERVICE, Twitcho
 
 class DaemonOptions(BaseModel, frozen=True):
     action: Annotated[
-        Literal["run", "install", "uninstall", "start", "stop", "restart", "status"],
+        Literal[
+            "run",
+            "preview",
+            "install",
+            "uninstall",
+            "start",
+            "stop",
+            "restart",
+            "status",
+        ],
         tyro.conf.Positional,
     ] = "run"
     config: Path = Path.home() / ".config/twitcho/config.json"
@@ -25,9 +34,9 @@ def main(argv: list[str] | None = None) -> int:
 
 def run(options: DaemonOptions) -> int:
     twitcho = Twitcho.model_construct()
-    if options.action == "run":
+    if options.action in {"run", "preview"}:
         config = Twitcho.model_validate_json(options.config.expanduser().read_text())
-        return config.run()
+        return config.run(preview=options.action == "preview")
     if options.action == "install":
         result = twitcho.install_service(
             [

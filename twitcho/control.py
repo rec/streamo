@@ -1,5 +1,5 @@
 import queue
-import shutil
+import tempfile
 import threading
 import time
 from dataclasses import dataclass, field
@@ -170,7 +170,7 @@ def store_image(image_dir: Path, url: str) -> Path:
         source = Path(url2pathname(parsed.path))
         target = unique_image_path(image_dir, image_name(parsed.path))
         try:
-            shutil.copyfile(source, target)
+            publish_image(target, source.read_bytes())
         except OSError as error:
             raise ImageStoreError(f"could not copy {url}: {error}") from error
         return target
@@ -178,11 +178,26 @@ def store_image(image_dir: Path, url: str) -> Path:
         target = unique_image_path(image_dir, image_name(parsed.path))
         try:
             with urlopen(url, timeout=10) as response:
-                target.write_bytes(response.read())
+                publish_image(target, response.read())
         except (OSError, URLError) as error:
             raise ImageStoreError(f"could not download {url}: {error}") from error
         return target
     raise ImageStoreError(f"unsupported image URL {url}")
+
+
+def publish_image(target: Path, contents: bytes) -> None:
+    temporary: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            dir=target.parent, prefix=f".{target.name}.", suffix=".part", delete=False
+        ) as output:
+            temporary = Path(output.name)
+            output.write(contents)
+        temporary.replace(target)
+    except OSError:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+        raise
 
 
 def image_name(path: str) -> str:

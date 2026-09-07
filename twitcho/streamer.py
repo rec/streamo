@@ -1,5 +1,6 @@
-import random
+import os
 import subprocess
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -11,6 +12,7 @@ from reccy.runtime import process
 
 from .config import Twitcho
 from .control import ControlController, RuntimeState
+from .images import ImageFrameProducer, ImageScheduler, write_image_frames
 from .programs import update_bitrate
 
 
@@ -25,16 +27,55 @@ class VideoOverlay:
     fade: float
 
 
-def stream(config: Twitcho, controller: ControlController) -> int:
+def stream(
+    config: Twitcho, controller: ControlController, *, preview: bool = False
+) -> int:
     state = controller.state
     requested_stop = False
     result = 1
-    ffmpeg = subprocess.Popen(
-        ffmpeg_command(config),
-        stdin=subprocess.PIPE,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-    )
+    image_read: int | None = None
+    image_write: int | None = None
+    image_thread: threading.Thread | None = None
+    preview_process: subprocess.Popen[bytes] | None = None
+    if config.image_interval > 0:
+        image_read, image_write = os.pipe()
+    try:
+        if preview:
+            preview_process = subprocess.Popen(
+                ffplay_command(), stdin=subprocess.PIPE, stdout=subprocess.DEVNULL
+            )
+        command = ffmpeg_command(config, image_pipe=image_read, preview=preview)
+        stdout = (
+            preview_process.stdin if preview_process is not None else subprocess.DEVNULL
+        )
+        ffmpeg = subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stdout=stdout,
+            stderr=subprocess.PIPE,
+            pass_fds=() if image_read is None else (image_read,),
+        )
+    except OSError:
+        if image_read is not None:
+            os.close(image_read)
+        if image_write is not None:
+            os.close(image_write)
+        if preview_process is not None:
+            process.terminate(preview_process)
+        raise
+    if preview_process is not None and preview_process.stdin is not None:
+        preview_process.stdin.close()
+    if image_read is not None:
+        os.close(image_read)
+    if image_write is not None:
+        image_stream = os.fdopen(image_write, "wb")
+        image_thread = threading.Thread(
+            target=write_image_frames,
+            args=(image_stream, image_frame_producer(config)),
+            name="TwitchoImageFrames",
+            daemon=True,
+        )
+        image_thread.start()
     ffmpeg_output = process.capture_stderr(
         ffmpeg,
         lambda line: update_bitrate(state, line),
@@ -51,7 +92,9 @@ def stream(config: Twitcho, controller: ControlController) -> int:
             samplerate=config.sample_rate,
         ):
             while ffmpeg.poll() is None:
-                if should_stop(controller):
+                if should_stop(controller) or (
+                    preview_process is not None and preview_process.poll() is not None
+                ):
                     requested_stop = True
                     state.set_state("stopping")
                     process.terminate(ffmpeg)
@@ -60,7 +103,7 @@ def stream(config: Twitcho, controller: ControlController) -> int:
             returncode = ffmpeg.wait()
             state.set_ffmpeg(alive=False, returncode=returncode)
             if returncode and not requested_stop:
-                process.report_failed_process(ffmpeg_command(config), ffmpeg_output)
+                process.report_failed_process(command, ffmpeg_output)
             result = 0 if requested_stop else returncode
     except KeyboardInterrupt:
         state.set_state("stopping")
@@ -73,6 +116,10 @@ def stream(config: Twitcho, controller: ControlController) -> int:
         if ffmpeg.stdin is not None:
             ffmpeg.stdin.close()
         process.terminate(ffmpeg)
+        if image_thread is not None:
+            image_thread.join(timeout=5)
+        if preview_process is not None:
+            process.terminate(preview_process)
         state.set_ffmpeg(alive=False, returncode=ffmpeg.returncode)
         if state.snapshot()["state"] != "failed":
             state.set_state("stopped")
@@ -87,8 +134,11 @@ def should_stop(controller: ControlController) -> bool:
     return False
 
 
-def ffmpeg_command(config: Twitcho) -> list[str]:
+def ffmpeg_command(
+    config: Twitcho, *, image_pipe: int | None = None, preview: bool = False
+) -> list[str]:
     overlays: list[VideoOverlay] = []
+    image_input: int | None = None
     next_input = 2
     command = [
         "ffmpeg",
@@ -126,22 +176,35 @@ def ffmpeg_command(config: Twitcho) -> list[str]:
         )
         command.extend(overlay_input_args(config, overlays[-1]))
         next_input += 2
-    if (image := random_image(config)) is not None:
-        overlays.append(
-            VideoOverlay(
-                name="image",
-                image=image,
-                input_index=next_input,
-                gap_index=next_input + 1,
-                interval=config.image_interval,
-                duration=config.image_duration,
-                fade=config.image_fade,
+    if config.image_interval > 0:
+        if image_pipe is None:
+            raise ValueError(
+                "image pipe is required when participant images are enabled"
             )
-        )
-        command.extend(overlay_input_args(config, overlays[-1]))
-    if overlays:
+        image_input = next_input
+        width, height = video_size(config)
         command.extend(
-            ["-filter_complex", overlay_filter(config, overlays), "-map", "[video]"]
+            [
+                "-f",
+                "rawvideo",
+                "-pixel_format",
+                "rgba",
+                "-video_size",
+                f"{width}x{height}",
+                "-framerate",
+                str(config.video_frame_rate),
+                "-i",
+                f"pipe:{image_pipe}",
+            ]
+        )
+    if overlays or image_input is not None:
+        command.extend(
+            [
+                "-filter_complex",
+                overlay_filter(config, overlays, image_input=image_input),
+                "-map",
+                "[video]",
+            ]
         )
     else:
         command.extend(["-map", "1:v:0"])
@@ -171,12 +234,39 @@ def ffmpeg_command(config: Twitcho) -> list[str]:
             str(config.sample_rate),
             "-ac",
             "2",
-            "-f",
-            "flv",
-            config.rtmp_url,
         ]
     )
+    if preview:
+        command.extend(["-f", "nut", "pipe:1"])
+    else:
+        command.extend(["-f", "flv", config.rtmp_url])
     return command
+
+
+def ffplay_command() -> list[str]:
+    return [
+        "ffplay",
+        "-hide_banner",
+        "-loglevel",
+        "warning",
+        "-autoexit",
+        "-f",
+        "nut",
+        "pipe:0",
+    ]
+
+
+def image_frame_producer(config: Twitcho) -> ImageFrameProducer:
+    width, height = video_size(config)
+    return ImageFrameProducer(
+        ImageScheduler(config.image_dir),
+        width=width,
+        height=height,
+        frame_rate=config.video_frame_rate,
+        interval=config.image_interval,
+        duration=config.image_duration,
+        fade=config.image_fade,
+    )
 
 
 def title_input_args(config: Twitcho) -> list[str]:
@@ -236,7 +326,12 @@ def title_filter(config: Twitcho) -> str:
     )
 
 
-def overlay_filter(config: Twitcho, overlays: list[VideoOverlay]) -> str:
+def overlay_filter(
+    config: Twitcho,
+    overlays: list[VideoOverlay],
+    *,
+    image_input: int | None = None,
+) -> str:
     width, height = video_size(config)
     parts = [
         "[1:v]"
@@ -245,13 +340,22 @@ def overlay_filter(config: Twitcho, overlays: list[VideoOverlay]) -> str:
     ]
     current = "base"
     for index, overlay in enumerate(overlays):
-        output = "video" if index == len(overlays) - 1 else f"base{index + 1}"
+        output = (
+            "video"
+            if index == len(overlays) - 1 and image_input is None
+            else f"base{index + 1}"
+        )
         parts.append(overlay_video_filter(config, overlay))
         parts.append(
             f"[{current}][{overlay.name}_loop]"
             f"overlay=(W-w)/2:(H-h)/2:eof_action=repeat[{output}]"
         )
         current = output
+    if image_input is not None:
+        parts.append(f"[{image_input}:v]setpts=PTS-STARTPTS[image_live];")
+        parts.append(
+            f"[{current}][image_live]overlay=(W-w)/2:(H-h)/2:eof_action=pass[video]"
+        )
     return "".join(parts)
 
 
@@ -273,27 +377,6 @@ def overlay_video_filter(config: Twitcho, overlay: VideoOverlay) -> str:
         f"[{overlay.name}_visible][{overlay.name}_gap]concat=n=2:v=1:a=0,"
         f"loop=loop=-1:size={loop_frames}:start=0,"
         f"setpts=N/FRAME_RATE/TB[{overlay.name}_loop];"
-    )
-
-
-def random_image(config: Twitcho) -> Path | None:
-    if config.image_interval <= 0 or config.image_chance <= 0:
-        return None
-    if random.random() >= config.image_chance:
-        return None
-    images = image_paths(config.image_dir)
-    if not images:
-        return None
-    return random.choice(images)
-
-
-def image_paths(image_dir: Path) -> list[Path]:
-    if not image_dir.exists():
-        return []
-    return sorted(
-        p
-        for p in image_dir.iterdir()
-        if p.is_file() and p.suffix.lower() in IMAGE_SUFFIXES
     )
 
 
@@ -343,6 +426,3 @@ def level_db(samples: np.ndarray) -> float:
     if peak <= 0:
         return -120.0
     return float(20 * np.log10(peak))
-
-
-IMAGE_SUFFIXES = {".gif", ".jpeg", ".jpg", ".png", ".webp"}

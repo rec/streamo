@@ -39,6 +39,28 @@ start and then repeats every `title_interval` seconds. The defaults are an
 8-second title every 180 seconds with 2-second fade in and out. These can be
 changed with `title_interval`, `title_duration`, and `title_fade`.
 
+Set `image_interval` to a positive number to show participant images from
+`image_dir`. Each image fades in and out using `image_duration` and `image_fade`.
+Twitcho shows every image once in shuffled order before repeating any image.
+Images added while Twitcho is running take priority at the next image interval.
+
+## Previewing the live composition
+
+Use the preview action on the target Mac to inspect the same audio, video,
+title-card, and participant-image composition without connecting to Twitch:
+
+```bash
+uv run twitcho daemon preview --config ~/.config/twitcho/config.json
+```
+
+Twitcho sends the encoded output to `ffplay`, which opens a live preview window.
+The configured audio device must be available, and `ffplay` must be installed
+alongside FFmpeg. The config still requires a non-empty `twitch_key`, but preview
+does not use it. While preview is running, copy supported image files into
+`image_dir`; newly discovered images appear before images already waiting in the
+current shuffled cycle. Close the preview window or send `stop` to end both
+processes.
+
 ## Show-control connection
 
 By default, `twitcho` listens on `127.0.0.1:17351` for a local JSON-lines

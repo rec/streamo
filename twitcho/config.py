@@ -41,7 +41,6 @@ class Twitcho(Reccy, frozen=True):
     image_interval: float = 0.0
     image_duration: float = 8.0
     image_fade: float = 2.0
-    image_chance: float = 0.25
     twitch_client_id: str | None = None
     twitch_access_token: str | None = None
     twitch_broadcaster_id: str | None = None
@@ -51,7 +50,7 @@ class Twitcho(Reccy, frozen=True):
 
     _controller: "ControlController | None" = PrivateAttr(default=None)
 
-    def run(self) -> int:
+    def run(self, *, preview: bool = False) -> int:
         from . import control, streamer
         from .twitch_api import TwitchApi
 
@@ -63,7 +62,7 @@ class Twitcho(Reccy, frozen=True):
         object.__setattr__(self, "_controller", controller)
         self.start()
         try:
-            returncode = streamer.stream(self, controller)
+            returncode = streamer.stream(self, controller, preview=preview)
             if returncode:
                 self.publish_error(f"ffmpeg exited with {returncode}")
             return returncode
@@ -94,13 +93,6 @@ class Twitcho(Reccy, frozen=True):
     def validate_nonnegative_time(cls, value: float) -> float:
         if value < 0:
             raise ValueError("must not be negative")
-        return value
-
-    @field_validator("image_chance")
-    @classmethod
-    def validate_image_chance(cls, value: float) -> float:
-        if not 0 <= value <= 1:
-            raise ValueError("must be between 0 and 1")
         return value
 
     @model_validator(mode="after")

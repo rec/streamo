@@ -65,6 +65,7 @@ def test_image_request_copies_file_url_to_image_dir(tmp_path: Path) -> None:
     target = image_dir / "source-2.png"
     assert response == {"images": [target.as_posix()]}
     assert target.read_bytes() == b"first"
+    assert not any(p.suffix == ".part" for p in image_dir.iterdir())
 
 
 def test_image_request_downloads_http_url(
