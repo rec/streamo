@@ -1,11 +1,9 @@
-from __future__ import annotations
-
 import re
 import urllib.parse
 from collections.abc import Mapping
 from datetime import datetime
-from enum import auto
-from typing import Annotated, Literal, Protocol
+from enum import StrEnum, auto
+from typing import Annotated, Literal, Protocol, Self
 
 from pydantic import (
     BaseModel,
@@ -15,8 +13,6 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-from strenum import StrEnum
-from typing_extensions import Self
 
 
 class AudioEncoding(BaseModel, frozen=True):
@@ -306,7 +302,7 @@ class CustomService(StreamingService, frozen=True):
     name: str = "Custom"
 
 
-StreamingServiceConfiguration = Annotated[
+type StreamingServiceConfiguration = Annotated[
     TwitchService
     | YouTubeService
     | FacebookService
@@ -320,9 +316,6 @@ StreamingServiceConfiguration = Annotated[
 
 
 class ServiceCapability(StrEnum):
-    def _generate_next_value_(name: str, *args: object) -> str:
-        return name.lower()
-
     PREPARE = auto()
     PUBLISH = auto()
     FINISH = auto()

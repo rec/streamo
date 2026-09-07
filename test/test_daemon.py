@@ -1,8 +1,8 @@
+import tomllib
 from pathlib import Path
 from unittest import mock
 
 import pytest
-import tomli
 from reccy.services.models import StatusResult
 
 from streamo import daemon
@@ -87,5 +87,5 @@ def test_json_configuration_is_not_accepted(tmp_path: Path) -> None:
     config = tmp_path / "config.json"
     config.write_text('{"device_name": "X18"}')
 
-    with pytest.raises(tomli.TOMLDecodeError):
+    with pytest.raises(tomllib.TOMLDecodeError):
         daemon.load_config(config)

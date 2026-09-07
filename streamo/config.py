@@ -1,12 +1,11 @@
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, Self
 
 from pydantic import ConfigDict, PrivateAttr, field_validator, model_validator
 from reccy.protocol import ipc, rpc
 from reccy.reccy import Reccy, ReccyStatus
 from reccy.services.models import ServiceSpec
 from reccy.services.spec import load
-from typing_extensions import Self
 
 from .services import StreamingServiceConfiguration, adapter_for
 

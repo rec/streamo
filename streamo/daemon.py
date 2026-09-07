@@ -1,9 +1,7 @@
-from __future__ import annotations
-
+import tomllib
 from pathlib import Path
 from typing import Annotated, Literal
 
-import tomli
 import tyro
 from pydantic import BaseModel
 from reccy.services.controller import print_service_status
@@ -54,4 +52,4 @@ def run(options: DaemonOptions) -> int:
 
 
 def load_config(path: Path) -> Streamo:
-    return Streamo.model_validate(tomli.loads(path.expanduser().read_text()))
+    return Streamo.model_validate(tomllib.loads(path.expanduser().read_text()))

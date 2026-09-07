@@ -4,7 +4,7 @@ import urllib.parse
 import urllib.request
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Protocol, cast
+from typing import Protocol, Self, cast
 
 from .services import TwitchService
 
@@ -54,7 +54,7 @@ class TwitchApi:
     transport: Callable[[TwitchRequest], tuple[int, bytes]] = urllib_transport
 
     @classmethod
-    def from_service(cls, service: TwitchService) -> "TwitchApi | None":
+    def from_service(cls, service: TwitchService) -> Self | None:
         if (
             service.client_id is None
             or service.access_token is None
