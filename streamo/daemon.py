@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal
 
+import tomli
 import tyro
 from pydantic import BaseModel
 from reccy.services.controller import print_service_status
@@ -24,7 +25,7 @@ class DaemonOptions(BaseModel, frozen=True):
         ],
         tyro.conf.Positional,
     ] = "run"
-    config: Path = Path.home() / ".config/streamo/config.json"
+    config: Path = Path.home() / ".config/streamo/config.toml"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -35,7 +36,7 @@ def main(argv: list[str] | None = None) -> int:
 def run(options: DaemonOptions) -> int:
     streamo = Streamo.model_construct()
     if options.action in {"run", "preview"}:
-        config = Streamo.model_validate_json(options.config.expanduser().read_text())
+        config = load_config(options.config)
         return config.run(preview=options.action == "preview")
     if options.action == "install":
         result = streamo.install_service(
@@ -50,3 +51,7 @@ def run(options: DaemonOptions) -> int:
         result = getattr(streamo, f"{options.action}_service")()
     print_service_status(STREAMO_SERVICE.name, result)
     return 0 if result.running is not False else 1
+
+
+def load_config(path: Path) -> Streamo:
+    return Streamo.model_validate(tomli.loads(path.expanduser().read_text()))

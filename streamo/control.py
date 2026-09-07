@@ -10,7 +10,13 @@ from urllib.request import url2pathname, urlopen
 
 from reccy.protocol import ipc, rpc
 
-from .twitch_api import TwitchApiClient, TwitchApiError
+from .services import (
+    COMMAND_CAPABILITIES,
+    StreamingServiceAdapter,
+    UnsupportedServiceOperation,
+    endpoint_host,
+)
+from .twitch_api import TwitchApiError
 
 
 class RuntimeState:
@@ -28,6 +34,10 @@ class RuntimeState:
         self.clipping = False
         self.output_bitrate_kbps: float | None = None
         self.last_error: str | None = None
+        self.service: str | None = None
+        self.endpoint_host: str | None = None
+        self.capabilities: list[str] = []
+        self.remote_health: dict[str, object] | None = None
 
     def snapshot(self) -> dict[str, object]:
         with self._lock:
@@ -44,7 +54,23 @@ class RuntimeState:
                 "clipping": self.clipping,
                 "output_bitrate_kbps": self.output_bitrate_kbps,
                 "last_error": self.last_error,
+                "service": self.service,
+                "endpoint_host": self.endpoint_host,
+                "capabilities": list(self.capabilities),
+                "remote_health": (
+                    None if self.remote_health is None else dict(self.remote_health)
+                ),
             }
+
+    def configure_service(self, adapter: StreamingServiceAdapter) -> None:
+        with self._lock:
+            self.service = adapter.service.service
+            self.endpoint_host = endpoint_host(adapter.service)
+            self.capabilities = [c.value for c in adapter.capabilities]
+
+    def set_remote_health(self, health: dict[str, object] | None) -> None:
+        with self._lock:
+            self.remote_health = health
 
     def set_state(self, state: str) -> None:
         with self._lock:
@@ -102,7 +128,7 @@ class ControlCommand:
 class ControlController:
     state: RuntimeState
     image_dir: Path = Path("images")
-    twitch: TwitchApiClient | None = None
+    service: StreamingServiceAdapter | None = None
     commands: queue.Queue[ControlCommand] = field(default_factory=queue.Queue)
 
     def handle_request(self, request: rpc.Request) -> rpc.Result:
@@ -110,6 +136,11 @@ class ControlController:
         if command == "ping":
             return "pong"
         if command == "status":
+            if self.service is not None:
+                health = self.service.health()
+                self.state.set_remote_health(
+                    None if health is None else health.model_dump()
+                )
             return self.state.snapshot()
         if command == "mute":
             self.state.set_muted(True)
@@ -122,8 +153,8 @@ class ControlController:
             return "ok"
         if command == "image":
             return self.handle_image_command(request.params)
-        if command in TWITCH_API_COMMANDS:
-            return self.handle_twitch_command(command, request.params)
+        if command in SERVICE_COMMANDS:
+            return self.handle_service_command(command, request.params)
         return ipc.Error(type="error", message=f"unknown command {command}")
 
     def handle_image_command(self, payload: dict[str, object]) -> rpc.Result:
@@ -141,18 +172,20 @@ class ControlController:
             return ipc.Error(type="error", message=str(error))
         return {"images": [p.as_posix() for p in paths]}
 
-    def handle_twitch_command(
+    def handle_service_command(
         self, command: str, payload: dict[str, object]
     ) -> rpc.Result:
-        if self.twitch is None:
-            return ipc.Error(type="error", message="Twitch API is not configured")
+        if self.service is None:
+            return ipc.Error(
+                type="error", message="streaming service is not configured"
+            )
         try:
-            return self.twitch.perform(command, payload)
-        except TwitchApiError as error:
+            return self.service.perform(command, payload)
+        except (TwitchApiError, UnsupportedServiceOperation) as error:
             return ipc.Error(type="error", message=str(error))
 
 
-TWITCH_API_COMMANDS = {"update_stream_info", "chat", "announce", "clip", "marker"}
+SERVICE_COMMANDS = set(COMMAND_CAPABILITIES)
 
 
 class ImageStoreError(ValueError):

@@ -4,9 +4,9 @@ import urllib.parse
 import urllib.request
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, cast
 
-from .config import Streamo
+from .services import TwitchService
 
 
 @dataclass
@@ -54,20 +54,20 @@ class TwitchApi:
     transport: Callable[[TwitchRequest], tuple[int, bytes]] = urllib_transport
 
     @classmethod
-    def from_config(cls, config: Streamo) -> "TwitchApi | None":
+    def from_service(cls, service: TwitchService) -> "TwitchApi | None":
         if (
-            config.twitch_client_id is None
-            or config.twitch_access_token is None
-            or config.twitch_broadcaster_id is None
+            service.client_id is None
+            or service.access_token is None
+            or service.broadcaster_id is None
         ):
             return None
         return cls(
-            client_id=config.twitch_client_id,
-            access_token=config.twitch_access_token,
-            broadcaster_id=config.twitch_broadcaster_id,
-            sender_id=config.twitch_sender_id or config.twitch_broadcaster_id,
-            moderator_id=config.twitch_moderator_id or config.twitch_broadcaster_id,
-            api_url=config.twitch_api_url,
+            client_id=service.client_id.get_secret_value(),
+            access_token=service.access_token.get_secret_value(),
+            broadcaster_id=service.broadcaster_id,
+            sender_id=service.sender_id or service.broadcaster_id,
+            moderator_id=service.moderator_id or service.broadcaster_id,
+            api_url=service.api_url,
         )
 
     def perform(self, command: str, payload: Mapping[str, object]) -> dict[str, object]:
@@ -97,7 +97,7 @@ class TwitchApi:
 
     def send_chat_message(self, payload: Mapping[str, object]) -> dict[str, object]:
         message = required_string(payload, "message")
-        body = {
+        body: dict[str, object] = {
             "broadcaster_id": self.broadcaster_id,
             "sender_id": self.sender_id,
             "message": message,
@@ -112,7 +112,7 @@ class TwitchApi:
         return self.request("POST", "chat/messages", body=body)
 
     def send_announcement(self, payload: Mapping[str, object]) -> dict[str, object]:
-        body = {"message": required_string(payload, "message")}
+        body: dict[str, object] = {"message": required_string(payload, "message")}
         copy_optional(payload, body, "color", "for_source_only")
         self.request(
             "POST",
@@ -161,13 +161,15 @@ class TwitchApi:
         data = response.get("data")
         if not isinstance(data, list) or not data:
             raise TwitchApiError(f"Twitch category not found: {name}")
-        categories = [c for c in data if isinstance(c, dict)]
+        categories: list[dict[str, object]] = [
+            cast(dict[str, object], c) for c in data if isinstance(c, dict)
+        ]
         exact = [c for c in categories if c.get("name") == name]
         casefolded = [
             c
             for c in categories
-            if isinstance(c.get("name"), str)
-            and c.get("name").casefold() == name.casefold()
+            if isinstance((category_name := c.get("name")), str)
+            and category_name.casefold() == name.casefold()
         ]
         category = (exact or casefolded or categories)[0]
         category_id = category.get("id")

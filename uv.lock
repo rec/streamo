@@ -848,6 +848,8 @@ dependencies = [
     { name = "pydantic" },
     { name = "reccy" },
     { name = "sounddevice" },
+    { name = "strenum" },
+    { name = "tomli" },
     { name = "tyro" },
 ]
 
@@ -864,6 +866,8 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2" },
     { name = "reccy", git = "https://github.com/rec/reccy.git?branch=main" },
     { name = "sounddevice" },
+    { name = "strenum" },
+    { name = "tomli", specifier = ">=2" },
     { name = "tyro" },
 ]
 

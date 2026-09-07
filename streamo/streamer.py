@@ -14,6 +14,11 @@ from .config import Streamo
 from .control import ControlController, RuntimeState
 from .images import ImageFrameProducer, ImageScheduler, write_image_frames
 from .programs import update_bitrate
+from .services import (
+    FfmpegOutput,
+    StreamingServiceAdapter,
+    ingest_output,
+)
 
 
 @dataclass(frozen=True)
@@ -28,23 +33,40 @@ class VideoOverlay:
 
 
 def stream(
-    config: Streamo, controller: ControlController, *, preview: bool = False
+    config: Streamo,
+    controller: ControlController,
+    service: StreamingServiceAdapter,
+    *,
+    preview: bool = False,
 ) -> int:
     state = controller.state
+    prepared = None
+    service_output = None
+    if not preview:
+        prepared = service.prepare(config.streaming_service.metadata)
+        service_output = service.output(prepared)
     requested_stop = False
     result = 1
     image_read: int | None = None
     image_write: int | None = None
     image_thread: threading.Thread | None = None
     preview_process: subprocess.Popen[bytes] | None = None
-    if config.image_interval > 0:
+    if (
+        config.streaming_service.encoding.video is not None
+        and config.image_interval > 0
+    ):
         image_read, image_write = os.pipe()
     try:
         if preview:
             preview_process = subprocess.Popen(
                 ffplay_command(), stdin=subprocess.PIPE, stdout=subprocess.DEVNULL
             )
-        command = ffmpeg_command(config, image_pipe=image_read, preview=preview)
+        command = ffmpeg_command(
+            config,
+            output=service_output,
+            image_pipe=image_read,
+            preview=preview,
+        )
         stdout = (
             preview_process.stdin if preview_process is not None else subprocess.DEVNULL
         )
@@ -62,6 +84,8 @@ def stream(
             os.close(image_write)
         if preview_process is not None:
             process.terminate(preview_process)
+        if prepared is not None:
+            service.finish()
         raise
     if preview_process is not None and preview_process.stdin is not None:
         preview_process.stdin.close()
@@ -84,6 +108,8 @@ def stream(
     try:
         state.set_ffmpeg(alive=True)
         state.set_state("streaming")
+        if prepared is not None:
+            service.publish(prepared)
         with sounddevice.InputStream(
             callback=_audio_callback(config, ffmpeg, state),
             channels=config.required_channels,
@@ -103,7 +129,13 @@ def stream(
             returncode = ffmpeg.wait()
             state.set_ffmpeg(alive=False, returncode=returncode)
             if returncode and not requested_stop:
-                process.report_failed_process(command, ffmpeg_output)
+                diagnostic_command = command
+                if not preview:
+                    assert service_output is not None
+                    diagnostic_command = redacted_ffmpeg_command(
+                        command, service_output
+                    )
+                process.report_failed_process(diagnostic_command, ffmpeg_output)
             result = 0 if requested_stop else returncode
     except KeyboardInterrupt:
         state.set_state("stopping")
@@ -120,6 +152,8 @@ def stream(
             image_thread.join(timeout=5)
         if preview_process is not None:
             process.terminate(preview_process)
+        if prepared is not None:
+            service.finish()
         state.set_ffmpeg(alive=False, returncode=ffmpeg.returncode)
         if state.snapshot()["state"] != "failed":
             state.set_state("stopped")
@@ -135,8 +169,13 @@ def should_stop(controller: ControlController) -> bool:
 
 
 def ffmpeg_command(
-    config: Streamo, *, image_pipe: int | None = None, preview: bool = False
+    config: Streamo,
+    *,
+    output: FfmpegOutput | None = None,
+    image_pipe: int | None = None,
+    preview: bool = False,
 ) -> list[str]:
+    encoding = config.streaming_service.encoding
     overlays: list[VideoOverlay] = []
     image_input: int | None = None
     next_input = 2
@@ -156,13 +195,19 @@ def ffmpeg_command(
         "2",
         "-i",
         "pipe:0",
-        "-re",
-        "-stream_loop",
-        "-1",
-        "-i",
-        config.video.as_posix(),
     ]
-    if config.title_card is not None:
+    if encoding.video is not None:
+        assert config.video is not None
+        command.extend(
+            [
+                "-re",
+                "-stream_loop",
+                "-1",
+                "-i",
+                config.video.as_posix(),
+            ]
+        )
+    if encoding.video is not None and config.title_card is not None:
         overlays.append(
             VideoOverlay(
                 name="title",
@@ -176,7 +221,7 @@ def ffmpeg_command(
         )
         command.extend(overlay_input_args(config, overlays[-1]))
         next_input += 2
-    if config.image_interval > 0:
+    if encoding.video is not None and config.image_interval > 0:
         if image_pipe is None:
             raise ValueError(
                 "image pipe is required when participant images are enabled"
@@ -206,40 +251,48 @@ def ffmpeg_command(
                 "[video]",
             ]
         )
-    else:
+    elif encoding.video is not None:
         command.extend(["-map", "1:v:0"])
+    command.extend(["-map", "0:a:0"])
+    if encoding.video is not None:
+        command.extend(
+            [
+                "-c:v",
+                VIDEO_CODECS[encoding.video.codec],
+                "-b:v",
+                encoding.video.bitrate,
+                "-pix_fmt",
+                encoding.video.pixel_format,
+                "-r",
+                str(encoding.video.frame_rate),
+                "-s",
+                encoding.video.resolution,
+                "-g",
+                str(
+                    round(encoding.video.frame_rate * encoding.video.keyframe_interval)
+                ),
+            ]
+        )
+        if encoding.video.codec in {"h264", "hevc"}:
+            command.extend(["-preset", "veryfast"])
+        if encoding.video.codec == "h264":
+            command.extend(["-tune", "animation"])
     command.extend(
         [
-            "-map",
-            "0:a:0",
-            "-c:v",
-            "libx264",
-            "-preset",
-            "veryfast",
-            "-tune",
-            "animation",
-            "-b:v",
-            config.video_bitrate,
-            "-pix_fmt",
-            "yuv420p",
-            "-r",
-            str(config.video_frame_rate),
-            "-s",
-            config.video_resolution,
             "-c:a",
-            "aac",
+            AUDIO_CODECS[encoding.audio.codec],
             "-b:a",
-            config.audio_bitrate,
+            encoding.audio.bitrate,
             "-ar",
-            str(config.sample_rate),
+            str(encoding.audio.sample_rate),
             "-ac",
-            "2",
+            str(encoding.audio.channels),
         ]
     )
     if preview:
         command.extend(["-f", "nut", "pipe:1"])
     else:
-        command.extend(["-f", "flv", config.rtmp_url])
+        command.extend((output or ingest_output(config.streaming_service)).arguments)
     return command
 
 
@@ -254,6 +307,10 @@ def ffplay_command() -> list[str]:
         "nut",
         "pipe:0",
     ]
+
+
+def redacted_ffmpeg_command(command: list[str], output: FfmpegOutput) -> list[str]:
+    return command[: -len(output.arguments)] + output.redacted_arguments()
 
 
 def image_frame_producer(config: Streamo) -> ImageFrameProducer:
@@ -426,3 +483,17 @@ def level_db(samples: np.ndarray) -> float:
     if peak <= 0:
         return -120.0
     return float(20 * np.log10(peak))
+
+
+AUDIO_CODECS = {
+    "aac": "aac",
+    "mp3": "libmp3lame",
+    "opus": "libopus",
+    "vorbis": "libvorbis",
+}
+
+VIDEO_CODECS = {
+    "h264": "libx264",
+    "hevc": "libx265",
+    "av1": "libaom-av1",
+}

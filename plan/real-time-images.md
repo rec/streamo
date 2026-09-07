@@ -69,7 +69,7 @@ will write a NUT stream to standard output and Streamo will feed that stream to
 On the target Mac, run:
 
 ```bash
-uv run streamo daemon preview --config ~/.config/streamo/config.json
+uv run streamo daemon preview --config ~/.config/streamo/config.toml
 ```
 
 The `ffplay` window should show the complete outgoing composition. While it is
@@ -79,8 +79,7 @@ process restarting. Closing the preview or sending `stop` should terminate both
 FFmpeg and ffplay.
 
 Document this workflow in `README.md`. Preview still uses the configured audio
-device, but it does not connect to Twitch. The configuration may use any
-non-empty placeholder for `twitch_key` during preview.
+device, but it does not connect to the configured streaming service.
 
 ## Implementation steps
 

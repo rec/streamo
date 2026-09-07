@@ -9,6 +9,13 @@ from streamo.control import (
     ControlController,
     RuntimeState,
 )
+from streamo.services import (
+    AudioEncoding,
+    CustomService,
+    EncodingProfile,
+    RtmpIngest,
+    adapter_for,
+)
 
 
 def test_status_request_returns_runtime_snapshot() -> None:
@@ -48,6 +55,36 @@ def test_unknown_request_returns_rpc_error() -> None:
     response = controller.handle_request(rpc.Request(command="missing"))
 
     assert response == ipc.Error(type="error", message="unknown command missing")
+
+
+def test_service_status_and_unsupported_capability_are_generic() -> None:
+    state = RuntimeState()
+    service = CustomService(
+        service="custom",
+        ingest=RtmpIngest(
+            protocol="rtmps",
+            server_url="rtmps://ingest.example.test/app",
+            stream_key="secret",
+        ),
+        encoding=EncodingProfile(
+            container="flv",
+            audio=AudioEncoding(
+                codec="aac", bitrate="160k", sample_rate=48_000, channels=2
+            ),
+        ),
+    )
+    adapter = adapter_for(service)
+    state.configure_service(adapter)
+    controller = ControlController(state=state, service=adapter)
+
+    status = controller.handle_request(rpc.Request(command="status"))
+    response = controller.handle_request(rpc.Request(command="chat"))
+
+    assert isinstance(status, dict)
+    assert status["service"] == "custom"
+    assert status["endpoint_host"] == "ingest.example.test"
+    assert status["capabilities"] == ["publish", "stop"]
+    assert response == ipc.Error(type="error", message="Custom does not support chat")
 
 
 def test_image_request_copies_file_url_to_image_dir(tmp_path: Path) -> None:

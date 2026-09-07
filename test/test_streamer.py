@@ -6,10 +6,21 @@ import pytest
 
 from streamo.config import Streamo
 from streamo.control import RuntimeState
+from streamo.services import (
+    AudioEncoding,
+    EncodingProfile,
+    IcecastIngest,
+    IcecastService,
+    RtmpIngest,
+    TwitchService,
+    VideoEncoding,
+    ingest_output,
+)
 from streamo.streamer import (
     _audio_callback,
     ffmpeg_command,
     ffplay_command,
+    redacted_ffmpeg_command,
     select_stereo_pair,
     title_filter,
     video_size,
@@ -21,7 +32,27 @@ def _config() -> Streamo:
         device_name="X18",
         channel=2,
         video=Path("visual-bed.mp4"),
-        twitch_key="key",
+        streaming_service=TwitchService(
+            service="twitch",
+            ingest=RtmpIngest(
+                protocol="rtmps",
+                server_url="rtmps://live.twitch.tv/app",
+                stream_key="key",
+            ),
+            encoding=EncodingProfile(
+                container="flv",
+                audio=AudioEncoding(
+                    codec="aac", bitrate="160k", sample_rate=48_000, channels=2
+                ),
+                video=VideoEncoding(
+                    codec="h264",
+                    bitrate="150k",
+                    resolution="640x360",
+                    frame_rate=10,
+                    keyframe_interval=2,
+                ),
+            ),
+        ),
     )
 
 
@@ -48,7 +79,7 @@ def test_ffmpeg_command_streams_audio_pipe_and_video_loop() -> None:
     assert "visual-bed.mp4" in command
     assert "-stream_loop" in command
     assert "-filter_complex" not in command
-    assert command[-1] == "rtmp://live.twitch.tv/app/key"
+    assert command[-1] == "rtmps://live.twitch.tv/app/key"
 
 
 def test_ffmpeg_command_overlays_title_card(tmp_path: Path) -> None:
@@ -115,6 +146,46 @@ def test_ffmpeg_command_previews_nut_on_stdout() -> None:
 
     assert command[-3:] == ["-f", "nut", "pipe:1"]
     assert ffplay_command()[-3:] == ["-f", "nut", "pipe:0"]
+
+
+def test_ffmpeg_command_omits_video_for_icecast() -> None:
+    config = Streamo(
+        device_name="X18",
+        channel=2,
+        streaming_service=IcecastService(
+            service="icecast",
+            ingest=IcecastIngest(
+                protocol="icecast",
+                server_url="icecast://radio.example.test:8000",
+                mountpoint="/live",
+                password="secret",
+            ),
+            encoding=EncodingProfile(
+                container="mp3",
+                audio=AudioEncoding(
+                    codec="mp3", bitrate="160k", sample_rate=48_000, channels=2
+                ),
+            ),
+        ),
+    )
+
+    command = ffmpeg_command(config)
+
+    assert config.video is None
+    assert "-c:v" not in command
+    assert "-map" in command
+    assert "0:a:0" in command
+    assert "icecast://source:secret@radio.example.test:8000/live" == command[-1]
+
+
+def test_process_diagnostic_command_redacts_output_secret() -> None:
+    config = _config()
+    output = ingest_output(config.streaming_service)
+
+    command = redacted_ffmpeg_command(ffmpeg_command(config, output=output), output)
+
+    assert "key" not in " ".join(command)
+    assert command[-1] == "[REDACTED]"
 
 
 def test_video_size_parses_resolution() -> None:

@@ -1,7 +1,7 @@
 [project]
 name = "streamo"
 version = "0.1.0"
-description = "Stream a stereo audio device pair with low-cost animation video to Twitch."
+description = "Stream a stereo audio device pair to live ingest services."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -10,6 +10,8 @@ dependencies = [
     "pydantic>=2",
     "reccy",
     "sounddevice",
+    "strenum",
+    "tomli>=2",
     "tyro",
 ]
 

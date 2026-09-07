@@ -1,12 +1,14 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
-from pydantic import PrivateAttr, field_validator, model_validator
+from pydantic import ConfigDict, PrivateAttr, field_validator, model_validator
 from reccy.protocol import ipc, rpc
 from reccy.reccy import Reccy, ReccyStatus
 from reccy.services.models import ServiceSpec
 from reccy.services.spec import load
 from typing_extensions import Self
+
+from .services import StreamingServiceConfiguration, adapter_for
 
 STREAMO_SERVICE = load(Path(__file__).with_name("service.toml"))
 
@@ -24,14 +26,11 @@ class Streamo(Reccy, frozen=True):
 
     device_name: str
     channel: int
-    video: Path
-    twitch_key: str
+    streaming_service: StreamingServiceConfiguration
+    video: Path | None = None
     title_card: Path | None = None
 
-    twitch_url: str = "rtmp://live.twitch.tv/app"
     sample_rate: int = 48_000
-    audio_bitrate: str = "160k"
-    video_bitrate: str = "150k"
     video_resolution: str = "640x360"
     video_frame_rate: int = 10
     title_interval: float = 180.0
@@ -41,28 +40,24 @@ class Streamo(Reccy, frozen=True):
     image_interval: float = 0.0
     image_duration: float = 8.0
     image_fade: float = 2.0
-    twitch_client_id: str | None = None
-    twitch_access_token: str | None = None
-    twitch_broadcaster_id: str | None = None
-    twitch_sender_id: str | None = None
-    twitch_moderator_id: str | None = None
-    twitch_api_url: str = "https://api.twitch.tv/helix"
-
     _controller: "ControlController | None" = PrivateAttr(default=None)
 
     def run(self, *, preview: bool = False) -> int:
         from . import control, streamer
-        from .twitch_api import TwitchApi
 
+        service_adapter = adapter_for(self.streaming_service)
         controller = control.ControlController(
             state=control.RuntimeState(),
             image_dir=self.image_dir,
-            twitch=TwitchApi.from_config(self),
+            service=service_adapter,
         )
+        controller.state.configure_service(service_adapter)
         object.__setattr__(self, "_controller", controller)
         self.start()
         try:
-            returncode = streamer.stream(self, controller, preview=preview)
+            returncode = streamer.stream(
+                self, controller, service_adapter, preview=preview
+            )
             if returncode:
                 self.publish_error(f"ffmpeg exited with {returncode}")
             return returncode
@@ -96,12 +91,6 @@ class Streamo(Reccy, frozen=True):
         return value
 
     @model_validator(mode="after")
-    def validate_twitch_key(self) -> Self:
-        if not self.twitch_key:
-            raise ValueError("twitch_key is required")
-        return self
-
-    @model_validator(mode="after")
     def validate_title_card(self) -> Self:
         if self.title_card is None:
             return self
@@ -129,10 +118,14 @@ class Streamo(Reccy, frozen=True):
             raise ValueError("image_fade must fit within image_duration")
         return self
 
+    @model_validator(mode="after")
+    def validate_video(self) -> Self:
+        if self.streaming_service.encoding.video is not None and self.video is None:
+            raise ValueError("video is required for video streaming")
+        return self
+
     @property
     def required_channels(self) -> int:
         return self.channel + 1
 
-    @property
-    def rtmp_url(self) -> str:
-        return f"{self.twitch_url.rstrip('/')}/{self.twitch_key}"
+    model_config = ConfigDict(hide_input_in_errors=True)

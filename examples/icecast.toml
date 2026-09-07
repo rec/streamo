@@ -1,0 +1,27 @@
+device_name = "X18"
+channel = 17
+sample_rate = 48000
+
+[streaming_service]
+service = "icecast"
+
+[streaming_service.ingest]
+protocol = "icecast"
+server_url = "icecast://radio.example.com:8000"
+mountpoint = "/live"
+username = "source"
+password = "replace-with-source-password"
+tls = true
+
+[streaming_service.encoding]
+container = "mp3"
+
+[streaming_service.encoding.audio]
+codec = "mp3"
+bitrate = "192k"
+sample_rate = 48000
+channels = 2
+
+[streaming_service.metadata]
+title = "Live show"
+description = "Live audio from the venue"

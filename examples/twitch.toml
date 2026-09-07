@@ -1,0 +1,38 @@
+device_name = "X18"
+channel = 17
+video = "visual-bed.mp4"
+sample_rate = 48000
+video_resolution = "1280x720"
+video_frame_rate = 30
+
+[streaming_service]
+service = "twitch"
+client_id = "replace-with-client-id"
+access_token = "replace-with-access-token"
+broadcaster_id = "123456789"
+
+[streaming_service.ingest]
+protocol = "rtmps"
+server_url = "rtmps://live.twitch.tv/app"
+stream_key = "replace-with-stream-key"
+
+[streaming_service.encoding]
+container = "flv"
+
+[streaming_service.encoding.audio]
+codec = "aac"
+bitrate = "160k"
+sample_rate = 48000
+channels = 2
+
+[streaming_service.encoding.video]
+codec = "h264"
+bitrate = "2500k"
+resolution = "1280x720"
+frame_rate = 30
+keyframe_interval = 2
+
+[streaming_service.metadata]
+title = "Live show"
+category = "Music"
+tags = ["live"]
