@@ -3,9 +3,9 @@ from pathlib import Path
 import pytest
 from reccy.protocol import ipc, rpc
 
-import twitcho.control
-from twitcho.config import Twitcho
-from twitcho.control import (
+import streamo.control
+from streamo.config import Streamo
+from streamo.control import (
     ControlController,
     RuntimeState,
 )
@@ -79,7 +79,7 @@ def test_image_request_downloads_http_url(
         assert timeout == 10
         return FakeHttpResponse(b"downloaded")
 
-    monkeypatch.setattr(twitcho.control, "urlopen", urlopen)
+    monkeypatch.setattr(streamo.control, "urlopen", urlopen)
 
     response = controller.handle_request(
         rpc.Request(
@@ -106,10 +106,10 @@ def test_image_request_rejects_unsupported_url() -> None:
 
 
 def test_daemon_uses_standard_reccy_control_path() -> None:
-    twitcho = Twitcho.model_construct(home=Path("/tmp/twitcho-home"))
+    streamo = Streamo.model_construct(home=Path("/tmp/streamo-home"))
 
-    assert twitcho.control_endpoint == Path(
-        "/tmp/twitcho-home/.local/state/twitcho/gui.sock"
+    assert streamo.control_endpoint == Path(
+        "/tmp/streamo-home/.local/state/streamo/gui.sock"
     )
 
 

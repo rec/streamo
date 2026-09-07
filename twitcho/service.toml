@@ -1,6 +1,0 @@
-name = "twitcho"
-display_name = "Twitcho"
-description = "Twitcho Twitch streamer"
-launchd_label = "com.swirly.twitcho"
-daemon_env_var = "TWITCHO_DAEMON"
-windows_pipe = "\\\\.\\pipe\\twitcho"

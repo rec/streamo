@@ -111,7 +111,7 @@ class RenderConfig(BaseModel):
 def render(config: RenderConfig) -> None:
     validate_config(config)
     if config.title_card is not None and is_markdown(config.title_card):
-        with tempfile.TemporaryDirectory(prefix="twitcho-title-") as directory:
+        with tempfile.TemporaryDirectory(prefix="streamo-title-") as directory:
             title_card = Path(directory) / "title-card.png"
             render_markdown_title_card(
                 config.title_card,
@@ -208,7 +208,7 @@ def parse_markdown_title(text: str) -> list[TitleLine]:
 
 
 def input_title_fallback(text: str) -> str:
-    return text.strip() or "Twitcho"
+    return text.strip() or "Streamo"
 
 
 def clean_markdown_text(text: str) -> str:

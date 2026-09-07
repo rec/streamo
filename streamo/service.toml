@@ -1,0 +1,6 @@
+name = "streamo"
+display_name = "Streamo"
+description = "Streamo Twitch streamer"
+launchd_label = "com.swirly.streamo"
+daemon_env_var = "STREAMO_DAEMON"
+windows_pipe = "\\\\.\\pipe\\streamo"

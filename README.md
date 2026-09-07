@@ -1,6 +1,6 @@
-# twitcho
+# streamo
 
-`twitcho` streams one stereo pair from an audio input device to Twitch while
+`streamo` streams one stereo pair from an audio input device to Twitch while
 using a low-resolution pre-rendered animation as the video source.
 
 The first version is intentionally small and independent of `recs`.
@@ -25,15 +25,15 @@ Create a JSON config file:
 Then run:
 
 ```bash
-twitcho --config config.json
+streamo --config config.json
 ```
 
 `channel` is one-based and names the first channel of the stereo pair. For
 example, `17` streams channels 17 and 18.
 
-`twitcho` requires `ffmpeg` to be installed.
+`streamo` requires `ffmpeg` to be installed.
 
-If `title_card` is set, Twitcho overlays that image on the outgoing stream
+If `title_card` is set, Streamo overlays that image on the outgoing stream
 without changing the prepared visual-bed video. The title card appears at stream
 start and then repeats every `title_interval` seconds. The defaults are an
 8-second title every 180 seconds with 2-second fade in and out. These can be
@@ -41,8 +41,8 @@ changed with `title_interval`, `title_duration`, and `title_fade`.
 
 Set `image_interval` to a positive number to show participant images from
 `image_dir`. Each image fades in and out using `image_duration` and `image_fade`.
-Twitcho shows every image once in shuffled order before repeating any image.
-Images added while Twitcho is running take priority at the next image interval.
+Streamo shows every image once in shuffled order before repeating any image.
+Images added while Streamo is running take priority at the next image interval.
 
 ## Previewing the live composition
 
@@ -50,10 +50,10 @@ Use the preview action on the target Mac to inspect the same audio, video,
 title-card, and participant-image composition without connecting to Twitch:
 
 ```bash
-uv run twitcho daemon preview --config ~/.config/twitcho/config.json
+uv run streamo daemon preview --config ~/.config/streamo/config.json
 ```
 
-Twitcho sends the encoded output to `ffplay`, which opens a live preview window.
+Streamo sends the encoded output to `ffplay`, which opens a live preview window.
 The configured audio device must be available, and `ffplay` must be installed
 alongside FFmpeg. The config still requires a non-empty `twitch_key`, but preview
 does not use it. While preview is running, copy supported image files into
@@ -63,7 +63,7 @@ processes.
 
 ## Show-control connection
 
-By default, `twitcho` listens on `127.0.0.1:17351` for a local JSON-lines
+By default, `streamo` listens on `127.0.0.1:17351` for a local JSON-lines
 control connection. Each message is one JSON object followed by a newline.
 
 Start with:
@@ -92,7 +92,7 @@ The control host and port can be changed with `control_host` and
 the control server.
 
 The Twitch API commands require `twitch_client_id`, `twitch_access_token`, and
-`twitch_broadcaster_id`. By default, Twitcho uses the broadcaster ID as the chat
+`twitch_broadcaster_id`. By default, Streamo uses the broadcaster ID as the chat
 sender and announcement moderator. Set `twitch_sender_id` or
 `twitch_moderator_id` if those should be different.
 
@@ -131,7 +131,7 @@ clearly different, it writes `loops/name-looped.mp4` and moves the original into
 `originals/`. Files that might already be loops are left in place.
 
 Use `scripts/render.py` to turn looped videos and still images into one prepared
-video for Twitcho:
+video for Streamo:
 
 ```bash
 scripts/render.py \

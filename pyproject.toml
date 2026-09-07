@@ -1,5 +1,5 @@
 [project]
-name = "twitcho"
+name = "streamo"
 version = "0.1.0"
 description = "Stream a stereo audio device pair with low-cost animation video to Twitch."
 readme = "README.md"
@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.scripts]
-twitcho = "twitcho.__main__:main"
+streamo = "streamo.__main__:main"
 
 [build-system]
 requires = ["hatchling"]

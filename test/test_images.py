@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from twitcho.images import ImageFrameProducer, ImageScheduler
+from streamo.images import ImageFrameProducer, ImageScheduler
 
 
 class NoShuffleRandom(random.Random):

@@ -4,12 +4,12 @@ import pytest
 from pydantic import ValidationError
 from reccy.reccy import Reccy
 
-from twitcho.config import Twitcho
+from streamo.config import Streamo
 
 
 def test_channel_must_be_positive() -> None:
     with pytest.raises(ValidationError, match="must be positive"):
-        Twitcho(
+        Streamo(
             device_name="X18",
             channel=0,
             video=Path("visual-bed.mp4"),
@@ -17,8 +17,8 @@ def test_channel_must_be_positive() -> None:
         )
 
 
-def test_twitcho_requires_stereo_pair_start_channel() -> None:
-    config = Twitcho(
+def test_streamo_requires_stereo_pair_start_channel() -> None:
+    config = Streamo(
         device_name="X18",
         channel=17,
         video=Path("visual-bed.mp4"),
@@ -33,7 +33,7 @@ def test_twitcho_requires_stereo_pair_start_channel() -> None:
 
 def test_title_card_must_exist() -> None:
     with pytest.raises(ValidationError, match="does not exist"):
-        Twitcho(
+        Streamo(
             device_name="X18",
             channel=1,
             video=Path("visual-bed.mp4"),
@@ -47,7 +47,7 @@ def test_title_duration_must_fit_interval(tmp_path: Path) -> None:
     title.touch()
 
     with pytest.raises(ValidationError, match="shorter than title_interval"):
-        Twitcho(
+        Streamo(
             device_name="X18",
             channel=1,
             video=Path("visual-bed.mp4"),
@@ -60,7 +60,7 @@ def test_title_duration_must_fit_interval(tmp_path: Path) -> None:
 
 def test_image_duration_must_fit_interval() -> None:
     with pytest.raises(ValidationError, match="shorter than image_interval"):
-        Twitcho(
+        Streamo(
             device_name="X18",
             channel=1,
             video=Path("visual-bed.mp4"),

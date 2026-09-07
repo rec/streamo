@@ -33,7 +33,7 @@ def test_loop(video: Path) -> None:
     if not video.exists():
         sys.exit(f"{video} does not exist")
 
-    with tempfile.TemporaryDirectory(prefix="twitcho-loop-test-") as directory:
+    with tempfile.TemporaryDirectory(prefix="streamo-loop-test-") as directory:
         preview = Path(directory) / loop_videos.looped_path(video).name
         playback = Path(directory) / f"{preview.stem}-preview{preview.suffix}"
         print(f"Preparing playback preview for {video}...")

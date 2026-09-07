@@ -6,7 +6,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
-from .config import Twitcho
+from .config import Streamo
 
 
 @dataclass
@@ -54,7 +54,7 @@ class TwitchApi:
     transport: Callable[[TwitchRequest], tuple[int, bytes]] = urllib_transport
 
     @classmethod
-    def from_config(cls, config: Twitcho) -> "TwitchApi | None":
+    def from_config(cls, config: Streamo) -> "TwitchApi | None":
         if (
             config.twitch_client_id is None
             or config.twitch_access_token is None

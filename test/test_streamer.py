@@ -4,9 +4,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from twitcho.config import Twitcho
-from twitcho.control import RuntimeState
-from twitcho.streamer import (
+from streamo.config import Streamo
+from streamo.control import RuntimeState
+from streamo.streamer import (
     _audio_callback,
     ffmpeg_command,
     ffplay_command,
@@ -16,8 +16,8 @@ from twitcho.streamer import (
 )
 
 
-def _config() -> Twitcho:
-    return Twitcho(
+def _config() -> Streamo:
+    return Streamo(
         device_name="X18",
         channel=2,
         video=Path("visual-bed.mp4"),

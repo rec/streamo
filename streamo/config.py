@@ -8,19 +8,19 @@ from reccy.services.models import ServiceSpec
 from reccy.services.spec import load
 from typing_extensions import Self
 
-TWITCHO_SERVICE = load(Path(__file__).with_name("service.toml"))
+STREAMO_SERVICE = load(Path(__file__).with_name("service.toml"))
 
 if TYPE_CHECKING:
     from .control import ControlController
 
 
-class Twitcho(Reccy, frozen=True):
-    service_spec: ClassVar[ServiceSpec] = TWITCHO_SERVICE
-    daemon_module: ClassVar[str] = "twitcho"
+class Streamo(Reccy, frozen=True):
+    service_spec: ClassVar[ServiceSpec] = STREAMO_SERVICE
+    daemon_module: ClassVar[str] = "streamo"
     status_model: ClassVar[type[ReccyStatus]] = ReccyStatus
     rpc_enabled: ClassVar[bool] = True
-    rpc_role: ClassVar[str] = "twitcho"
-    logger_name: ClassVar[str] = "twitcho"
+    rpc_role: ClassVar[str] = "streamo"
+    logger_name: ClassVar[str] = "streamo"
 
     device_name: str
     channel: int
@@ -71,7 +71,7 @@ class Twitcho(Reccy, frozen=True):
 
     def rpc_response(self, request: rpc.Request) -> rpc.Result:
         if self._controller is None:
-            return ipc.Error(type="error", message="Twitcho is not running")
+            return ipc.Error(type="error", message="Streamo is not running")
         return self._controller.handle_request(request)
 
     @field_validator("channel", "sample_rate", "video_frame_rate")

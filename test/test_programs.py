@@ -5,8 +5,8 @@ import sys
 import pytest
 from reccy.runtime.process import run_silent
 
-from twitcho.control import RuntimeState
-from twitcho.programs import parse_bitrate, update_bitrate
+from streamo.control import RuntimeState
+from streamo.programs import parse_bitrate, update_bitrate
 
 
 def test_run_silent_hides_successful_output(capsys: pytest.CaptureFixture[str]) -> None:

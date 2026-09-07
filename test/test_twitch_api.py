@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from twitcho.twitch_api import TwitchApi, TwitchApiError, TwitchRequest
+from streamo.twitch_api import TwitchApi, TwitchApiError, TwitchRequest
 
 
 def _api(transport: FakeTransport) -> TwitchApi:

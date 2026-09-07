@@ -2,18 +2,18 @@
 
 ## Goal
 
-Replace Twitcho's Twitch-specific output configuration with a streaming-service
+Replace Streamo's Twitch-specific output configuration with a streaming-service
 model that can describe any FFmpeg-addressable live video or audio destination.
-Twitcho must support generic protocol destinations without code changes, while
+Streamo must support generic protocol destinations without code changes, while
 named service adapters add API operations that are unique to Twitch, YouTube,
 Facebook, Kick, Vimeo, LinkedIn, and Icecast.
 
 This change concerns producer ingest: services to which an encoder can publish
 a live stream. Consumer-only music and video services that do not expose an
 encoder ingest protocol are not streaming destinations in this sense and are
-outside Twitcho's scope.
+outside Streamo's scope.
 
-Keep one configured destination per Twitcho process. Simultaneous publication
+Keep one configured destination per Streamo process. Simultaneous publication
 to several services is a separate reliability and resource-management problem;
 it is not necessary to represent or support each service correctly.
 
@@ -33,7 +33,7 @@ The initial catalog should cover these important service families:
 | Custom | audio, video, or both | any explicitly supported FFmpeg output protocol | protocol-specific | no branded control API; allows another CDN, self-hosted server, or future service immediately |
 
 The catalog is deliberately not an enum used to gate generic ingest. A new
-RTMP endpoint must work as `custom` before Twitcho has a branded adapter for it.
+RTMP endpoint must work as `custom` before Streamo has a branded adapter for it.
 
 Primary references:
 
@@ -94,7 +94,7 @@ has no video track and uses a mountpoint instead of an event stream key.
 
 ## Data model
 
-Use frozen Pydantic models, consistent with Twitcho's configuration. Avoid one
+Use frozen Pydantic models, consistent with Streamo's configuration. Avoid one
 large model containing optional fields for every provider. A shared base model
 holds the complete producer contract, and a discriminated union of subclasses
 adds only the fields belonging to a named service.
@@ -235,7 +235,7 @@ class CustomService(StreamingService, frozen=True):
     service: Literal["custom"]
 
 
-class Twitcho(Reccy, frozen=True):
+class Streamo(Reccy, frozen=True):
     # Existing capture and composition fields remain here.
     streaming_service: Annotated[
         TwitchService
@@ -318,9 +318,9 @@ Backward compatibility is not required. Replace these top-level fields:
 - output `audio_bitrate` and `video_bitrate`.
 
 Move them under `streaming_service`. Keep capture settings such as device,
-channel, and sample rate at the Twitcho level. Keep composition settings such as
+channel, and sample rate at the Streamo level. Keep composition settings such as
 the source video, resolution, frame rate, title card, and participant images at
-the Twitcho level. An output profile may downscale or reduce frame rate, but it
+the Streamo level. An output profile may downscale or reduce frame rate, but it
 must not change the composition clock used by image scheduling.
 
 The first migrated configuration should be a `TwitchService`, preserving the
@@ -377,7 +377,7 @@ RTMPS video, and Icecast audio.
 
 ## Completion criteria
 
-- No Twitch output or API field remains at the top level of `Twitcho`.
+- No Twitch output or API field remains at the top level of `Streamo`.
 - `streamer.py` contains no branded service URL or service-specific API logic.
 - Generic supported-protocol destinations require configuration only, not a
   code change.

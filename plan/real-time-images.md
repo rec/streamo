@@ -2,7 +2,7 @@
 
 ## Goal
 
-Allow Twitcho to discover and display participant images added after streaming
+Allow Streamo to discover and display participant images added after streaming
 has started without restarting FFmpeg or interrupting the Twitch connection.
 
 Every valid image currently in `image_dir` must be shown once per cycle. No
@@ -34,7 +34,7 @@ queue and appear in the next available image slots.
 ## Runtime design
 
 Replace the fixed participant-image FFmpeg inputs with one permanent raw RGBA
-video input. Twitcho will create an OS pipe before starting FFmpeg and pass the
+video input. Streamo will create an OS pipe before starting FFmpeg and pass the
 read descriptor as a numbered `pipe:` input. The existing audio stream remains
 on standard input.
 
@@ -63,13 +63,13 @@ order deterministic without changing production behavior.
 Add `preview` to the existing daemon action. It will run the same audio capture,
 controller, RPC server, image scheduler, frame producer, FFmpeg inputs, codecs,
 and filter graph as normal streaming. The only output difference is that FFmpeg
-will write a NUT stream to standard output and Twitcho will feed that stream to
+will write a NUT stream to standard output and Streamo will feed that stream to
 `ffplay` instead of sending FLV to Twitch.
 
 On the target Mac, run:
 
 ```bash
-uv run twitcho daemon preview --config ~/.config/twitcho/config.json
+uv run streamo daemon preview --config ~/.config/streamo/config.json
 ```
 
 The `ffplay` window should show the complete outgoing composition. While it is

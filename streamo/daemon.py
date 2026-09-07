@@ -7,7 +7,7 @@ import tyro
 from pydantic import BaseModel
 from reccy.services.controller import print_service_status
 
-from .config import TWITCHO_SERVICE, Twitcho
+from .config import STREAMO_SERVICE, Streamo
 
 
 class DaemonOptions(BaseModel, frozen=True):
@@ -24,7 +24,7 @@ class DaemonOptions(BaseModel, frozen=True):
         ],
         tyro.conf.Positional,
     ] = "run"
-    config: Path = Path.home() / ".config/twitcho/config.json"
+    config: Path = Path.home() / ".config/streamo/config.json"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -33,12 +33,12 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def run(options: DaemonOptions) -> int:
-    twitcho = Twitcho.model_construct()
+    streamo = Streamo.model_construct()
     if options.action in {"run", "preview"}:
-        config = Twitcho.model_validate_json(options.config.expanduser().read_text())
+        config = Streamo.model_validate_json(options.config.expanduser().read_text())
         return config.run(preview=options.action == "preview")
     if options.action == "install":
-        result = twitcho.install_service(
+        result = streamo.install_service(
             [
                 "daemon",
                 "run",
@@ -47,6 +47,6 @@ def run(options: DaemonOptions) -> int:
             ]
         )
     else:
-        result = getattr(twitcho, f"{options.action}_service")()
-    print_service_status(TWITCHO_SERVICE.name, result)
+        result = getattr(streamo, f"{options.action}_service")()
+    print_service_status(STREAMO_SERVICE.name, result)
     return 0 if result.running is not False else 1

@@ -4,19 +4,19 @@ from unittest import mock
 
 from reccy.services.models import StatusResult
 
-from twitcho import daemon
-from twitcho.config import Twitcho
+from streamo import daemon
+from streamo.config import Streamo
 
 
 def test_install_creates_daemon_service_with_absolute_config_path() -> None:
     config = Path("private/config.json")
     with (
         mock.patch.object(
-            Twitcho,
+            Streamo,
             "install_service",
             return_value=StatusResult(installed=True, running=True),
         ) as install_service,
-        mock.patch("twitcho.daemon.print_service_status"),
+        mock.patch("streamo.daemon.print_service_status"),
     ):
         result = daemon.run(daemon.DaemonOptions(action="install", config=config))
 
@@ -43,7 +43,7 @@ def test_preview_runs_config_without_twitch_output(tmp_path: Path) -> None:
             }
         )
     )
-    with mock.patch.object(Twitcho, "run", autospec=True, return_value=0) as run:
+    with mock.patch.object(Streamo, "run", autospec=True, return_value=0) as run:
         result = daemon.run(daemon.DaemonOptions(action="preview", config=config))
 
     assert result == 0

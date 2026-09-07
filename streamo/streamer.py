@@ -10,7 +10,7 @@ import numpy as np
 import sounddevice
 from reccy.runtime import process
 
-from .config import Twitcho
+from .config import Streamo
 from .control import ControlController, RuntimeState
 from .images import ImageFrameProducer, ImageScheduler, write_image_frames
 from .programs import update_bitrate
@@ -28,7 +28,7 @@ class VideoOverlay:
 
 
 def stream(
-    config: Twitcho, controller: ControlController, *, preview: bool = False
+    config: Streamo, controller: ControlController, *, preview: bool = False
 ) -> int:
     state = controller.state
     requested_stop = False
@@ -72,14 +72,14 @@ def stream(
         image_thread = threading.Thread(
             target=write_image_frames,
             args=(image_stream, image_frame_producer(config)),
-            name="TwitchoImageFrames",
+            name="StreamoImageFrames",
             daemon=True,
         )
         image_thread.start()
     ffmpeg_output = process.capture_stderr(
         ffmpeg,
         lambda line: update_bitrate(state, line),
-        thread_name="TwitchoProcessOutput",
+        thread_name="StreamoProcessOutput",
     )
     try:
         state.set_ffmpeg(alive=True)
@@ -135,7 +135,7 @@ def should_stop(controller: ControlController) -> bool:
 
 
 def ffmpeg_command(
-    config: Twitcho, *, image_pipe: int | None = None, preview: bool = False
+    config: Streamo, *, image_pipe: int | None = None, preview: bool = False
 ) -> list[str]:
     overlays: list[VideoOverlay] = []
     image_input: int | None = None
@@ -256,7 +256,7 @@ def ffplay_command() -> list[str]:
     ]
 
 
-def image_frame_producer(config: Twitcho) -> ImageFrameProducer:
+def image_frame_producer(config: Streamo) -> ImageFrameProducer:
     width, height = video_size(config)
     return ImageFrameProducer(
         ImageScheduler(config.image_dir),
@@ -269,7 +269,7 @@ def image_frame_producer(config: Twitcho) -> ImageFrameProducer:
     )
 
 
-def title_input_args(config: Twitcho) -> list[str]:
+def title_input_args(config: Streamo) -> list[str]:
     assert config.title_card is not None
     return overlay_input_args(
         config,
@@ -285,7 +285,7 @@ def title_input_args(config: Twitcho) -> list[str]:
     )
 
 
-def overlay_input_args(config: Twitcho, overlay: VideoOverlay) -> list[str]:
+def overlay_input_args(config: Streamo, overlay: VideoOverlay) -> list[str]:
     gap_duration = overlay.interval - overlay.duration
     width, height = video_size(config)
     return [
@@ -308,7 +308,7 @@ def overlay_input_args(config: Twitcho, overlay: VideoOverlay) -> list[str]:
     ]
 
 
-def title_filter(config: Twitcho) -> str:
+def title_filter(config: Streamo) -> str:
     assert config.title_card is not None
     return overlay_filter(
         config,
@@ -327,7 +327,7 @@ def title_filter(config: Twitcho) -> str:
 
 
 def overlay_filter(
-    config: Twitcho,
+    config: Streamo,
     overlays: list[VideoOverlay],
     *,
     image_input: int | None = None,
@@ -359,7 +359,7 @@ def overlay_filter(
     return "".join(parts)
 
 
-def overlay_video_filter(config: Twitcho, overlay: VideoOverlay) -> str:
+def overlay_video_filter(config: Streamo, overlay: VideoOverlay) -> str:
     width, height = video_size(config)
     fade_out_start = max(0.0, overlay.duration - overlay.fade)
     loop_frames = max(1, round(overlay.interval * config.video_frame_rate))
@@ -380,12 +380,12 @@ def overlay_video_filter(config: Twitcho, overlay: VideoOverlay) -> str:
     )
 
 
-def video_size(config: Twitcho) -> tuple[int, int]:
+def video_size(config: Streamo) -> tuple[int, int]:
     width, height = config.video_resolution.lower().split("x", maxsplit=1)
     return int(width), int(height)
 
 
-def select_stereo_pair(config: Twitcho, data: np.ndarray) -> np.ndarray:
+def select_stereo_pair(config: Streamo, data: np.ndarray) -> np.ndarray:
     begin = config.channel - 1
     end = begin + 2
     if data.shape[1] < end:
@@ -397,7 +397,7 @@ def select_stereo_pair(config: Twitcho, data: np.ndarray) -> np.ndarray:
 
 
 def _audio_callback(
-    config: Twitcho, process: subprocess.Popen[bytes], state: RuntimeState
+    config: Streamo, process: subprocess.Popen[bytes], state: RuntimeState
 ) -> Callable[[np.ndarray, int, object, object], None]:
     def callback(
         indata: np.ndarray,
