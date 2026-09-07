@@ -129,6 +129,33 @@ def test_every_service_and_ingest_protocol_parses(
     assert adapter_for(service).service is service
 
 
+def test_youtube_api_configuration_requires_existing_resource_ids() -> None:
+    with pytest.raises(
+        ValidationError,
+        match="YouTube credentials require stream_id and broadcast_id",
+    ):
+        YouTubeService.model_validate(
+            {
+                "service": "youtube",
+                "credentials": "youtube-auth.toml",
+                "encoding": encoding(),
+            }
+        )
+
+
+def test_youtube_api_configuration_requires_video() -> None:
+    with pytest.raises(ValidationError, match="youtube requires video encoding"):
+        YouTubeService.model_validate(
+            {
+                "service": "youtube",
+                "credentials": "youtube-auth.toml",
+                "stream_id": "stream-1",
+                "broadcast_id": "broadcast-1",
+                "encoding": encoding(include_video=False),
+            }
+        )
+
+
 def test_rtmp_requires_flv_and_matching_backup_fields() -> None:
     with pytest.raises(ValidationError, match="flv container"):
         CustomService(

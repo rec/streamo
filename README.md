@@ -134,9 +134,90 @@ sample_rate = 48000
 channels = 2
 ```
 
-Only Twitch currently performs provider API operations. The other adapters send
+Twitch and YouTube can perform provider API operations. The other adapters send
 the configured FFmpeg output directly to ingest and reject provider-specific
 control commands.
+
+## YouTube authorization
+
+Enable the YouTube Data API in a Google Cloud project, create an OAuth client of
+type Desktop app, and download its client-secrets JSON file. Authorize Streamo
+on a machine with a browser using:
+
+```bash
+uv run streamo auth youtube --client-secrets client-secret.json
+```
+
+Streamo requests offline access with the `youtube.force-ssl` scope and stores
+the reusable credentials in `~/.config/streamo/youtube-auth.toml` with mode
+`0600`. Access tokens are refreshed in memory before use. Do not commit either
+the downloaded client-secrets file or the stored credentials.
+
+For a target machine without a browser, open an SSH connection from the machine
+with the browser and forward the callback port:
+
+```bash
+ssh -L 8765:127.0.0.1:8765 target
+```
+
+Run authorization through that connection:
+
+```bash
+uv run streamo auth youtube \
+  --client-secrets client-secret.json \
+  --no-browser \
+  --callback-port 8765
+```
+
+Open the printed Google authorization URL in the local browser. Google redirects
+the result through the SSH tunnel to Streamo's loopback listener on the target.
+
+The first YouTube integration uses an existing live stream and broadcast. Put
+their IDs in the configuration; Streamo does not create either resource:
+
+```toml
+device_name = "X18"
+channel = 17
+video = "visual-bed.mp4"
+
+[streaming_service]
+service = "youtube"
+credentials = "~/.config/streamo/youtube-auth.toml"
+stream_id = "replace-with-live-stream-id"
+broadcast_id = "replace-with-live-broadcast-id"
+auto_start = true
+auto_stop = true
+
+[streaming_service.encoding]
+container = "flv"
+
+[streaming_service.encoding.audio]
+codec = "aac"
+bitrate = "160k"
+sample_rate = 48000
+channels = 2
+
+[streaming_service.encoding.video]
+codec = "h264"
+bitrate = "2500k"
+resolution = "1280x720"
+frame_rate = 30
+keyframe_interval = 2
+
+[streaming_service.metadata]
+title = "Live at the club"
+description = "Tonight's stream"
+category = "10"
+privacy = "unlisted"
+scheduled_start = 2026-09-07T20:00:00Z
+```
+
+At preparation time Streamo updates the broadcast metadata and automatic
+start/stop settings, binds the broadcast to the stream, and retrieves the RTMP
+or HLS ingest address from YouTube. `category` is a YouTube video category ID,
+and `scheduled_start` must include a timezone. A Google OAuth consent screen in
+Testing status can issue refresh tokens that expire after seven days; use a
+Production consent screen for a persistent installation.
 
 ## Running Streamo
 
@@ -224,9 +305,10 @@ the Twitch scopes required by the operations being used:
 
 The `status` result includes audio levels and timing, FFmpeg state and bitrate,
 the service name, the ingest hostname without secrets, available capabilities,
-and `remote_health`. Remote health is currently `null` for the included
-adapters. Stream keys, passwords, passphrases, access tokens, and complete
-publish URLs are excluded from status and failure diagnostics.
+and `remote_health`. YouTube reports its stream and ingest health there;
+adapters without a health API report `null`. Stream keys, passwords,
+passphrases, access tokens, and complete publish URLs are excluded from status
+and failure diagnostics.
 
 ## Preparing visual media
 

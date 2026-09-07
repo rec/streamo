@@ -17,6 +17,7 @@ from .services import (
     endpoint_host,
 )
 from .twitch_api import TwitchApiError
+from .youtube_api import YouTubeApiError
 
 
 class RuntimeState:
@@ -181,7 +182,11 @@ class ControlController:
             )
         try:
             return self.service.perform(command, payload)
-        except (TwitchApiError, UnsupportedServiceOperation) as error:
+        except (
+            TwitchApiError,
+            YouTubeApiError,
+            UnsupportedServiceOperation,
+        ) as error:
             return ipc.Error(type="error", message=str(error))
 
 

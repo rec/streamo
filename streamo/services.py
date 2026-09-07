@@ -3,6 +3,7 @@ import urllib.parse
 from collections.abc import Mapping
 from datetime import datetime
 from enum import StrEnum, auto
+from pathlib import Path
 from typing import Annotated, Literal, Protocol, Self
 
 from pydantic import (
@@ -218,7 +219,10 @@ class StreamingService(BaseModel, frozen=True):
                 raise ValueError("SRT and HLS output requires the mpegts container")
         if isinstance(self.ingest, IcecastIngest):
             validate_icecast_encoding(self.encoding)
-        if (contract := SERVICE_CATALOG.get(self.service)) is not None:
+        if (
+            self.ingest is not None
+            and (contract := SERVICE_CATALOG.get(self.service)) is not None
+        ):
             if self.ingest.protocol not in contract.protocols:
                 supported = ", ".join(contract.protocols)
                 raise ValueError(
@@ -246,18 +250,33 @@ class TwitchService(StreamingService, frozen=True):
 class YouTubeService(StreamingService, frozen=True):
     service: Literal["youtube"]
     name: str = "YouTube"
-    access_token: SecretStr | None = None
-    channel_id: str | None = None
+    ingest: (
+        Annotated[RtmpIngest | HlsPushIngest, Field(discriminator="protocol")] | None
+    ) = None
+    credentials: Path | None = None
     stream_id: str | None = None
     broadcast_id: str | None = None
     auto_start: bool = True
     auto_stop: bool = True
 
     @model_validator(mode="after")
-    def validate_hls(self) -> Self:
+    def validate_youtube(self) -> Self:
+        if self.encoding.video is None:
+            raise ValueError("youtube requires video encoding")
+        if self.credentials is None and self.ingest is None:
+            raise ValueError("YouTube requires ingest or credentials")
+        if self.credentials is not None and (
+            self.stream_id is None or self.broadcast_id is None
+        ):
+            raise ValueError("YouTube credentials require stream_id and broadcast_id")
         if isinstance(self.ingest, HlsPushIngest):
             if not 1 <= self.ingest.segment_duration <= 4:
                 raise ValueError("YouTube HLS segment_duration must be from 1 to 4")
+            if self.encoding.audio.codec != "aac":
+                raise ValueError("YouTube HLS requires AAC audio")
+            assert self.encoding.video is not None
+            if self.encoding.video.codec not in {"h264", "hevc"}:
+                raise ValueError("YouTube HLS requires H.264 or HEVC video")
         return self
 
 
@@ -456,7 +475,58 @@ class TwitchServiceAdapter(GenericServiceAdapter):
 
 
 class YouTubeServiceAdapter(GenericServiceAdapter):
-    pass
+    def __init__(self, service: StreamingServiceConfiguration) -> None:
+        from .youtube_api import YouTubeApi
+
+        assert isinstance(service, YouTubeService)
+        super().__init__(service)
+        self.youtube = YouTubeApi.from_service(service)
+        if self.youtube is not None:
+            self.capabilities.extend(
+                [
+                    ServiceCapability.PREPARE,
+                    ServiceCapability.FINISH,
+                    ServiceCapability.METADATA,
+                    ServiceCapability.HEALTH,
+                    ServiceCapability.SCHEDULE,
+                ]
+            )
+
+    def prepare(self, metadata: StreamMetadata) -> PreparedStream:
+        assert isinstance(self.service, YouTubeService)
+        if self.youtube is None:
+            return super().prepare(metadata)
+        ingest, remote_ids = self.youtube.prepare(self.service, metadata)
+        service = YouTubeService.model_validate(
+            {**self.service.model_dump(), "ingest": ingest, "metadata": metadata}
+        )
+        self.service = service
+        return PreparedStream(service=service, remote_ids=remote_ids)
+
+    def perform(self, command: str, payload: Mapping[str, object]) -> dict[str, object]:
+        assert isinstance(self.service, YouTubeService)
+        if command != "update_stream_info" or self.youtube is None:
+            return super().perform(command, payload)
+        metadata = StreamMetadata.model_validate(
+            {**self.service.metadata.model_dump(), **payload}
+        )
+        self.youtube.update_metadata(self.service, metadata)
+        self.service = self.service.model_copy(update={"metadata": metadata})
+        return {}
+
+    def update_metadata(self, metadata: StreamMetadata) -> None:
+        assert isinstance(self.service, YouTubeService)
+        if self.youtube is None:
+            return super().update_metadata(metadata)
+        self.youtube.update_metadata(self.service, metadata)
+        self.service = self.service.model_copy(update={"metadata": metadata})
+
+    def health(self) -> RemoteStreamStatus | None:
+        assert isinstance(self.service, YouTubeService)
+        if self.youtube is None or self.service.stream_id is None:
+            return None
+        state, detail = self.youtube.health(self.service.stream_id)
+        return RemoteStreamStatus(state=state, detail=detail)
 
 
 class FacebookServiceAdapter(GenericServiceAdapter):
@@ -495,6 +565,8 @@ def command_capability(command: str) -> ServiceCapability:
 
 def endpoint_host(service: StreamingServiceConfiguration) -> str:
     ingest = service.ingest
+    if ingest is None:
+        return ""
     url = (
         ingest.server_url
         if isinstance(ingest, (RtmpIngest, IcecastIngest))
@@ -507,6 +579,8 @@ def endpoint_host(service: StreamingServiceConfiguration) -> str:
 
 def ingest_output(service: StreamingServiceConfiguration) -> FfmpegOutput:
     ingest = service.ingest
+    if ingest is None:
+        raise ValueError(f"{service.name} ingest has not been prepared")
     if isinstance(ingest, RtmpIngest):
         key = urllib.parse.quote(ingest.stream_key.get_secret_value(), safe="")
         url = f"{ingest.server_url.rstrip('/')}/{key}"

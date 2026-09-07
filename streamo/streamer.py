@@ -44,6 +44,7 @@ def stream(
     service_output = None
     if not preview:
         prepared = service.prepare(config.streaming_service.metadata)
+        state.configure_service(service)
         service_output = service.output(prepared)
     requested_stop = False
     result = 1
