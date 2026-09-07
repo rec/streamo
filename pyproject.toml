@@ -10,8 +10,6 @@ dependencies = [
     "pydantic>=2",
     "reccy",
     "sounddevice",
-    "strenum",
-    "tomli>=2",
     "tyro",
 ]
 

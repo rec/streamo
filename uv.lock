@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.13"
 
 [options]
-exclude-newer = "2026-08-31T13:31:46.402649Z"
+exclude-newer = "2026-08-31T13:49:11.318869Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -451,8 +451,6 @@ dependencies = [
     { name = "pydantic" },
     { name = "reccy" },
     { name = "sounddevice" },
-    { name = "strenum" },
-    { name = "tomli" },
     { name = "tyro" },
 ]
 
@@ -469,8 +467,6 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2" },
     { name = "reccy", git = "https://github.com/rec/reccy.git?branch=main" },
     { name = "sounddevice" },
-    { name = "strenum" },
-    { name = "tomli", specifier = ">=2" },
     { name = "tyro" },
 ]
 
