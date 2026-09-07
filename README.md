@@ -1,15 +1,26 @@
-# streamo
+# Streamo
 
-`streamo` streams one stereo pair from an audio input device to an
-FFmpeg-addressable live destination. Video streams use a low-resolution
-pre-rendered animation as their visual source; Icecast streams are audio-only.
+Streamo captures one stereo pair from an audio input device and sends it to an
+FFmpeg-supported live ingest destination. It supports video streams built from a
+looping visual bed and audio-only Icecast streams.
 
-The first version is intentionally small and independent of `recs`.
+## Requirements
+
+- Python 3.13 or later
+- FFmpeg and FFprobe
+- FFplay for local preview
+- An audio input device that exposes the configured stereo pair
+
+Install the Python environment with:
+
+```bash
+uv sync
+```
 
 ## Configuration
 
-Create a TOML config file. This Twitch example preserves the original Streamo
-behavior:
+Streamo reads TOML from `~/.config/streamo/config.toml` by default. This is a
+complete Twitch configuration:
 
 ```toml
 device_name = "X18"
@@ -19,14 +30,14 @@ title_card = "title.png"
 
 [streaming_service]
 service = "twitch"
-client_id = "..."
-access_token = "..."
+client_id = "replace-with-client-id"
+access_token = "replace-with-access-token"
 broadcaster_id = "123456789"
 
 [streaming_service.ingest]
 protocol = "rtmps"
 server_url = "rtmps://live.twitch.tv/app"
-stream_key = "live_..."
+stream_key = "replace-with-stream-key"
 
 [streaming_service.encoding]
 container = "flv"
@@ -43,61 +54,154 @@ bitrate = "2500k"
 resolution = "1280x720"
 frame_rate = 30
 keyframe_interval = 2
+
+[streaming_service.metadata]
+title = "Live at the club"
+category = "Music"
+tags = ["live"]
+language = "en"
 ```
 
-Then run:
+`device_name`, `channel`, and `streaming_service` are required. `channel` is
+one-based and selects the first channel of the stereo pair, so `17` captures
+channels 17 and 18.
+
+The top-level capture and composition defaults are:
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `sample_rate` | `48000` | Audio capture sample rate |
+| `video` | none | Looping visual-bed file; required when video encoding is configured |
+| `video_resolution` | `"640x360"` | Working size for title and participant overlays |
+| `video_frame_rate` | `10` | Working frame rate for overlays |
+| `title_card` | none | Optional title image |
+| `title_interval` | `180.0` | Seconds between title-card appearances |
+| `title_duration` | `8.0` | Seconds the title card is visible |
+| `title_fade` | `2.0` | Fade-in and fade-out duration in seconds |
+| `image_dir` | `"images"` | Participant-image directory |
+| `image_interval` | `0.0` | Seconds between participant images; zero disables them |
+| `image_duration` | `8.0` | Seconds each participant image is visible |
+| `image_fade` | `2.0` | Fade-in and fade-out duration in seconds |
+
+The encoding profile is always explicit. Audio codecs are `aac`, `mp3`, `opus`,
+and `vorbis`; video codecs are `h264`, `hevc`, and `av1`.
+
+## Destinations
+
+Named services validate these ingest protocols:
+
+| Service | Protocols | Video required |
+| --- | --- | --- |
+| `twitch` | RTMP, RTMPS | yes |
+| `youtube` | RTMP, RTMPS, HLS push | yes |
+| `facebook` | RTMP, RTMPS | yes |
+| `kick` | RTMPS | yes |
+| `vimeo` | RTMP, RTMPS, SRT | yes |
+| `linkedin` | RTMP, RTMPS | yes |
+| `icecast` | Icecast | no |
+| `custom` | RTMP, RTMPS, SRT, HLS push, or Icecast | no |
+
+RTMP and RTMPS require the FLV container. SRT and HLS require MPEG-TS. An HLS
+`upload_url` must contain `{stream_key}`; Streamo substitutes the configured
+secret before starting FFmpeg. YouTube additionally restricts HLS segment
+duration to one through four seconds.
+
+Icecast is audio-only and supports these codec/container pairs: AAC/ADTS,
+MP3/MP3, Opus/Ogg, and Vorbis/Ogg. For example:
+
+```toml
+device_name = "X18"
+channel = 17
+
+[streaming_service]
+service = "icecast"
+
+[streaming_service.ingest]
+protocol = "icecast"
+server_url = "icecast://radio.example.com:8000"
+mountpoint = "/live"
+username = "source"
+password = "replace-with-password"
+tls = false
+
+[streaming_service.encoding]
+container = "mp3"
+
+[streaming_service.encoding.audio]
+codec = "mp3"
+bitrate = "192k"
+sample_rate = 48000
+channels = 2
+```
+
+Only Twitch currently performs provider API operations. The other adapters send
+the configured FFmpeg output directly to ingest and reject provider-specific
+control commands.
+
+## Running Streamo
+
+Run with the default configuration path:
 
 ```bash
-streamo --config config.toml
+uv run streamo
 ```
 
-`channel` is one-based and names the first channel of the stereo pair. For
-example, `17` streams channels 17 and 18.
+Use a different configuration file with:
 
-`streamo` requires `ffmpeg` to be installed.
+```bash
+uv run streamo --config config.toml
+```
 
-If `title_card` is set, Streamo overlays that image on the outgoing stream
-without changing the prepared visual-bed video. The title card appears at stream
-start and then repeats every `title_interval` seconds. The defaults are an
-8-second title every 180 seconds with 2-second fade in and out. These can be
-changed with `title_interval`, `title_duration`, and `title_fade`.
-
-Set `image_interval` to a positive number to show participant images from
-`image_dir`. Each image fades in and out using `image_duration` and `image_fade`.
-Streamo shows every image once in shuffled order before repeating any image.
-Images added while Streamo is running take priority at the next image interval.
-
-## Previewing the live composition
-
-Use the preview action on the target Mac to inspect the same audio, video,
-title-card, and participant-image composition without connecting to Twitch:
+Preview the same audio, video, title-card, and participant-image composition
+without connecting to the destination:
 
 ```bash
 uv run streamo daemon preview --config ~/.config/streamo/config.toml
 ```
 
-Streamo sends the encoded output to `ffplay`, which opens a live preview window.
-The configured audio device must be available, and `ffplay` must be installed
-alongside FFmpeg. Preview does not use the configured destination or make any
-service API request. While preview is running, copy supported image files into
-`image_dir`; newly discovered images appear before images already waiting in
-the current shuffled cycle. Close the preview window or send `stop` to end both
-processes.
+Preview sends a NUT stream from FFmpeg to FFplay. It does not prepare, publish,
+or finish a remote stream. Close the preview window or send the `stop` control
+command to stop it.
 
-## Show-control connection
+Manage the background service with:
 
-On macOS and Linux, `streamo` uses the Reccy control socket at
-`~/.local/state/streamo/gui.sock`. Each message is one JSON object followed by
-a newline.
+```bash
+uv run streamo daemon install --config ~/.config/streamo/config.toml
+uv run streamo daemon start
+uv run streamo daemon status
+uv run streamo daemon stop
+uv run streamo daemon restart
+uv run streamo daemon uninstall
+```
 
-Start with:
+## Live overlays
+
+When `title_card` is configured for a video stream, Streamo overlays it at
+startup and every `title_interval` seconds without modifying the visual-bed
+file.
+
+Set `image_interval` to a positive value to enable participant images. Streamo
+accepts GIF, JPEG, PNG, and WebP files from `image_dir`. It rescans before each
+interval, shows every current image once in shuffled order, and gives newly
+discovered images priority in the current cycle. Invalid images are logged and
+skipped. Deleted paths leave the cycle; recreating a path makes it new again.
+
+The `image` control command can copy a `file:` URL or download an HTTP(S) URL
+into `image_dir`. Files are published atomically so the frame producer does not
+read a partial image.
+
+## Show control
+
+Streamo uses Reccy's JSON Lines RPC transport. Configuration is TOML, but each
+control message remains one JSON object followed by a newline. Begin a
+connection with:
 
 ```json
 {"type": "hello", "role": "show-control", "version": 1}
 ```
 
-After the server returns its `hello`, send one request. The server returns the
-raw JSON result or an error object and closes that request connection.
+After the server's `hello`, send one request. The server returns a raw JSON
+result or an error object.
 
 ```json
 {"type": "request", "command": "status", "params": {}}
@@ -105,95 +209,70 @@ raw JSON result or an error object and closes that request connection.
 {"type": "request", "command": "unmute", "params": {}}
 {"type": "request", "command": "stop", "params": {}}
 {"type": "request", "command": "ping", "params": {}}
-{"type": "request", "command": "update_stream_info", "params": {"title": "Live at the club", "category": "Music", "tags": ["live"]}}
-{"type": "request", "command": "chat", "params": {"message": "Starting now"}}
-{"type": "request", "command": "announce", "params": {"message": "Recording and streaming"}}
-{"type": "request", "command": "clip", "params": {}}
-{"type": "request", "command": "marker", "params": {"description": "First song"}}
+{"type": "request", "command": "image", "params": {"urls": ["file:///tmp/guest.png"]}}
 ```
 
-The control transport remains JSON Lines; changing configuration to TOML does
-not change its message format. Service status includes the selected service,
-redacted endpoint host, configured capabilities, and remote health when an
-adapter provides it.
+Twitch configurations with `client_id`, `access_token`, and `broadcaster_id`
+also support `update_stream_info`, `chat`, `announce`, `clip`, and `marker`.
+`sender_id` and `moderator_id` default to the broadcaster ID. The token needs
+the Twitch scopes required by the operations being used:
 
-The Twitch API commands require `client_id`, `access_token`, and
-`broadcaster_id` in `[streaming_service]`. By default, Streamo uses the
-broadcaster ID as the chat sender and announcement moderator. Set `sender_id`
-or `moderator_id` if those should be different. Other named adapters currently
-provide encoder ingest and reject unsupported control operations before making
-a network request.
+- `channel:manage:broadcast` for stream information and markers
+- `user:write:chat` for chat messages
+- `moderator:manage:announcements` for announcements
+- `clips:edit` for clips
 
-The token needs Twitch scopes for the side effects you use:
+The `status` result includes audio levels and timing, FFmpeg state and bitrate,
+the service name, the ingest hostname without secrets, available capabilities,
+and `remote_health`. Remote health is currently `null` for the included
+adapters. Stream keys, passwords, passphrases, access tokens, and complete
+publish URLs are excluded from status and failure diagnostics.
 
-- `channel:manage:broadcast` for stream info updates and stream markers.
-- `user:write:chat` for chat messages.
-- `moderator:manage:announcements` for announcements.
-- `clips:edit` for clips.
+## Preparing visual media
 
-## Streaming destinations
+The scripts use FFmpeg, FFprobe, and, where noted, FFplay.
 
-Streamo supports custom RTMP/RTMPS, SRT, HLS push, and Icecast ingest. Named
-configurations validate the protocols supported by Twitch, YouTube, Facebook,
-Kick, Vimeo, LinkedIn, and Icecast. A custom destination is not restricted to a
-known provider.
-
-The service catalog contains stable protocol and media requirements only.
-Encoding is always explicit in the selected `encoding` profile, so changing
-provider bitrate recommendations are not hidden in defaults.
-
-Complete examples are available in:
-
-- `examples/twitch.toml`
-- `examples/generic-rtmps.toml`
-- `examples/icecast.toml`
-
-RTMP and RTMPS use FLV. SRT and HLS use MPEG-TS. HLS `upload_url` must contain
-`{stream_key}`, which Streamo replaces without exposing the result in process
-diagnostics. Icecast supports AAC/ADTS, MP3, Opus/Ogg, and Vorbis/Ogg and omits
-all video inputs, filters, mapping, and encoding.
-
-## Rendering a visual bed
-
-Use `scripts/loop_tester.py` to preview candidate videos before converting them
-into ping-pong loops:
+Preview a video's loop point interactively:
 
 ```bash
-scripts/loop_tester.py videos/*.mp4
+uv run python scripts/loop_tester.py videos/*.mp4
 ```
 
-For each file, the script plays the two seconds before and after the loop point.
-Enter `r` to replay, `l` to accept the loop, or return to skip the file.
-Files that are already loops, including skipped files and files with `looped` in
-the name, are moved into a `loops/` subdirectory. Accepted files are written as
-`loops/name-looped.mp4`, and their original files are moved into an `originals/`
-subdirectory next to the source file.
+Enter `r` to replay, `l` to create and accept a forward/backward loop, `m` to
+mark the original as already looping, or return to leave the file in place.
+Accepted loops go to `loops/`; source files used to create a loop go to
+`originals/`. Files whose names contain `looped` are moved to `loops/`
+unchanged.
 
-Use `scripts/auto_tester.py` to automatically convert videos that are clearly
-not loops:
+Automatically convert files whose first and near-final frames differ by at
+least the configured threshold:
 
 ```bash
-scripts/auto_tester.py videos/*.mp4
+uv run python scripts/auto_tester.py videos/*.mp4
 ```
 
-The automatic tester compares the first and near-final frames. If they are
-clearly different, it writes `loops/name-looped.mp4` and moves the original into
-`originals/`. Files that might already be loops are left in place.
+Files that might already loop remain in place. Converted loops go to `loops/`
+and their source files go to `originals/`.
 
-Use `scripts/render.py` to turn looped videos and still images into one prepared
-video for Streamo:
+Build a visual bed from looped videos and still images:
 
 ```bash
-scripts/render.py \
+uv run python scripts/render.py \
   --inputs a-looped.mp4 b-looped.mp4 still.png \
   --output visual-bed.mp4 \
   --duration 3600 \
   --seed 1234 \
-  --title-card title.png
+  --title-card title.md
 ```
 
-The renderer starts from black, optionally fades through the title card, and then
-chooses inputs at random. It crossfades slowly between scenes and occasionally
-fades the title card over the current scene without changing the underlying media
-sequence. Each crossfade lasts half the length of the longer adjacent input, and
-shorter inputs are looped when necessary to cover the fade.
+The renderer starts from black, selects media in randomized cycles, crossfades
+between scenes, and can overlay a PNG, other supported still image, or rendered
+Markdown title card.
+
+## Development
+
+Run the test suite with:
+
+```bash
+uv run pytest
+```

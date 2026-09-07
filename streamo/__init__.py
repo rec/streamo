@@ -1,1 +1,1 @@
-"""Twitch audio streamer."""
+"""Live audio and video streaming."""
