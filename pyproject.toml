@@ -5,6 +5,8 @@ description = "Stream a stereo audio device pair to live ingest services."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "google-auth>=2.57.0",
+    "google-auth-oauthlib>=1.4.1",
     "numpy",
     "pillow>=12.3.0",
     "pydantic>=2",
