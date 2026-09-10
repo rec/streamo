@@ -142,6 +142,30 @@ def test_image_request_rejects_unsupported_url() -> None:
     )
 
 
+def test_remove_last_image_can_be_repeated_until_directory_is_empty(
+    tmp_path: Path,
+) -> None:
+    image_dir = tmp_path / "images"
+    image_dir.mkdir()
+    first = image_dir / "first.jpg"
+    second = image_dir / "second.jpg"
+    first.write_bytes(b"first")
+    second.write_bytes(b"second")
+    first.touch()
+    second.touch()
+    controller = ControlController(state=RuntimeState(), image_dir=image_dir)
+
+    first_response = controller.handle_request(rpc.Request(command="remove_last_image"))
+    second_response = controller.handle_request(
+        rpc.Request(command="remove_last_image")
+    )
+    empty_response = controller.handle_request(rpc.Request(command="remove_last_image"))
+
+    assert first_response == {"removed": second.as_posix()}
+    assert second_response == {"removed": first.as_posix()}
+    assert empty_response == {"removed": None}
+
+
 def test_daemon_uses_standard_reccy_control_path() -> None:
     streamo = Streamo.model_construct(home=Path("/tmp/streamo-home"))
 

@@ -7,6 +7,7 @@ from reccy.reccy import Reccy, ReccyStatus
 from reccy.services.models import ServiceSpec
 from reccy.services.spec import load
 
+from .images import ImageFeed, ImageFeedPoller
 from .services import StreamingServiceConfiguration, adapter_for
 
 STREAMO_SERVICE = load(Path(__file__).with_name("service.toml"))
@@ -36,6 +37,7 @@ class Streamo(Reccy, frozen=True):
     title_duration: float = 8.0
     title_fade: float = 2.0
     image_dir: Path = Path("images")
+    image_feed: ImageFeed | None = None
     image_interval: float = 0.0
     image_duration: float = 8.0
     image_fade: float = 2.0
@@ -52,8 +54,15 @@ class Streamo(Reccy, frozen=True):
         )
         controller.state.configure_service(service_adapter)
         object.__setattr__(self, "_controller", controller)
+        image_feed_poller = (
+            None
+            if self.image_feed is None
+            else ImageFeedPoller(self.image_feed, self.image_dir)
+        )
         self.start()
         try:
+            if image_feed_poller is not None:
+                image_feed_poller.start()
             returncode = streamer.stream(
                 self, controller, service_adapter, preview=preview
             )
@@ -61,6 +70,8 @@ class Streamo(Reccy, frozen=True):
                 self.publish_error(f"ffmpeg exited with {returncode}")
             return returncode
         finally:
+            if image_feed_poller is not None:
+                image_feed_poller.stop()
             self.close()
 
     def rpc_response(self, request: rpc.Request) -> rpc.Result:
@@ -108,6 +119,8 @@ class Streamo(Reccy, frozen=True):
     @model_validator(mode="after")
     def validate_image_overlay(self) -> Self:
         if self.image_interval == 0:
+            if self.image_feed is not None:
+                raise ValueError("image_interval must be positive with an image feed")
             return self
         if self.image_duration <= 0:
             raise ValueError("image_duration must be positive")

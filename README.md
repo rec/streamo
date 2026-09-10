@@ -79,6 +79,7 @@ The top-level capture and composition defaults are:
 | `title_duration` | `8.0` | Seconds the title card is visible |
 | `title_fade` | `2.0` | Fade-in and fade-out duration in seconds |
 | `image_dir` | `"images"` | Participant-image directory |
+| `image_feed` | none | Optional remote participant-image feed |
 | `image_interval` | `0.0` | Seconds between participant images; zero disables them |
 | `image_duration` | `8.0` | Seconds each participant image is visible |
 | `image_fade` | `2.0` | Fade-in and fade-out duration in seconds |
@@ -343,6 +344,61 @@ The `image` control command can copy a `file:` URL or download an HTTP(S) URL
 into `image_dir`. Files are published atomically so the frame producer does not
 read a partial image.
 
+### Participant uploads through ax.to
+
+The upload application in `web/foto.php` lets participants submit
+photos without joining the Showco network. Their browser prepares each photo as
+a JPEG no larger than 2048 pixels on either side, then sends it to `ax.to`.
+Streamo polls the server over outbound HTTPS and stores each new JPEG in
+`image_dir`.
+
+The page uses French when the browser's primary language begins with `fr` and
+English for every other browser. Current Safari can prepare HEIC photos without
+a server-side converter. There is deliberately no WebAssembly fallback. If a
+browser cannot decode a selected HEIC photo, the page explains that limitation
+and asks the participant to contact Tom.
+
+On the Virtualmin server, copy the PHP file into the virtual server's document
+root, create a private data directory writable by its PHP-FPM user, and expose
+these two environment variables to that PHP-FPM pool:
+
+```text
+STREAMO_IMAGE_TOKEN=<a new random secret of at least 20 characters>
+STREAMO_IMAGE_DATA_DIR=/home/example/streamo-image-data
+```
+
+The data directory must remain outside the document root. The PHP installation
+needs the normally enabled `fileinfo` extension and must allow uploads of at
+least 8 MiB. The application accepts only JPEG files whose dimensions and size
+fit the same limits enforced by the browser.
+
+If the PHP file is available at `https://ax.to/show/foto.php`, put this URL in
+Streamo's TOML configuration using the same token:
+
+```toml
+image_dir = "images"
+image_interval = 20.0
+image_duration = 8.0
+image_fade = 2.0
+
+[image_feed]
+url = "https://ax.to/show/foto.php"
+token = "replace-with-the-room-token"
+poll_interval = 2.0
+```
+
+The participant URL, suitable for a room-only QR code, is:
+
+```text
+https://ax.to/show/foto.php?token=replace-with-the-room-token
+```
+
+Treat the URL as a capability: anyone who receives it can submit images. Streamo
+keeps a per-feed cursor inside `image_dir`, so restarting Streamo or removing a
+local image does not download it again. After the show, remove the uploaded JPEGs
+and `images.jsonl` from `STREAMO_IMAGE_DATA_DIR`. Use an empty data directory and
+a new token for the next show.
+
 ## Show control
 
 Streamo uses Reccy's JSON Lines RPC transport. Configuration is TOML, but each
@@ -363,6 +419,7 @@ result or an error object.
 {"type": "request", "command": "stop", "params": {}}
 {"type": "request", "command": "ping", "params": {}}
 {"type": "request", "command": "image", "params": {"urls": ["file:///tmp/guest.png"]}}
+{"type": "request", "command": "remove_last_image", "params": {}}
 ```
 
 Twitch configurations with `client_id`, `access_token`, and `broadcaster_id`

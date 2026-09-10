@@ -1,11 +1,20 @@
+import io
 import random
 from collections.abc import Callable, MutableSequence
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 import numpy as np
+import pytest
 from PIL import Image
 
-from streamo.images import ImageFrameProducer, ImageScheduler
+import streamo.images
+from streamo.images import (
+    ImageFeed,
+    ImageFeedPoller,
+    ImageFrameProducer,
+    ImageScheduler,
+)
 
 
 class NoShuffleRandom(random.Random):
@@ -108,3 +117,77 @@ def test_frame_producer_skips_invalid_images(tmp_path: Path) -> None:
     )
 
     assert next(producer.frames()) == bytes((0, 0, 255, 255))
+
+
+def test_image_feed_poller_downloads_new_jpegs_and_records_cursor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    image_dir = tmp_path / "images"
+    jpeg = io.BytesIO()
+    Image.new("RGB", (8, 6), "blue").save(jpeg, "JPEG")
+    requests: list[tuple[str, dict[str, list[str]]]] = []
+
+    def urlopen(url: str, timeout: int) -> FakeHttpResponse:
+        query = parse_qs(urlsplit(url).query)
+        requests.append((urlsplit(url).path, query))
+        assert timeout == 10
+        if query["action"] == ["feed"]:
+            return FakeHttpResponse(b'{"id":1}\n{"id":2}\n')
+        return FakeHttpResponse(jpeg.getvalue())
+
+    monkeypatch.setattr(streamo.images, "urlopen", urlopen)
+    poller = ImageFeedPoller(
+        ImageFeed(
+            url="https://ax.to/show/photos.php",
+            token="room-secret-at-least-20-characters",
+        ),
+        image_dir,
+    )
+
+    stored = poller.poll()
+
+    assert stored == [
+        image_dir / f"remote-{poller.feed_id}-00000001.jpg",
+        image_dir / f"remote-{poller.feed_id}-00000002.jpg",
+    ]
+    assert all(p.read_bytes() == jpeg.getvalue() for p in stored)
+    assert poller.cursor_path.read_text() == "2\n"
+    assert [q["action"] for _, q in requests] == [["feed"], ["image"], ["image"]]
+    assert all(
+        q["token"] == ["room-secret-at-least-20-characters"] for _, q in requests
+    )
+
+
+def test_image_feed_poller_requests_only_items_after_saved_cursor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    image_dir = tmp_path / "images"
+    feed = ImageFeed(
+        url="https://ax.to/show/photos.php",
+        token="room-secret-at-least-20-characters",
+    )
+    poller = ImageFeedPoller(feed, image_dir)
+    image_dir.mkdir()
+    poller.cursor_path.write_text("12\n")
+
+    def urlopen(url: str, timeout: int) -> FakeHttpResponse:
+        assert parse_qs(urlsplit(url).query)["after"] == ["12"]
+        return FakeHttpResponse(b"")
+
+    monkeypatch.setattr(streamo.images, "urlopen", urlopen)
+
+    assert poller.poll() == []
+
+
+class FakeHttpResponse:
+    def __init__(self, contents: bytes) -> None:
+        self.contents = contents
+
+    def __enter__(self) -> "FakeHttpResponse":
+        return self
+
+    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
+        pass
+
+    def read(self, limit: int) -> bytes:
+        return self.contents[:limit]

@@ -1,5 +1,4 @@
 import queue
-import tempfile
 import threading
 import time
 from dataclasses import dataclass, field
@@ -10,6 +9,7 @@ from urllib.request import url2pathname, urlopen
 
 from reccy.protocol import ipc, rpc
 
+from .images import IMAGE_SUFFIXES, publish_file
 from .kick_api import KickApiError
 from .services import (
     COMMAND_CAPABILITIES,
@@ -155,6 +155,9 @@ class ControlController:
             return "ok"
         if command == "image":
             return self.handle_image_command(request.params)
+        if command == "remove_last_image":
+            removed = remove_last_image(self.image_dir)
+            return {"removed": None if removed is None else removed.as_posix()}
         if command in SERVICE_COMMANDS:
             return self.handle_service_command(command, request.params)
         return ipc.Error(type="error", message=f"unknown command {command}")
@@ -226,18 +229,22 @@ def store_image(image_dir: Path, url: str) -> Path:
 
 
 def publish_image(target: Path, contents: bytes) -> None:
-    temporary: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            dir=target.parent, prefix=f".{target.name}.", suffix=".part", delete=False
-        ) as output:
-            temporary = Path(output.name)
-            output.write(contents)
-        temporary.replace(target)
-    except OSError:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
-        raise
+    publish_file(target, contents)
+
+
+def remove_last_image(image_dir: Path) -> Path | None:
+    if not image_dir.exists():
+        return None
+    images = [
+        p
+        for p in image_dir.iterdir()
+        if p.is_file() and p.suffix.lower() in IMAGE_SUFFIXES
+    ]
+    if not images:
+        return None
+    latest = max(images, key=lambda p: (p.stat().st_mtime_ns, p.name))
+    latest.unlink()
+    return latest
 
 
 def image_name(path: str) -> str:

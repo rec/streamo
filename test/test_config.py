@@ -5,6 +5,7 @@ from pydantic import ValidationError
 from reccy.reccy import Reccy
 
 from streamo.config import Streamo
+from streamo.images import ImageFeed
 from streamo.services import (
     AudioEncoding,
     EncodingProfile,
@@ -98,6 +99,28 @@ def test_image_duration_must_fit_interval() -> None:
             streaming_service=_service(),
             image_interval=8,
             image_duration=8,
+        )
+
+
+def test_image_feed_requires_enabled_participant_images() -> None:
+    with pytest.raises(ValidationError, match="image_interval must be positive"):
+        Streamo(
+            device_name="X18",
+            channel=1,
+            video=Path("visual-bed.mp4"),
+            streaming_service=_service(),
+            image_feed=ImageFeed(
+                url="https://ax.to/show/foto.php",
+                token="room-secret-at-least-20-characters",
+            ),
+        )
+
+
+def test_image_feed_requires_http_url() -> None:
+    with pytest.raises(ValidationError, match="must use HTTPS"):
+        ImageFeed(
+            url="http://ax.to/show/foto.php",
+            token="room-secret-at-least-20-characters",
         )
 
 

@@ -75,7 +75,7 @@ These capture and overlay fields remain at the top level:
 - `video_resolution`
 - `video_frame_rate`
 - `title_interval`, `title_duration`, and `title_fade`
-- `image_dir`, `image_interval`, `image_duration`, and `image_fade`
+- `image_dir`, `image_feed`, `image_interval`, `image_duration`, and `image_fade`
 
 Twitch ingest, API, and output-encoding fields move into the nested service
 configuration:
@@ -201,9 +201,9 @@ The current handshake and request forms are:
 ```
 
 The command names `status`, `mute`, `unmute`, `stop`, `ping`, `image`,
-`update_stream_info`, `chat`, `announce`, `clip`, and `marker` remain available
-for a Twitch configuration. Twitch API commands require the corresponding
-credentials and token scopes.
+`remove_last_image`, `update_stream_info`, `chat`, `announce`, `clip`, and
+`marker` remain available for a Twitch configuration. Twitch API commands
+require the corresponding credentials and token scopes.
 
 Very old Twitcho clients that send `type = "command"`, put command parameters
 at the top level, or connect using `control_host` and `control_port` must be
