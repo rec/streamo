@@ -1,13 +1,12 @@
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar, Self
+from typing import TYPE_CHECKING, Self
 
 from pydantic import ConfigDict, PrivateAttr, field_validator, model_validator
 from reccy.protocol import ipc, rpc
 from reccy.reccy import Reccy, ReccyStatus
-from reccy.services.models import ServiceSpec
 from reccy.services.spec import load
 
-from .images import ImageFeed, ImageFeedPoller
+from .images import ImageFeed, ImageFeedPoller, image_paths
 from .services import StreamingServiceConfiguration, adapter_for
 
 STREAMO_SERVICE = load(Path(__file__).with_name("service.toml"))
@@ -17,12 +16,10 @@ if TYPE_CHECKING:
 
 
 class Streamo(Reccy, frozen=True):
-    service_spec: ClassVar[ServiceSpec] = STREAMO_SERVICE
-    daemon_module: ClassVar[str] = "streamo"
-    status_model: ClassVar[type[ReccyStatus]] = ReccyStatus
-    rpc_enabled: ClassVar[bool] = True
-    rpc_role: ClassVar[str] = "streamo"
-    logger_name: ClassVar[str] = "streamo"
+    name = "streamo"
+    service_spec = STREAMO_SERVICE
+    status_model = ReccyStatus
+    rpc_enabled = True
 
     device_name: str
     channel: int
@@ -38,6 +35,7 @@ class Streamo(Reccy, frozen=True):
     title_fade: float = 2.0
     image_dir: Path = Path("images")
     image_feed: ImageFeed | None = None
+    current_session_image_weight: int = 3
     image_interval: float = 0.0
     image_duration: float = 8.0
     image_fade: float = 2.0
@@ -59,12 +57,17 @@ class Streamo(Reccy, frozen=True):
             if self.image_feed is None
             else ImageFeedPoller(self.image_feed, self.image_dir)
         )
+        initial_image_paths = set(image_paths(self.image_dir))
         self.start()
         try:
             if image_feed_poller is not None:
                 image_feed_poller.start()
             returncode = streamer.stream(
-                self, controller, service_adapter, preview=preview
+                self,
+                controller,
+                service_adapter,
+                initial_image_paths=initial_image_paths,
+                preview=preview,
             )
             if returncode:
                 self.publish_error(f"ffmpeg exited with {returncode}")
@@ -84,6 +87,13 @@ class Streamo(Reccy, frozen=True):
     def validate_positive(cls, value: int) -> int:
         if value <= 0:
             raise ValueError("must be positive")
+        return value
+
+    @field_validator("current_session_image_weight")
+    @classmethod
+    def validate_nonnegative_weight(cls, value: int) -> int:
+        if value < 0:
+            raise ValueError("must not be negative")
         return value
 
     @field_validator(

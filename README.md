@@ -80,6 +80,7 @@ The top-level capture and composition defaults are:
 | `title_fade` | `2.0` | Fade-in and fade-out duration in seconds |
 | `image_dir` | `"images"` | Participant-image directory |
 | `image_feed` | none | Optional remote participant-image feed |
+| `current_session_image_weight` | `3` | Current-session images per pre-existing image after each new image has appeared once |
 | `image_interval` | `0.0` | Seconds between participant images; zero disables them |
 | `image_duration` | `8.0` | Seconds each participant image is visible |
 | `image_fade` | `2.0` | Fade-in and fade-out duration in seconds |
@@ -336,9 +337,13 @@ file.
 
 Set `image_interval` to a positive value to enable participant images. Streamo
 accepts GIF, JPEG, PNG, and WebP files from `image_dir`. It rescans before each
-interval, shows every current image once in shuffled order, and gives newly
-discovered images priority in the current cycle. Invalid images are logged and
-skipped. Deleted paths leave the cycle; recreating a path makes it new again.
+interval. Images first discovered after Streamo starts are the current session:
+each appears before any older image is repeated. Afterwards,
+`current_session_image_weight` controls the ratio of current-session images to
+older images, with its default `3` meaning three current-session images for
+each older image. Set it to `0` to show older images whenever there are no
+unseen current-session images. Invalid images are logged and skipped. Deleted
+paths leave the cycle; recreating a path makes it new again.
 
 The `image` control command can copy a `file:` URL or download an HTTP(S) URL
 into `image_dir`. Files are published atomically so the frame producer does not
@@ -377,6 +382,7 @@ Streamo's TOML configuration using the same token:
 
 ```toml
 image_dir = "images"
+current_session_image_weight = 3
 image_interval = 20.0
 image_duration = 8.0
 image_fade = 2.0

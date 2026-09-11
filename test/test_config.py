@@ -60,6 +60,7 @@ def test_streamo_requires_stereo_pair_start_channel() -> None:
     assert config.required_channels == 18
     assert config.streaming_service.service == "twitch"
     assert config.image_dir == Path("images")
+    assert config.current_session_image_weight == 3
     assert isinstance(config, Reccy)
 
 
@@ -113,6 +114,17 @@ def test_image_feed_requires_enabled_participant_images() -> None:
                 url="https://ax.to/show/foto.php",
                 token="room-secret-at-least-20-characters",
             ),
+        )
+
+
+def test_current_session_image_weight_must_not_be_negative() -> None:
+    with pytest.raises(ValidationError, match="must not be negative"):
+        Streamo(
+            device_name="X18",
+            channel=1,
+            video=Path("visual-bed.mp4"),
+            streaming_service=_service(),
+            current_session_image_weight=-1,
         )
 
 

@@ -54,6 +54,50 @@ def test_scheduler_prioritizes_new_images(tmp_path: Path) -> None:
     assert selected == new
 
 
+def test_scheduler_shows_unseen_session_images_before_old_images(
+    tmp_path: Path,
+) -> None:
+    old = tmp_path / "old.png"
+    old.touch()
+    scheduler = ImageScheduler(tmp_path, NoShuffleRandom())
+    first = tmp_path / "first.png"
+    second = tmp_path / "second.png"
+    first.touch()
+    second.touch()
+
+    assert scheduler.next_image() == first
+    assert scheduler.next_image() == second
+
+
+def test_scheduler_weights_seen_session_images_against_old_images(
+    tmp_path: Path,
+) -> None:
+    old = tmp_path / "old.png"
+    old.touch()
+    scheduler = ImageScheduler(tmp_path, NoShuffleRandom(), session_weight=2)
+    first = tmp_path / "first.png"
+    second = tmp_path / "second.png"
+    first.touch()
+    second.touch()
+
+    selected = [scheduler.next_image() for _ in range(5)]
+
+    assert selected == [first, second, first, second, old]
+
+
+def test_scheduler_with_zero_session_weight_still_shows_new_image_first(
+    tmp_path: Path,
+) -> None:
+    old = tmp_path / "old.png"
+    old.touch()
+    scheduler = ImageScheduler(tmp_path, NoShuffleRandom(), session_weight=0)
+    current = tmp_path / "current.png"
+    current.touch()
+
+    assert scheduler.next_image() == current
+    assert scheduler.next_image() == old
+
+
 def test_scheduler_treats_recreated_path_as_new(tmp_path: Path) -> None:
     for name in "abc":
         (tmp_path / f"{name}.png").touch()

@@ -107,30 +107,54 @@ class ImageFeedPoller:
 
 class ImageScheduler:
     def __init__(
-        self, image_dir: Path, randomizer: random.Random | None = None
+        self,
+        image_dir: Path,
+        randomizer: random.Random | None = None,
+        *,
+        initial_paths: set[Path] | None = None,
+        session_weight: int = 3,
     ) -> None:
         self.image_dir = image_dir
         self.randomizer = randomizer or random.Random()
-        self.known: set[Path] = set()
-        self.pending: list[Path] = []
+        self.known = (
+            set(image_paths(image_dir)) if initial_paths is None else set(initial_paths)
+        )
+        self.session_paths: set[Path] = set()
+        self.unseen_session: list[Path] = []
+        self.session_pending: list[Path] = []
+        self.archive_pending: list[Path] = []
+        self.session_weight = session_weight
+        self.session_remaining = session_weight
 
     def next_image(self) -> Path | None:
         current = set(image_paths(self.image_dir))
-        new = sorted(current - self.known)
+        new_session = sorted(current - self.known)
         self.known = current
-        self.pending = [p for p in self.pending if p in current]
-
-        if new:
-            self.randomizer.shuffle(new)
-            self.pending = new + self.pending
-        if not self.pending and current:
-            self.pending = sorted(current)
-            self.randomizer.shuffle(self.pending)
-        if not self.pending:
+        self.session_paths.intersection_update(current)
+        self.unseen_session = [p for p in self.unseen_session if p in current]
+        self.session_pending = [p for p in self.session_pending if p in current]
+        self.archive_pending = [p for p in self.archive_pending if p in current]
+        if new_session:
+            self.randomizer.shuffle(new_session)
+            self.session_paths.update(new_session)
+            self.unseen_session = new_session + self.unseen_session
+        if self.unseen_session:
+            return self.unseen_session.pop(0)
+        if not current:
             return None
+        session = self.session_paths & current
+        archive = current - session
+        if session and (not archive or self.session_remaining > 0):
+            self.session_remaining = max(0, self.session_remaining - 1)
+            return self.next_from(session, self.session_pending)
+        self.session_remaining = self.session_weight
+        return self.next_from(archive, self.archive_pending)
 
-        image = self.pending.pop(0)
-        return image
+    def next_from(self, paths: set[Path], pending: list[Path]) -> Path:
+        if not pending:
+            pending.extend(sorted(paths))
+            self.randomizer.shuffle(pending)
+        return pending.pop(0)
 
 
 class ImageFrameProducer:

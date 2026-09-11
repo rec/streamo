@@ -37,6 +37,7 @@ def stream(
     controller: ControlController,
     service: StreamingServiceAdapter,
     *,
+    initial_image_paths: set[Path],
     preview: bool = False,
 ) -> int:
     state = controller.state
@@ -96,7 +97,7 @@ def stream(
         image_stream = os.fdopen(image_write, "wb")
         image_thread = threading.Thread(
             target=write_image_frames,
-            args=(image_stream, image_frame_producer(config)),
+            args=(image_stream, image_frame_producer(config, initial_image_paths)),
             name="StreamoImageFrames",
             daemon=True,
         )
@@ -314,10 +315,16 @@ def redacted_ffmpeg_command(command: list[str], output: FfmpegOutput) -> list[st
     return command[: -len(output.arguments)] + output.redacted_arguments()
 
 
-def image_frame_producer(config: Streamo) -> ImageFrameProducer:
+def image_frame_producer(
+    config: Streamo, initial_image_paths: set[Path]
+) -> ImageFrameProducer:
     width, height = video_size(config)
     return ImageFrameProducer(
-        ImageScheduler(config.image_dir),
+        ImageScheduler(
+            config.image_dir,
+            initial_paths=initial_image_paths,
+            session_weight=config.current_session_image_weight,
+        ),
         width=width,
         height=height,
         frame_rate=config.video_frame_rate,
