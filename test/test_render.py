@@ -9,7 +9,7 @@ from PIL import Image
 from scripts import render
 from scripts.render import (
     Media,
-    RenderConfig,
+    Render,
     RenderPlan,
     Scene,
     TitleEvent,
@@ -64,7 +64,7 @@ def test_fade_duration_is_capped_below_ffmpeg_limit() -> None:
 
 
 def test_build_plan_is_seeded_and_avoids_immediate_repeats() -> None:
-    config = RenderConfig(
+    config = Render(
         inputs=[Path("a.mp4"), Path("b.mp4")],
         output=Path("out.mp4"),
         duration=40,
@@ -102,7 +102,7 @@ def test_stretch_scenes_loops_short_media_for_adjacent_fades() -> None:
 
 
 def test_build_plan_inserts_title_events_by_interval() -> None:
-    config = RenderConfig(
+    config = Render(
         inputs=[Path("a.mp4")],
         output=Path("out.mp4"),
         duration=40,
@@ -148,7 +148,7 @@ def test_scene_start_times_use_fade_start_offsets() -> None:
 
 
 def test_title_schedule_applies_jitter_after_intro() -> None:
-    config = RenderConfig(
+    config = Render(
         inputs=[Path("a.mp4")],
         output=Path("out.mp4"),
         duration=80,
@@ -180,7 +180,7 @@ def test_print_render_schedule_prints_non_black_entries_and_titles(
         title_events=[TitleEvent(start=11, duration=8)],
     )
 
-    config = RenderConfig(
+    config = Render(
         inputs=[Path("a.mp4")],
         output=Path("out.mp4"),
         title_card=Path("show-title.png"),
@@ -200,7 +200,7 @@ def test_format_time_uses_minutes_seconds_and_milliseconds() -> None:
 
 
 def test_ffmpeg_command_uses_inputs_xfade_and_title_overlay() -> None:
-    config = RenderConfig(
+    config = Render(
         inputs=[Path("a.mp4"), Path("b.png")],
         output=Path("out.mp4"),
         duration=20,
@@ -243,7 +243,7 @@ def test_ffmpeg_command_uses_inputs_xfade_and_title_overlay() -> None:
 
 
 def test_filter_graph_maps_final_label() -> None:
-    config = RenderConfig(
+    config = Render(
         inputs=[Path("a.mp4")],
         output=Path("out.mp4"),
         duration=5,
@@ -288,9 +288,9 @@ def test_render_uses_temporary_png_for_markdown_title_card(
 ) -> None:
     title_card = tmp_path / "title.md"
     title_card.write_text("# Show Title")
-    configs: list[RenderConfig] = []
+    configs: list[Render] = []
 
-    def render_prepared(config: RenderConfig) -> None:
+    def render_prepared(config: Render) -> None:
         assert config.title_card is not None
         configs.append(config)
         assert config.title_card.suffix == ".png"
@@ -301,7 +301,7 @@ def test_render_uses_temporary_png_for_markdown_title_card(
     monkeypatch.setattr(render, "render_prepared", render_prepared)
 
     render.render(
-        RenderConfig(
+        Render(
             inputs=[Path("input.mp4")],
             output=tmp_path / "out.mp4",
             title_card=title_card,
@@ -336,8 +336,8 @@ def render_test_visual_bed(fixtures: Path, output: Path) -> None:
     )
 
 
-def visual_bed_config(fixtures: Path, output: Path) -> RenderConfig:
-    return RenderConfig(
+def visual_bed_config(fixtures: Path, output: Path) -> Render:
+    return Render(
         inputs=[
             fixtures / "blue-circle.mp4",
             fixtures / "red-diamond.mp4",

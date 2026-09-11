@@ -49,47 +49,7 @@ class TitleLine(BaseModel):
     blank: bool = False
 
 
-def run(
-    inputs: list[Path],
-    output: Path,
-    *,
-    duration: float = 3600.0,
-    seed: int | None = None,
-    title_card: Path | None = None,
-    width: int = 640,
-    height: int = 360,
-    fps: int = 24,
-    work_scale: int = 2,
-    work_fps: int = 30,
-    still_duration: float = 30.0,
-    start_black_duration: float = 8.0,
-    title_interval: float = 180.0,
-    title_jitter: float = 30.0,
-    title_duration: float = 8.0,
-    title_fade: float = 4.0,
-) -> None:
-    config = RenderConfig(
-        inputs=inputs,
-        output=output,
-        duration=duration,
-        seed=seed,
-        title_card=title_card,
-        width=width,
-        height=height,
-        fps=fps,
-        work_scale=work_scale,
-        work_fps=work_fps,
-        still_duration=still_duration,
-        start_black_duration=start_black_duration,
-        title_interval=title_interval,
-        title_jitter=title_jitter,
-        title_duration=title_duration,
-        title_fade=title_fade,
-    )
-    render(config)
-
-
-class RenderConfig(BaseModel):
+class Render(BaseModel, frozen=True):
     inputs: list[Path]
     output: Path
     duration: float = 3600.0
@@ -108,7 +68,7 @@ class RenderConfig(BaseModel):
     title_fade: float = 4.0
 
 
-def render(config: RenderConfig) -> None:
+def render(config: Render) -> None:
     validate_config(config)
     if config.title_card is not None and is_markdown(config.title_card):
         with tempfile.TemporaryDirectory(prefix="streamo-title-") as directory:
@@ -124,7 +84,7 @@ def render(config: RenderConfig) -> None:
         render_prepared(config)
 
 
-def render_prepared(config: RenderConfig) -> None:
+def render_prepared(config: Render) -> None:
     media = [probe_media(path, config.still_duration) for path in config.inputs]
     plan = build_plan(config, media)
     print_render_schedule(config, plan)
@@ -132,7 +92,7 @@ def render_prepared(config: RenderConfig) -> None:
     run_silent(command)
 
 
-def validate_config(config: RenderConfig) -> None:
+def validate_config(config: Render) -> None:
     if not config.inputs:
         sys.exit("at least one input is required")
     if config.title_card is not None and not config.title_card.exists():
@@ -328,7 +288,7 @@ def probe_duration(path: Path) -> float:
     return float(result.stdout.strip())
 
 
-def build_plan(config: RenderConfig, media: list[Media]) -> RenderPlan:
+def build_plan(config: Render, media: list[Media]) -> RenderPlan:
     rng = random.Random(config.seed)
     scenes = [
         Scene(
@@ -377,7 +337,7 @@ def build_plan(config: RenderConfig, media: list[Media]) -> RenderPlan:
 
 
 def title_schedule(
-    config: RenderConfig, rng: random.Random, *, earliest_start: float
+    config: Render, rng: random.Random, *, earliest_start: float
 ) -> list[TitleEvent]:
     events: list[TitleEvent] = []
     nominal = config.title_interval
@@ -427,7 +387,7 @@ def timeline_duration(scenes: list[Scene], transitions: list[Transition]) -> flo
     return sum(s.duration for s in scenes) - sum(t.duration for t in transitions)
 
 
-def print_render_schedule(config: RenderConfig, plan: RenderPlan) -> None:
+def print_render_schedule(config: Render, plan: RenderPlan) -> None:
     for start, scene in scene_start_times(plan):
         if scene.media.path != BLACK:
             print(f"{format_time(start)} {scene.media.path.name}")
@@ -458,15 +418,15 @@ def black_media(duration: float) -> Media:
     return Media(path=BLACK, duration=duration, is_still=True)
 
 
-def work_width(config: RenderConfig) -> int:
+def work_width(config: Render) -> int:
     return config.width * config.work_scale
 
 
-def work_height(config: RenderConfig) -> int:
+def work_height(config: Render) -> int:
     return config.height * config.work_scale
 
 
-def ffmpeg_command(config: RenderConfig, plan: RenderPlan) -> list[str]:
+def ffmpeg_command(config: Render, plan: RenderPlan) -> list[str]:
     command = ["ffmpeg", "-hide_banner", "-y"]
 
     for scene in plan.scenes:
@@ -523,7 +483,7 @@ def input_args(scene: Scene) -> list[str]:
     return ["-stream_loop", "-1", "-t", duration, "-i", scene.media.path.as_posix()]
 
 
-def filter_graph(config: RenderConfig, plan: RenderPlan) -> tuple[str, str]:
+def filter_graph(config: Render, plan: RenderPlan) -> tuple[str, str]:
     filters: list[str] = []
     for index, scene in enumerate(plan.scenes):
         filters.append(normalize_filter(index, scene, config))
@@ -560,7 +520,7 @@ def filter_graph(config: RenderConfig, plan: RenderPlan) -> tuple[str, str]:
     return ";".join(filters), "[out]"
 
 
-def normalize_filter(index: int, scene: Scene, config: RenderConfig) -> str:
+def normalize_filter(index: int, scene: Scene, config: Render) -> str:
     return (
         f"[{index}:v]"
         f"scale={work_width(config)}:{work_height(config)}:"
@@ -572,7 +532,7 @@ def normalize_filter(index: int, scene: Scene, config: RenderConfig) -> str:
 
 
 def title_filter(
-    config: RenderConfig, input_index: int, event: TitleEvent, output_label: str
+    config: Render, input_index: int, event: TitleEvent, output_label: str
 ) -> str:
     fade_out_start = max(0.0, event.duration - config.title_fade)
     return (
@@ -589,7 +549,7 @@ def title_filter(
 
 
 def main() -> None:
-    tyro.cli(run)
+    render(tyro.cli(Render))
 
 
 if __name__ == "__main__":
