@@ -1,9 +1,11 @@
 import random
 import subprocess as sp
+import tomllib
 from pathlib import Path
 
 import numpy as np
 import pytest
+import tyro
 from PIL import Image
 
 from scripts import render
@@ -19,6 +21,7 @@ from scripts.render import (
     ffmpeg_command,
     filter_graph,
     format_time,
+    plan_toml,
     print_render_schedule,
     render_markdown_title_card,
     scene_start_times,
@@ -288,9 +291,11 @@ def test_render_uses_temporary_png_for_markdown_title_card(
 ) -> None:
     title_card = tmp_path / "title.md"
     title_card.write_text("# Show Title")
+    input_path = tmp_path / "input.mp4"
+    input_path.touch()
     configs: list[Render] = []
 
-    def render_prepared(config: Render) -> None:
+    def execute_prepared_plan(config: Render, plan: RenderPlan) -> None:
         assert config.title_card is not None
         configs.append(config)
         assert config.title_card.suffix == ".png"
@@ -298,11 +303,16 @@ def test_render_uses_temporary_png_for_markdown_title_card(
         with Image.open(config.title_card) as image:
             assert image.size == (1280, 720)
 
-    monkeypatch.setattr(render, "render_prepared", render_prepared)
+    monkeypatch.setattr(render, "execute_prepared_plan", execute_prepared_plan)
+    monkeypatch.setattr(
+        render,
+        "probe_media",
+        lambda path, duration: Media(path=path, duration=duration),
+    )
 
     render.render(
         Render(
-            inputs=[Path("input.mp4")],
+            inputs=[input_path],
             output=tmp_path / "out.mp4",
             title_card=title_card,
         )
@@ -312,6 +322,112 @@ def test_render_uses_temporary_png_for_markdown_title_card(
     assert configs[0].title_card != title_card
     assert configs[0].title_card is not None
     assert not configs[0].title_card.exists()
+
+
+def test_plan_toml_round_trips_render_settings_and_scenes() -> None:
+    config = Render(
+        inputs=[Path("a.mp4")],
+        output=Path("out.mp4"),
+        duration=5,
+        seed=1,
+    )
+    plan = build_plan(config, [Media(path=Path("a.mp4"), duration=10)])
+
+    loaded = RenderPlan.model_validate(tomllib.loads(plan_toml(plan)))
+
+    assert loaded == plan
+
+
+def test_render_executes_plan_input(monkeypatch, tmp_path: Path) -> None:
+    config = Render(inputs=[Path("a.mp4")], output=Path("out.mp4"), duration=5, seed=1)
+    plan = build_plan(config, [Media(path=Path("a.mp4"), duration=10)])
+    path = tmp_path / "show.toml"
+    path.write_text(plan_toml(plan))
+    executed: list[tuple[Render, RenderPlan]] = []
+
+    monkeypatch.setattr(
+        render,
+        "execute_plan",
+        lambda config, plan: executed.append((config, plan)),
+    )
+
+    render.render(Render(inputs=[path], output=Path("ignored.mp4")))
+
+    assert executed == [(config, plan)]
+
+
+def test_plan_input_rejects_other_inputs_and_plan_flags(tmp_path: Path) -> None:
+    path = tmp_path / "show.toml"
+    path.write_text("")
+
+    with pytest.raises(SystemExit, match="only input"):
+        render.render(Render(inputs=[path, Path("a.mp4")], output=Path("out.mp4")))
+    with pytest.raises(SystemExit, match="cannot be used"):
+        render.render(Render(inputs=[path], output=Path("out.mp4"), plan=True))
+
+
+def test_plan_only_prints_toml_without_executing(
+    monkeypatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    input_path = tmp_path / "a.mp4"
+    input_path.touch()
+    monkeypatch.setattr(
+        render,
+        "probe_media",
+        lambda path, duration: Media(path=path, duration=duration),
+    )
+    monkeypatch.setattr(
+        render,
+        "execute_plan",
+        lambda config, plan: pytest.fail("plan-only must not execute"),
+    )
+
+    render.render(Render(inputs=[input_path], output=Path("out.mp4"), plan_only=True))
+
+    assert "[render]" in capsys.readouterr().out
+
+
+def test_plan_prints_toml_before_executing(
+    monkeypatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    input_path = tmp_path / "a.mp4"
+    input_path.touch()
+    executed: list[RenderPlan] = []
+    monkeypatch.setattr(
+        render,
+        "probe_media",
+        lambda path, duration: Media(path=path, duration=duration),
+    )
+    monkeypatch.setattr(
+        render,
+        "execute_plan",
+        lambda config, plan: executed.append(plan),
+    )
+
+    render.render(Render(inputs=[input_path], output=Path("out.mp4"), plan=True))
+
+    assert "[render]" in capsys.readouterr().out
+    assert executed
+
+
+def test_cli_accepts_plan_aliases() -> None:
+    plan = tyro.cli(
+        Render,
+        args=["--inputs", "a.mp4", "--output", "out.mp4", "-p"],
+    )
+    plan_only = tyro.cli(
+        Render,
+        args=["--inputs", "a.mp4", "--output", "out.mp4", "-P"],
+    )
+
+    assert plan.plan
+    assert plan_only.plan_only
+
+
+def test_cli_accepts_plan_input_without_output() -> None:
+    config = tyro.cli(Render, args=["--inputs", "show.toml"])
+
+    assert config.output is None
 
 
 def test_render_visual_bed_regression(tmp_path: Path) -> None:

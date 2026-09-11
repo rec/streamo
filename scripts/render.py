@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
+import json
 import random
 import re
 import sys
 import tempfile
+import tomllib
 from pathlib import Path
+from typing import Annotated
 
 import tyro
 from PIL import Image, ImageDraw, ImageFont
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ValidationError
 from reccy.runtime.process import run_silent
 
 BLACK = Path("__black__")
@@ -36,12 +39,6 @@ class TitleEvent(BaseModel):
     duration: float
 
 
-class RenderPlan(BaseModel):
-    scenes: list[Scene]
-    transitions: list[Transition]
-    title_events: list[TitleEvent]
-
-
 class TitleLine(BaseModel):
     text: str = ""
     level: int = 0
@@ -51,7 +48,7 @@ class TitleLine(BaseModel):
 
 class Render(BaseModel, frozen=True):
     inputs: list[Path]
-    output: Path
+    output: Path | None = None
     duration: float = 3600.0
     seed: int | None = None
     title_card: Path | None = None
@@ -66,10 +63,48 @@ class Render(BaseModel, frozen=True):
     title_jitter: float = 30.0
     title_duration: float = 8.0
     title_fade: float = 4.0
+    plan: Annotated[bool, tyro.conf.arg(aliases=["-p"])] = False
+    plan_only: Annotated[bool, tyro.conf.arg(aliases=["-P"])] = False
+
+
+class RenderPlan(BaseModel):
+    render: Render | None = None
+    scenes: list[Scene]
+    transitions: list[Transition] = Field(default_factory=list)
+    title_events: list[TitleEvent] = Field(default_factory=list)
 
 
 def render(config: Render) -> None:
+    if config.inputs and config.inputs[0].suffix.lower() == ".toml":
+        render_plan_file(config)
+        return
     validate_config(config)
+    media = [probe_media(path, config.still_duration) for path in config.inputs]
+    plan = build_plan(config, media)
+    if config.plan or config.plan_only:
+        print(plan_toml(plan), end="")
+    if config.plan_only:
+        return
+    execute_plan(config, plan)
+
+
+def render_plan_file(config: Render) -> None:
+    if len(config.inputs) != 1:
+        sys.exit("a render plan must be the only input")
+    if config.plan or config.plan_only:
+        sys.exit("--plan and --plan-only cannot be used with a render plan")
+    path = config.inputs[0]
+    try:
+        plan = RenderPlan.model_validate(tomllib.loads(path.read_text()))
+    except (tomllib.TOMLDecodeError, ValidationError) as error:
+        sys.exit(f"{path} is not a valid render plan: {error}")
+    if plan.render is None:
+        sys.exit(f"{path} does not contain render settings")
+    validate_config(plan.render)
+    execute_plan(plan.render, plan)
+
+
+def execute_plan(config: Render, plan: RenderPlan) -> None:
     if config.title_card is not None and is_markdown(config.title_card):
         with tempfile.TemporaryDirectory(prefix="streamo-title-") as directory:
             title_card = Path(directory) / "title-card.png"
@@ -79,14 +114,27 @@ def render(config: Render) -> None:
                 width=work_width(config),
                 height=work_height(config),
             )
-            render_prepared(config.model_copy(update={"title_card": title_card}))
+            prepared_config = config.model_copy(update={"title_card": title_card})
+            prepared_plan = plan.model_copy(
+                update={
+                    "scenes": [
+                        s
+                        if s.media.path != config.title_card
+                        else s.model_copy(
+                            update={
+                                "media": s.media.model_copy(update={"path": title_card})
+                            }
+                        )
+                        for s in plan.scenes
+                    ]
+                }
+            )
+            execute_prepared_plan(prepared_config, prepared_plan)
     else:
-        render_prepared(config)
+        execute_prepared_plan(config, plan)
 
 
-def render_prepared(config: Render) -> None:
-    media = [probe_media(path, config.still_duration) for path in config.inputs]
-    plan = build_plan(config, media)
+def execute_prepared_plan(config: Render, plan: RenderPlan) -> None:
     print_render_schedule(config, plan)
     command = ffmpeg_command(config, plan)
     run_silent(command)
@@ -95,6 +143,8 @@ def render_prepared(config: Render) -> None:
 def validate_config(config: Render) -> None:
     if not config.inputs:
         sys.exit("at least one input is required")
+    if config.output is None:
+        sys.exit("output is required")
     if config.title_card is not None and not config.title_card.exists():
         sys.exit(f"{config.title_card} does not exist")
     if config.duration <= 0:
@@ -333,7 +383,12 @@ def build_plan(config: Render, media: list[Media]) -> RenderPlan:
     if config.title_card is not None:
         title_events = title_schedule(config, rng, earliest_start=title_overlay_start)
 
-    return RenderPlan(scenes=scenes, transitions=transitions, title_events=title_events)
+    return RenderPlan(
+        render=config.model_copy(update={"plan": False, "plan_only": False}),
+        scenes=scenes,
+        transitions=transitions,
+        title_events=title_events,
+    )
 
 
 def title_schedule(
@@ -414,6 +469,60 @@ def format_time(seconds: float) -> str:
     return f"{minutes}:{seconds:02}.{milliseconds:03}"
 
 
+def plan_toml(plan: RenderPlan) -> str:
+    if plan.render is None:
+        raise ValueError("render settings are required to write a plan")
+    render = plan.render.model_dump(
+        mode="json", exclude={"plan", "plan_only"}, exclude_none=True
+    )
+    lines = ["[render]"]
+    lines.extend(f"{key} = {toml_value(value)}" for key, value in render.items())
+    for scene in plan.scenes:
+        lines.extend(
+            [
+                "",
+                "[[scenes]]",
+                f"duration = {toml_value(scene.duration)}",
+                "[scenes.media]",
+                f"path = {toml_value(scene.media.path)}",
+                f"duration = {toml_value(scene.media.duration)}",
+                f"is_still = {toml_value(scene.media.is_still)}",
+            ]
+        )
+    for transition in plan.transitions:
+        lines.extend(
+            [
+                "",
+                "[[transitions]]",
+                f"duration = {toml_value(transition.duration)}",
+            ]
+        )
+    for event in plan.title_events:
+        lines.extend(
+            [
+                "",
+                "[[title_events]]",
+                f"start = {toml_value(event.start)}",
+                f"duration = {toml_value(event.duration)}",
+            ]
+        )
+    return "\n".join(lines) + "\n"
+
+
+def toml_value(value: object) -> str:
+    if isinstance(value, Path):
+        return json.dumps(value.as_posix(), ensure_ascii=False)
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, bool):
+        return str(value).lower()
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, list):
+        return f"[{', '.join(toml_value(item) for item in value)}]"
+    raise TypeError(f"unsupported TOML value {value!r}")
+
+
 def black_media(duration: float) -> Media:
     return Media(path=BLACK, duration=duration, is_still=True)
 
@@ -427,6 +536,7 @@ def work_height(config: Render) -> int:
 
 
 def ffmpeg_command(config: Render, plan: RenderPlan) -> list[str]:
+    assert config.output is not None
     command = ["ffmpeg", "-hide_banner", "-y"]
 
     for scene in plan.scenes:

@@ -485,6 +485,26 @@ The renderer starts from black, selects media in randomized cycles, crossfades
 between scenes, and can overlay a PNG, other supported still image, or rendered
 Markdown title card.
 
+Add `--plan` (or `-p`) to print the generated render plan as TOML before
+rendering. Add `--plan-only` (or `-P`) to print it without rendering:
+
+```bash
+uv run python scripts/render.py \
+  --inputs a-looped.mp4 b-looped.mp4 \
+  --output visual-bed.mp4 \
+  --plan-only > visual-bed.toml
+```
+
+Run a saved plan without rebuilding its randomized scene selection:
+
+```bash
+uv run python scripts/render.py --inputs visual-bed.toml
+```
+
+A plan includes its render settings and is the sole input. `--plan` and
+`--plan-only` are only for creating plans, so they cannot be used when running
+one.
+
 ## Development
 
 Run the test suite with:
