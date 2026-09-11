@@ -9,6 +9,8 @@ from streamo.services import (
     CustomService,
     EncodingProfile,
     FacebookService,
+    FfmpegDestination,
+    FfmpegOutput,
     HlsPushIngest,
     IcecastIngest,
     IcecastService,
@@ -331,6 +333,51 @@ def test_hls_output_uses_transport_stream_segments() -> None:
         "https://upload.example.test/secret-key/live.m3u8",
     ]
     assert output.redacted_arguments()[-1] == "[REDACTED]"
+
+
+def test_tee_output_preserves_hls_options_and_redacts_its_url() -> None:
+    service = CustomService(
+        service="custom",
+        ingest=HlsPushIngest(
+            protocol="hls",
+            upload_url="https://upload.example.test/{stream_key}/live.m3u8",
+            stream_key="secret-key",
+            segment_duration=2,
+        ),
+        encoding=EncodingProfile.model_validate(encoding("mpegts")),
+    )
+    output = ingest_output(service)
+    fanout = FfmpegOutput(
+        destinations=[
+            *output.destinations,
+            FfmpegDestination(
+                muxer="mpegts", url="udp://127.0.0.1:23000", secret_url=False
+            ),
+        ]
+    )
+
+    assert fanout.arguments == [
+        "-f",
+        "tee",
+        "[f=hls:hls_time=2:hls_list_size=5:method=PUT]"
+        "https\\://upload.example.test/secret-key/live.m3u8|"
+        "[f=mpegts]udp\\://127.0.0.1\\:23000",
+    ]
+    assert "secret-key" not in fanout.redacted_arguments()[-1]
+
+
+def test_tee_output_escapes_delimiters_and_redacts_secret_urls() -> None:
+    output = FfmpegOutput(
+        destinations=[
+            FfmpegDestination(muxer="flv", url="rtmps://ingest.test/secret|key"),
+            FfmpegDestination(
+                muxer="mpegts", url="udp://127.0.0.1:23000", secret_url=False
+            ),
+        ]
+    )
+
+    assert "secret\\|key" in output.arguments[-1]
+    assert "secret" not in output.redacted_arguments()[-1]
 
 
 def test_icecast_output_is_audio_only_and_redacts_password() -> None:

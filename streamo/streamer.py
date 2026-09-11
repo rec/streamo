@@ -9,16 +9,24 @@ from pathlib import Path
 import numpy as np
 import sounddevice
 from reccy.runtime import process
+from reccy.runtime.logging import get_logger
 
 from .config import Streamo
 from .control import ControlController, RuntimeState
 from .images import ImageFrameProducer, ImageScheduler, write_image_frames
 from .programs import update_bitrate
 from .services import (
+    FfmpegDestination,
     FfmpegOutput,
     StreamingServiceAdapter,
     ingest_output,
 )
+
+LOGGER = get_logger(__name__)
+LOCAL_DISPLAY_URL = "udp://127.0.0.1:23000?pkt_size=1316"
+DRM_STATUS_ROOT = Path("/sys/class/drm")
+DISPLAY_POLL_INTERVAL = 1.0
+PLAYER_SHUTDOWN_TIMEOUT = 5.0
 
 
 @dataclass(frozen=True)
@@ -30,6 +38,58 @@ class VideoOverlay:
     interval: float
     duration: float
     fade: float
+
+
+class LocalDisplayController:
+    def __init__(self, status_root: Path = DRM_STATUS_ROOT) -> None:
+        self.status_root = status_root
+        self.connected = False
+        self.player: subprocess.Popen[bytes] | None = None
+
+    def update(self) -> None:
+        if self.player is not None and self.player.poll() is not None:
+            LOGGER.warning("Local display player exited")
+            self.player = None
+        connected = drm_connected(self.status_root)
+        if connected == self.connected:
+            return
+        self.connected = connected
+        if connected:
+            self.start_player()
+        else:
+            self.stop_player()
+
+    def close(self) -> None:
+        self.connected = False
+        self.stop_player()
+
+    def start_player(self) -> None:
+        if self.player is not None:
+            return
+        try:
+            self.player = subprocess.Popen(
+                local_ffplay_command(),
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                env={**os.environ, "SDL_VIDEODRIVER": "KMSDRM"},
+            )
+        except OSError as error:
+            LOGGER.error("Could not start local display player: %s", error)
+
+    def stop_player(self) -> None:
+        if self.player is None:
+            return
+        player = self.player
+        self.player = None
+        try:
+            player.terminate()
+            player.wait(timeout=PLAYER_SHUTDOWN_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            player.kill()
+            player.wait()
+        except OSError:
+            pass
 
 
 def stream(
@@ -53,6 +113,7 @@ def stream(
     image_write: int | None = None
     image_thread: threading.Thread | None = None
     preview_process: subprocess.Popen[bytes] | None = None
+    local_display: LocalDisplayController | None = None
     if (
         config.streaming_service.encoding.video is not None
         and config.image_interval > 0
@@ -63,9 +124,12 @@ def stream(
             preview_process = subprocess.Popen(
                 ffplay_command(), stdin=subprocess.PIPE, stdout=subprocess.DEVNULL
             )
+        command_output = (
+            None if preview else local_display_output(config, service_output)
+        )
         command = ffmpeg_command(
             config,
-            output=service_output,
+            output=command_output,
             image_pipe=image_read,
             preview=preview,
         )
@@ -79,6 +143,12 @@ def stream(
             stderr=subprocess.PIPE,
             pass_fds=() if image_read is None else (image_read,),
         )
+        if (
+            not preview
+            and config.local_display
+            and config.streaming_service.encoding.video is not None
+        ):
+            local_display = LocalDisplayController()
     except OSError:
         if image_read is not None:
             os.close(image_read)
@@ -107,6 +177,7 @@ def stream(
         lambda line: update_bitrate(state, line),
         thread_name="StreamoProcessOutput",
     )
+    next_display_poll = 0.0
     try:
         state.set_ffmpeg(alive=True)
         state.set_state("streaming")
@@ -120,6 +191,9 @@ def stream(
             samplerate=config.sample_rate,
         ):
             while ffmpeg.poll() is None:
+                if local_display is not None and time.monotonic() >= next_display_poll:
+                    local_display.update()
+                    next_display_poll = time.monotonic() + DISPLAY_POLL_INTERVAL
                 if should_stop(controller) or (
                     preview_process is not None and preview_process.poll() is not None
                 ):
@@ -133,9 +207,9 @@ def stream(
             if returncode and not requested_stop:
                 diagnostic_command = command
                 if not preview:
-                    assert service_output is not None
+                    assert command_output is not None
                     diagnostic_command = redacted_ffmpeg_command(
-                        command, service_output
+                        command, command_output
                     )
                 process.report_failed_process(diagnostic_command, ffmpeg_output)
             result = 0 if requested_stop else returncode
@@ -154,6 +228,8 @@ def stream(
             image_thread.join(timeout=5)
         if preview_process is not None:
             process.terminate(preview_process)
+        if local_display is not None:
+            local_display.close()
         if prepared is not None:
             service.finish()
         state.set_ffmpeg(alive=False, returncode=ffmpeg.returncode)
@@ -294,7 +370,15 @@ def ffmpeg_command(
     if preview:
         command.extend(["-f", "nut", "pipe:1"])
     else:
-        command.extend((output or ingest_output(config.streaming_service)).arguments)
+        command.extend(
+            (
+                output
+                if output is not None
+                else local_display_output(
+                    config, ingest_output(config.streaming_service)
+                )
+            ).arguments
+        )
     return command
 
 
@@ -309,6 +393,51 @@ def ffplay_command() -> list[str]:
         "nut",
         "pipe:0",
     ]
+
+
+def local_ffplay_command() -> list[str]:
+    return [
+        "ffplay",
+        "-hide_banner",
+        "-loglevel",
+        "warning",
+        "-fflags",
+        "nobuffer",
+        "-flags",
+        "low_delay",
+        "-framedrop",
+        "-fs",
+        "-an",
+        "-f",
+        "mpegts",
+        LOCAL_DISPLAY_URL,
+    ]
+
+
+def local_display_output(config: Streamo, output: FfmpegOutput | None) -> FfmpegOutput:
+    output = output or ingest_output(config.streaming_service)
+    if not config.local_display or config.streaming_service.encoding.video is None:
+        return output
+    return output.model_copy(
+        update={
+            "destinations": [
+                *output.destinations,
+                FfmpegDestination(
+                    muxer="mpegts", url=LOCAL_DISPLAY_URL, secret_url=False
+                ),
+            ]
+        }
+    )
+
+
+def drm_connected(status_root: Path) -> bool:
+    for status_path in status_root.glob("*/status"):
+        try:
+            if status_path.read_text().strip() == "connected":
+                return True
+        except OSError:
+            continue
+    return False
 
 
 def redacted_ffmpeg_command(command: list[str], output: FfmpegOutput) -> list[str]:

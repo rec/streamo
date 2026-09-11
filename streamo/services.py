@@ -369,14 +369,59 @@ class PreparedStream(BaseModel, frozen=True):
     remote_ids: dict[str, str] = Field(default_factory=dict)
 
 
+class FfmpegDestination(BaseModel, frozen=True):
+    muxer: str
+    url: str
+    options: dict[str, str] = Field(default_factory=dict)
+    secret_url: bool = True
+
+    def arguments(self) -> list[str]:
+        arguments = [
+            argument
+            for name, value in self.options.items()
+            for argument in (f"-{name}", value)
+        ]
+        return [*arguments, "-f", self.muxer, self.url]
+
+    def tee_specification(self, *, redact: bool = False) -> str:
+        options = [f"f={tee_escape(self.muxer)}"]
+        options.extend(
+            f"{name}={tee_escape(value)}" for name, value in self.options.items()
+        )
+        if redact and self.secret_url:
+            return f"[{':'.join(options)}][REDACTED]"
+        return f"[{':'.join(options)}]{tee_escape(self.url)}"
+
+
 class FfmpegOutput(BaseModel, frozen=True):
-    arguments: list[str]
-    secret_indexes: list[int] = Field(default_factory=list)
+    destinations: list[FfmpegDestination]
+
+    @property
+    def arguments(self) -> list[str]:
+        if len(self.destinations) == 1:
+            return self.destinations[0].arguments()
+        return [
+            "-f",
+            "tee",
+            "|".join(
+                destination.tee_specification() for destination in self.destinations
+            ),
+        ]
 
     def redacted_arguments(self) -> list[str]:
+        if len(self.destinations) == 1:
+            destination = self.destinations[0]
+            arguments = destination.arguments()
+            if destination.secret_url:
+                arguments[-1] = "[REDACTED]"
+            return arguments
         return [
-            "[REDACTED]" if i in self.secret_indexes else value
-            for i, value in enumerate(self.arguments)
+            "-f",
+            "tee",
+            "|".join(
+                destination.tee_specification(redact=True)
+                for destination in self.destinations
+            ),
         ]
 
 
@@ -646,30 +691,28 @@ def ingest_output(service: StreamingServiceConfiguration) -> FfmpegOutput:
         if isinstance(service, TwitchService) and service.bandwidth_test:
             url = f"{url}?bandwidthtest=true"
         return FfmpegOutput(
-            arguments=["-f", service.encoding.container, url], secret_indexes=[2]
+            destinations=[FfmpegDestination(muxer=service.encoding.container, url=url)]
         )
     if isinstance(ingest, SrtIngest):
         url = add_srt_options(ingest)
         return FfmpegOutput(
-            arguments=["-f", service.encoding.container, url],
-            secret_indexes=[2],
+            destinations=[FfmpegDestination(muxer=service.encoding.container, url=url)]
         )
     if isinstance(ingest, HlsPushIngest):
         key = urllib.parse.quote(ingest.stream_key.get_secret_value(), safe="")
         url = ingest.upload_url.replace("{stream_key}", key)
         return FfmpegOutput(
-            arguments=[
-                "-hls_time",
-                format_number(ingest.segment_duration),
-                "-hls_list_size",
-                "5",
-                "-method",
-                "PUT",
-                "-f",
-                "hls",
-                url,
-            ],
-            secret_indexes=[8],
+            destinations=[
+                FfmpegDestination(
+                    muxer="hls",
+                    url=url,
+                    options={
+                        "hls_time": format_number(ingest.segment_duration),
+                        "hls_list_size": "5",
+                        "method": "PUT",
+                    },
+                )
+            ]
         )
     return icecast_output(service, ingest)
 
@@ -691,15 +734,28 @@ def icecast_output(
     password = urllib.parse.quote(ingest.password.get_secret_value(), safe="")
     url = f"icecast://{username}:{password}@{parsed.netloc}{ingest.mountpoint}"
     content_type = ICECAST_CONTENT_TYPES[service.encoding.audio.codec]
-    arguments = ["-content_type", content_type]
+    options = {"content_type": content_type}
     if ingest.tls:
-        arguments.extend(["-tls", "1"])
+        options["tls"] = "1"
     if service.metadata.title is not None:
-        arguments.extend(["-ice_name", service.metadata.title])
+        options["ice_name"] = service.metadata.title
     if service.metadata.description is not None:
-        arguments.extend(["-ice_description", service.metadata.description])
-    arguments.extend(["-f", service.encoding.container, url])
-    return FfmpegOutput(arguments=arguments, secret_indexes=[len(arguments) - 1])
+        options["ice_description"] = service.metadata.description
+    return FfmpegOutput(
+        destinations=[
+            FfmpegDestination(
+                muxer=service.encoding.container,
+                url=url,
+                options=options,
+            )
+        ]
+    )
+
+
+def tee_escape(value: str) -> str:
+    for character in "\\'[]|:":
+        value = value.replace(character, f"\\{character}")
+    return value
 
 
 def validate_icecast_encoding(encoding: EncodingProfile) -> None:

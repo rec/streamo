@@ -78,6 +78,7 @@ The top-level capture and composition defaults are:
 | `title_interval` | `180.0` | Seconds between title-card appearances |
 | `title_duration` | `8.0` | Seconds the title card is visible |
 | `title_fade` | `2.0` | Fade-in and fade-out duration in seconds |
+| `local_display` | `true` | Show the composed program fullscreen on a connected local HDMI display |
 | `image_dir` | `"images"` | Participant-image directory |
 | `image_feed` | none | Optional remote participant-image feed |
 | `current_session_image_weight` | `3` | Current-session images per pre-existing image after each new image has appeared once |
@@ -317,6 +318,32 @@ uv run streamo daemon preview --config ~/.config/streamo/config.toml
 Preview sends a NUT stream from FFmpeg to FFplay. It does not prepare, publish,
 or finish a remote stream. Close the preview window or send the `stop` control
 command to stop it.
+
+## Local HDMI display
+
+Video streams display on a locally connected HDMI screen by default. Streamo
+always sends the already composed and encoded program to a loopback-only
+MPEG-TS feed alongside the remote ingest. It polls DRM connector status and
+starts or stops a separate fullscreen, silent FFplay process as HDMI is
+connected or disconnected. The remote stream and FFmpeg continue unchanged.
+
+Set `local_display = false` to disable the local feed and player. The setting
+has no effect for audio-only streams. The local player uses SDL KMSDRM and
+does not need X11, Wayland, or a desktop session.
+
+On the Pi, confirm the account that runs Streamo can access `/dev/dri`:
+
+```bash
+id
+ls -l /dev/dri
+```
+
+It normally needs membership of the `video` group. Inspect the installed unit
+with `systemctl cat streamo`. If its service account lacks that group or a
+device allow-list excludes DRM, add a narrow systemd drop-in before enabling
+the display, then reload systemd and restart Streamo. Finally, test the actual
+FFplay build and cable hot-plug on the Pi; KMSDRM support is a target-runtime
+requirement.
 
 Manage the background service with:
 

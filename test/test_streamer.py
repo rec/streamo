@@ -4,6 +4,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from streamo import streamer
 from streamo.config import Streamo
 from streamo.control import RuntimeState
 from streamo.services import (
@@ -17,9 +18,13 @@ from streamo.services import (
     ingest_output,
 )
 from streamo.streamer import (
+    LOCAL_DISPLAY_URL,
+    LocalDisplayController,
     _audio_callback,
+    drm_connected,
     ffmpeg_command,
     ffplay_command,
+    local_ffplay_command,
     redacted_ffmpeg_command,
     select_stereo_pair,
     title_filter,
@@ -79,7 +84,18 @@ def test_ffmpeg_command_streams_audio_pipe_and_video_loop() -> None:
     assert "visual-bed.mp4" in command
     assert "-stream_loop" in command
     assert "-filter_complex" not in command
-    assert command[-1] == "rtmps://live.twitch.tv/app/key"
+    assert command[-3:-1] == ["-f", "tee"]
+    assert command[-1] == (
+        "[f=flv]rtmps\\://live.twitch.tv/app/key|"
+        "[f=mpegts]udp\\://127.0.0.1\\:23000?pkt_size=1316"
+    )
+    assert command.count("-c:v") == 1
+
+
+def test_ffmpeg_command_can_disable_local_display() -> None:
+    command = ffmpeg_command(_config().model_copy(update={"local_display": False}))
+
+    assert command[-3:] == ["-f", "flv", "rtmps://live.twitch.tv/app/key"]
 
 
 def test_ffmpeg_command_overlays_title_card(tmp_path: Path) -> None:
@@ -146,6 +162,7 @@ def test_ffmpeg_command_previews_nut_on_stdout() -> None:
 
     assert command[-3:] == ["-f", "nut", "pipe:1"]
     assert ffplay_command()[-3:] == ["-f", "nut", "pipe:0"]
+    assert "tee" not in command
 
 
 def test_ffmpeg_command_omits_video_for_icecast() -> None:
@@ -182,10 +199,118 @@ def test_process_diagnostic_command_redacts_output_secret() -> None:
     config = _config()
     output = ingest_output(config.streaming_service)
 
-    command = redacted_ffmpeg_command(ffmpeg_command(config, output=output), output)
+    local_output = streamer.local_display_output(config, output)
+    command = redacted_ffmpeg_command(
+        ffmpeg_command(config, output=local_output), local_output
+    )
 
     assert "key" not in " ".join(command)
-    assert command[-1] == "[REDACTED]"
+    assert "[REDACTED]" in command[-1]
+    assert "udp\\://127.0.0.1\\:23000?pkt_size=1316" in command[-1]
+
+
+def test_local_ffplay_command_uses_fullscreen_silent_mpegts() -> None:
+    command = local_ffplay_command()
+
+    assert "-fs" in command
+    assert "-an" in command
+    assert command[-3:] == ["-f", "mpegts", LOCAL_DISPLAY_URL]
+
+
+def test_drm_connected_reads_any_connected_connector(tmp_path: Path) -> None:
+    disconnected = tmp_path / "card0-HDMI-A-1" / "status"
+    connected = tmp_path / "card0-HDMI-A-2" / "status"
+    disconnected.parent.mkdir()
+    connected.parent.mkdir()
+    disconnected.write_text("disconnected\n")
+    connected.write_text("connected\n")
+
+    assert drm_connected(tmp_path)
+
+
+def test_local_display_follows_connector_transitions(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    status = tmp_path / "card0-HDMI-A-1" / "status"
+    status.parent.mkdir()
+    status.write_text("disconnected\n")
+    players: list[FakePlayer] = []
+    calls: list[dict[str, object]] = []
+
+    def popen(command: list[str], **kwargs: object) -> FakePlayer:
+        calls.append({"command": command, **kwargs})
+        player = FakePlayer()
+        players.append(player)
+        return player
+
+    monkeypatch.setattr(streamer.subprocess, "Popen", popen)
+    display = LocalDisplayController(tmp_path)
+
+    display.update()
+    status.write_text("connected\n")
+    display.update()
+    display.update()
+    status.write_text("disconnected\n")
+    display.update()
+    status.write_text("connected\n")
+    display.update()
+    display.close()
+
+    assert len(players) == 2
+    assert players[0].terminated
+    assert players[1].terminated
+    assert calls[0]["command"] == local_ffplay_command()
+    assert calls[0]["env"] == {**streamer.os.environ, "SDL_VIDEODRIVER": "KMSDRM"}
+
+
+def test_local_display_restarts_only_after_a_connector_transition(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    status = tmp_path / "card0-HDMI-A-1" / "status"
+    status.parent.mkdir()
+    status.write_text("connected\n")
+    players: list[FakePlayer] = []
+    monkeypatch.setattr(
+        streamer.subprocess,
+        "Popen",
+        lambda *args, **kwargs: players.append(FakePlayer()) or players[-1],
+    )
+    display = LocalDisplayController(tmp_path)
+
+    display.update()
+    players[0].returncode = 1
+    display.update()
+    status.write_text("disconnected\n")
+    display.update()
+    status.write_text("connected\n")
+    display.update()
+
+    assert len(players) == 2
+
+
+def test_local_display_ignores_player_launch_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    status = tmp_path / "card0-HDMI-A-1" / "status"
+    status.parent.mkdir()
+    status.write_text("connected\n")
+    launches = 0
+
+    def popen(*args: object, **kwargs: object) -> None:
+        nonlocal launches
+        launches += 1
+        raise OSError("no DRM device")
+
+    monkeypatch.setattr(streamer.subprocess, "Popen", popen)
+    display = LocalDisplayController(tmp_path)
+
+    display.update()
+    status.write_text("disconnected\n")
+    display.update()
+    status.write_text("connected\n")
+    display.update()
+
+    assert launches == 2
 
 
 def test_video_size_parses_resolution() -> None:
@@ -242,3 +367,19 @@ def test_audio_callback_writes_silence_when_muted() -> None:
 class FakeProcess:
     def __init__(self) -> None:
         self.stdin = io.BytesIO()
+
+
+class FakePlayer:
+    def __init__(self) -> None:
+        self.returncode: int | None = None
+        self.terminated = False
+
+    def poll(self) -> int | None:
+        return self.returncode
+
+    def terminate(self) -> None:
+        self.terminated = True
+        self.returncode = 0
+
+    def wait(self, timeout: float | None = None) -> int:
+        return self.returncode or 0

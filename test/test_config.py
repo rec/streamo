@@ -59,9 +59,22 @@ def test_streamo_requires_stereo_pair_start_channel() -> None:
 
     assert config.required_channels == 18
     assert config.streaming_service.service == "twitch"
+    assert config.local_display
     assert config.image_dir == Path("images")
     assert config.current_session_image_weight == 3
     assert isinstance(config, Reccy)
+
+
+def test_local_display_can_be_disabled() -> None:
+    config = Streamo(
+        device_name="X18",
+        channel=17,
+        video=Path("visual-bed.mp4"),
+        streaming_service=_service(),
+        local_display=False,
+    )
+
+    assert not config.local_display
 
 
 def test_title_card_must_exist() -> None:
