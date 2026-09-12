@@ -25,7 +25,9 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "pytest",
+    "pyupgrade>=3.21.2",
     "ruff",
+    "ty>=0.0.78",
 ]
 
 [tool.uv]
