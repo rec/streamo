@@ -15,8 +15,8 @@ from pydantic import BaseModel, SecretStr, ValidationError
 from .credentials import write_private_toml
 from .services import KickService, RtmpIngest, StreamMetadata
 
-KICK_API_URL = "https://api.kick.com/public/v1"
-KICK_TOKEN_URL = "https://id.kick.com/oauth/token"
+KICK_API_URL = 'https://api.kick.com/public/v1'
+KICK_TOKEN_URL = 'https://id.kick.com/oauth/token'
 
 
 class KickApiError(ValueError):
@@ -63,7 +63,7 @@ def urllib_transport(request: KickRequest) -> tuple[int, bytes]:
     except urllib.error.HTTPError as error:
         return error.code, error.read()
     except urllib.error.URLError as error:
-        raise KickApiError(f"Kick API request failed: {error.reason}") from error
+        raise KickApiError(f'Kick API request failed: {error.reason}') from error
 
 
 def exchange_kick_code(
@@ -75,12 +75,12 @@ def exchange_kick_code(
 ) -> KickToken:
     return request_kick_token(
         {
-            "grant_type": "authorization_code",
-            "client_id": client.client_id,
-            "client_secret": client.client_secret.get_secret_value(),
-            "code": code,
-            "redirect_uri": redirect_uri,
-            "code_verifier": verifier,
+            'grant_type': 'authorization_code',
+            'client_id': client.client_id,
+            'client_secret': client.client_secret.get_secret_value(),
+            'code': code,
+            'redirect_uri': redirect_uri,
+            'code_verifier': verifier,
         },
         transport,
     )
@@ -114,10 +114,10 @@ class KickAccessTokenProvider:
     def refresh(self) -> None:
         token = request_kick_token(
             {
-                "grant_type": "refresh_token",
-                "client_id": self.credentials.client_id,
-                "client_secret": self.credentials.client_secret.get_secret_value(),
-                "refresh_token": self.credentials.refresh_token.get_secret_value(),
+                'grant_type': 'refresh_token',
+                'client_id': self.credentials.client_id,
+                'client_secret': self.credentials.client_secret.get_secret_value(),
+                'refresh_token': self.credentials.refresh_token.get_secret_value(),
             },
             self.transport,
         )
@@ -129,9 +129,9 @@ class KickAccessTokenProvider:
         write_private_toml(
             self.path,
             {
-                "client_id": credentials.client_id,
-                "client_secret": credentials.client_secret.get_secret_value(),
-                "refresh_token": credentials.refresh_token.get_secret_value(),
+                'client_id': credentials.client_id,
+                'client_secret': credentials.client_secret.get_secret_value(),
+                'refresh_token': credentials.refresh_token.get_secret_value(),
             },
         )
         self.credentials = credentials
@@ -152,7 +152,7 @@ class KickApi:
         if service.credentials is None or service.channel is None:
             return None
         path = service.credentials.expanduser()
-        credentials = load_toml_model(path, StoredKickCredentials, "Kick credentials")
+        credentials = load_toml_model(path, StoredKickCredentials, 'Kick credentials')
         return cls(
             tokens=KickAccessTokenProvider(credentials, path),
             channel_slug=service.channel,
@@ -161,31 +161,31 @@ class KickApi:
 
     def prepare(self, metadata: StreamMetadata) -> tuple[RtmpIngest, dict[str, str]]:
         channel = self.channel()
-        stream = object_mapping(channel.get("stream"), "channel stream")
-        server_url = string_value(stream, "url")
-        stream_key = string_value(stream, "key")
-        if urllib.parse.urlsplit(server_url).scheme != "rtmps":
-            raise KickApiError("Kick did not return an RTMPS ingest URL")
+        stream = object_mapping(channel.get('stream'), 'channel stream')
+        server_url = string_value(stream, 'url')
+        stream_key = string_value(stream, 'key')
+        if urllib.parse.urlsplit(server_url).scheme != 'rtmps':
+            raise KickApiError('Kick did not return an RTMPS ingest URL')
         if not stream_key:
-            raise KickApiError("Kick did not return a stream key")
-        broadcaster_id = integer_value(channel, "broadcaster_user_id")
+            raise KickApiError('Kick did not return a stream key')
+        broadcaster_id = integer_value(channel, 'broadcaster_user_id')
         ingest = RtmpIngest(
-            protocol="rtmps",
+            protocol='rtmps',
             server_url=server_url,
             stream_key=SecretStr(stream_key),
         )
         self.broadcaster_id = broadcaster_id
         self.update_metadata(metadata)
-        return ingest, {"broadcaster_id": str(broadcaster_id)}
+        return ingest, {'broadcaster_id': str(broadcaster_id)}
 
     def perform(self, command: str, payload: Mapping[str, object]) -> dict[str, object]:
-        if command == "update_stream_info":
+        if command == 'update_stream_info':
             self.update_channel(kick_metadata_body(payload))
             return {}
-        if command == "chat":
-            message = required_string(payload, "message")
+        if command == 'chat':
+            message = required_string(payload, 'message')
             return self.send_chat_message(message)
-        raise KickApiError(f"unsupported Kick API command {command}")
+        raise KickApiError(f'unsupported Kick API command {command}')
 
     def update_metadata(self, metadata: StreamMetadata) -> None:
         self.update_channel(
@@ -196,35 +196,35 @@ class KickApi:
 
     def update_channel(self, body: Mapping[str, object]) -> None:
         if body:
-            self.request("PATCH", "channels", body=body)
+            self.request('PATCH', 'channels', body=body)
 
     def send_chat_message(self, message: str) -> dict[str, object]:
         if self.broadcaster_id is None:
-            self.broadcaster_id = integer_value(self.channel(), "broadcaster_user_id")
+            self.broadcaster_id = integer_value(self.channel(), 'broadcaster_user_id')
         return self.request(
-            "POST",
-            "chat",
+            'POST',
+            'chat',
             body={
-                "broadcaster_user_id": self.broadcaster_id,
-                "content": message,
-                "type": "user",
+                'broadcaster_user_id': self.broadcaster_id,
+                'content': message,
+                'type': 'user',
             },
         )
 
     def health(self) -> tuple[str, str | None]:
         channel = self.channel()
-        if channel.get("stream") is None:
-            return "offline", None
-        stream = object_mapping(channel["stream"], "channel stream")
-        is_live = boolean_value(stream, "is_live")
-        viewers = integer_value(stream, "viewer_count")
-        return ("live" if is_live else "offline"), f"viewers={viewers}"
+        if channel.get('stream') is None:
+            return 'offline', None
+        stream = object_mapping(channel['stream'], 'channel stream')
+        is_live = boolean_value(stream, 'is_live')
+        viewers = integer_value(stream, 'viewer_count')
+        return ('live' if is_live else 'offline'), f'viewers={viewers}'
 
     def channel(self) -> dict[str, object]:
-        response = self.request("GET", "channels", query={"slug": self.channel_slug})
-        data = response.get("data")
+        response = self.request('GET', 'channels', query={'slug': self.channel_slug})
+        data = response.get('data')
         if not isinstance(data, list) or not data or not isinstance(data[0], dict):
-            raise KickApiError(f"Kick channel not found: {self.channel_slug}")
+            raise KickApiError(f'Kick channel not found: {self.channel_slug}')
         return cast(dict[str, object], data[0])
 
     def request(
@@ -235,9 +235,9 @@ class KickApi:
         query: Mapping[str, object] | None = None,
         body: Mapping[str, object] | None = None,
     ) -> dict[str, object]:
-        url = f"{self.api_url.rstrip('/')}/{endpoint.lstrip('/')}"
+        url = f'{self.api_url.rstrip("/")}/{endpoint.lstrip("/")}'
         if query:
-            url = f"{url}?{urllib.parse.urlencode(query)}"
+            url = f'{url}?{urllib.parse.urlencode(query)}'
         encoded = None if body is None else json.dumps(body).encode()
         for attempt in range(2):
             token = self.tokens.access_token(force_refresh=attempt == 1)
@@ -246,8 +246,8 @@ class KickApi:
                     method=method,
                     url=url,
                     headers={
-                        "Authorization": f"Bearer {token}",
-                        "Content-Type": "application/json",
+                        'Authorization': f'Bearer {token}',
+                        'Content-Type': 'application/json',
                     },
                     body=encoded,
                 )
@@ -261,11 +261,11 @@ class KickApi:
             try:
                 result = json.loads(data)
             except (json.JSONDecodeError, UnicodeDecodeError) as error:
-                raise KickApiError("Kick API response was not valid JSON") from error
+                raise KickApiError('Kick API response was not valid JSON') from error
             if not isinstance(result, dict):
-                raise KickApiError("Kick API response was not an object")
+                raise KickApiError('Kick API response was not an object')
             return result
-        raise AssertionError("unreachable")
+        raise AssertionError('unreachable')
 
 
 def request_kick_token(
@@ -274,9 +274,9 @@ def request_kick_token(
 ) -> KickToken:
     status, data = transport(
         KickRequest(
-            method="POST",
+            method='POST',
             url=KICK_TOKEN_URL,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            headers={'Content-Type': 'application/x-www-form-urlencoded'},
             body=urllib.parse.urlencode(values).encode(),
         )
     )
@@ -285,22 +285,22 @@ def request_kick_token(
     try:
         return KickToken.model_validate_json(data)
     except ValidationError as error:
-        raise KickApiError("Kick returned an invalid OAuth token") from error
+        raise KickApiError('Kick returned an invalid OAuth token') from error
 
 
 def kick_metadata_body(payload: Mapping[str, object]) -> dict[str, object]:
     body: dict[str, object] = {}
-    if "title" in payload:
-        body["stream_title"] = required_string(payload, "title")
-    if "category_id" in payload:
-        body["category_id"] = positive_integer(payload["category_id"], "category_id")
-    elif "category" in payload:
-        body["category_id"] = positive_integer(payload["category"], "category")
-    if "tags" in payload:
-        tags = string_list(payload["tags"], "tags")
+    if 'title' in payload:
+        body['stream_title'] = required_string(payload, 'title')
+    if 'category_id' in payload:
+        body['category_id'] = positive_integer(payload['category_id'], 'category_id')
+    elif 'category' in payload:
+        body['category_id'] = positive_integer(payload['category'], 'category')
+    if 'tags' in payload:
+        tags = string_list(payload['tags'], 'tags')
         if len(tags) > 10:
-            raise KickApiError("tags must contain at most 10 values")
-        body["custom_tags"] = tags
+            raise KickApiError('tags must contain at most 10 values')
+        body['custom_tags'] = tags
     return body
 
 
@@ -309,60 +309,60 @@ def load_toml_model[T: BaseModel](path: Path, model: type[T], name: str) -> T:
         data = tomllib.loads(path.expanduser().read_text())
         return model.model_validate(data)
     except (OSError, tomllib.TOMLDecodeError, ValidationError) as error:
-        raise KickApiError(f"Could not load {name} from {path}") from error
+        raise KickApiError(f'Could not load {name} from {path}') from error
 
 
 def object_mapping(value: object, name: str) -> dict[str, object]:
     if not isinstance(value, dict):
-        raise KickApiError(f"Kick response has no {name}")
+        raise KickApiError(f'Kick response has no {name}')
     return cast(dict[str, object], value)
 
 
 def string_value(values: Mapping[str, object], name: str) -> str:
     value = values.get(name)
     if not isinstance(value, str):
-        raise KickApiError(f"Kick response has no {name}")
+        raise KickApiError(f'Kick response has no {name}')
     return value
 
 
 def integer_value(values: Mapping[str, object], name: str) -> int:
     value = values.get(name)
     if not isinstance(value, int) or isinstance(value, bool):
-        raise KickApiError(f"Kick response has no {name}")
+        raise KickApiError(f'Kick response has no {name}')
     return value
 
 
 def boolean_value(values: Mapping[str, object], name: str) -> bool:
     value = values.get(name)
     if not isinstance(value, bool):
-        raise KickApiError(f"Kick response has no {name}")
+        raise KickApiError(f'Kick response has no {name}')
     return value
 
 
 def required_string(payload: Mapping[str, object], name: str) -> str:
     value = payload.get(name)
     if not isinstance(value, str) or not value:
-        raise KickApiError(f"{name} is required")
+        raise KickApiError(f'{name} is required')
     return value
 
 
 def positive_integer(value: object, name: str) -> int:
     if isinstance(value, bool):
-        raise KickApiError(f"{name} must be a positive integer")
+        raise KickApiError(f'{name} must be a positive integer')
     if isinstance(value, int):
         result = value
     elif isinstance(value, str) and value.isdecimal():
         result = int(value)
     else:
-        raise KickApiError(f"{name} must be a positive integer")
+        raise KickApiError(f'{name} must be a positive integer')
     if result <= 0:
-        raise KickApiError(f"{name} must be a positive integer")
+        raise KickApiError(f'{name} must be a positive integer')
     return result
 
 
 def string_list(value: object, name: str) -> list[str]:
     if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
-        raise KickApiError(f"{name} must be a list of strings")
+        raise KickApiError(f'{name} must be a list of strings')
     return cast(list[str], value)
 
 
@@ -370,9 +370,9 @@ def kick_error(status: int, data: bytes) -> str:
     try:
         payload = json.loads(data)
     except (json.JSONDecodeError, UnicodeDecodeError):
-        return f"Kick API returned HTTP {status}"
+        return f'Kick API returned HTTP {status}'
     if isinstance(payload, dict):
-        for name in ("message", "error"):
+        for name in ('message', 'error'):
             if isinstance((message := payload.get(name)), str):
-                return f"Kick API {status}: {message}"
-    return f"Kick API returned HTTP {status}"
+                return f'Kick API {status}: {message}'
+    return f'Kick API returned HTTP {status}'

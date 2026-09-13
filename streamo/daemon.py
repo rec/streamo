@@ -12,18 +12,18 @@ from .config import STREAMO_SERVICE, Streamo
 class DaemonOptions(BaseModel, frozen=True):
     action: Annotated[
         Literal[
-            "run",
-            "preview",
-            "install",
-            "uninstall",
-            "start",
-            "stop",
-            "restart",
-            "status",
+            'run',
+            'preview',
+            'install',
+            'uninstall',
+            'start',
+            'stop',
+            'restart',
+            'status',
         ],
         tyro.conf.Positional,
-    ] = "run"
-    config: Path = Path.home() / ".config/streamo/config.toml"
+    ] = 'run'
+    config: Path = Path.home() / '.config/streamo/config.toml'
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -33,20 +33,20 @@ def main(argv: list[str] | None = None) -> int:
 
 def run(options: DaemonOptions) -> int:
     streamo = Streamo.model_construct()
-    if options.action in {"run", "preview"}:
+    if options.action in {'run', 'preview'}:
         config = load_config(options.config)
-        return config.run(preview=options.action == "preview")
-    if options.action == "install":
+        return config.run(preview=options.action == 'preview')
+    if options.action == 'install':
         result = streamo.install_service(
             [
-                "daemon",
-                "run",
-                "--config",
+                'daemon',
+                'run',
+                '--config',
                 str(options.config.expanduser().resolve()),
             ]
         )
     else:
-        result = getattr(streamo, f"{options.action}_service")()
+        result = getattr(streamo, f'{options.action}_service')()
     print_service_status(STREAMO_SERVICE.name, result)
     return 0 if result.running is not False else 1
 

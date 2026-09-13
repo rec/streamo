@@ -24,7 +24,7 @@ from .youtube_api import YouTubeApiError
 class RuntimeState:
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self.state = "starting"
+        self.state = 'starting'
         self.muted = False
         self.ffmpeg_alive = False
         self.ffmpeg_returncode: int | None = None
@@ -44,22 +44,22 @@ class RuntimeState:
     def snapshot(self) -> dict[str, object]:
         with self._lock:
             return {
-                "state": self.state,
-                "muted": self.muted,
-                "ffmpeg_alive": self.ffmpeg_alive,
-                "ffmpeg_returncode": self.ffmpeg_returncode,
-                "audio_frames": self.audio_frames,
-                "audio_seconds": self.audio_seconds,
-                "last_audio_at": self.last_audio_at,
-                "left_level_db": self.left_level_db,
-                "right_level_db": self.right_level_db,
-                "clipping": self.clipping,
-                "output_bitrate_kbps": self.output_bitrate_kbps,
-                "last_error": self.last_error,
-                "service": self.service,
-                "endpoint_host": self.endpoint_host,
-                "capabilities": list(self.capabilities),
-                "remote_health": (
+                'state': self.state,
+                'muted': self.muted,
+                'ffmpeg_alive': self.ffmpeg_alive,
+                'ffmpeg_returncode': self.ffmpeg_returncode,
+                'audio_frames': self.audio_frames,
+                'audio_seconds': self.audio_seconds,
+                'last_audio_at': self.last_audio_at,
+                'left_level_db': self.left_level_db,
+                'right_level_db': self.right_level_db,
+                'clipping': self.clipping,
+                'output_bitrate_kbps': self.output_bitrate_kbps,
+                'last_error': self.last_error,
+                'service': self.service,
+                'endpoint_host': self.endpoint_host,
+                'capabilities': list(self.capabilities),
+                'remote_health': (
                     None if self.remote_health is None else dict(self.remote_health)
                 ),
             }
@@ -80,7 +80,7 @@ class RuntimeState:
 
     def set_error(self, message: str) -> None:
         with self._lock:
-            self.state = "failed"
+            self.state = 'failed'
             self.last_error = message
 
     def set_ffmpeg(self, *, alive: bool, returncode: int | None = None) -> None:
@@ -91,8 +91,8 @@ class RuntimeState:
     def set_muted(self, muted: bool) -> None:
         with self._lock:
             self.muted = muted
-            if self.state in {"streaming", "muted"}:
-                self.state = "muted" if muted else "streaming"
+            if self.state in {'streaming', 'muted'}:
+                self.state = 'muted' if muted else 'streaming'
 
     def is_muted(self) -> bool:
         with self._lock:
@@ -129,60 +129,60 @@ class ControlCommand:
 @dataclass
 class ControlController:
     state: RuntimeState
-    image_dir: Path = Path("images")
+    image_dir: Path = Path('images')
     service: StreamingServiceAdapter | None = None
     commands: queue.Queue[ControlCommand] = field(default_factory=queue.Queue)
 
     def handle_request(self, request: rpc.Request) -> rpc.Result:
         command = request.command
-        if command == "ping":
-            return "pong"
-        if command == "status":
+        if command == 'ping':
+            return 'pong'
+        if command == 'status':
             if self.service is not None:
                 health = self.service.health()
                 self.state.set_remote_health(
                     None if health is None else health.model_dump()
                 )
             return self.state.snapshot()
-        if command == "mute":
+        if command == 'mute':
             self.state.set_muted(True)
-            return "ok"
-        if command == "unmute":
+            return 'ok'
+        if command == 'unmute':
             self.state.set_muted(False)
-            return "ok"
-        if command == "stop":
+            return 'ok'
+        if command == 'stop':
             self.commands.put(ControlCommand(name=command, payload=request.params))
-            return "ok"
-        if command == "image":
+            return 'ok'
+        if command == 'image':
             return self.handle_image_command(request.params)
-        if command == "remove_last_image":
+        if command == 'remove_last_image':
             removed = remove_last_image(self.image_dir)
-            return {"removed": None if removed is None else removed.as_posix()}
+            return {'removed': None if removed is None else removed.as_posix()}
         if command in SERVICE_COMMANDS:
             return self.handle_service_command(command, request.params)
-        return ipc.Error(type="error", message=f"unknown command {command}")
+        return ipc.Error(type='error', message=f'unknown command {command}')
 
     def handle_image_command(self, payload: dict[str, object]) -> rpc.Result:
-        urls = payload.get("urls")
+        urls = payload.get('urls')
         if not isinstance(urls, list) or not urls:
-            return ipc.Error(type="error", message="image requires one or more urls")
+            return ipc.Error(type='error', message='image requires one or more urls')
         validated_urls: list[str] = []
         for url in urls:
             if not isinstance(url, str):
-                return ipc.Error(type="error", message="image urls must be strings")
+                return ipc.Error(type='error', message='image urls must be strings')
             validated_urls.append(url)
         try:
             paths = store_images(self.image_dir, validated_urls)
         except ImageStoreError as error:
-            return ipc.Error(type="error", message=str(error))
-        return {"images": [p.as_posix() for p in paths]}
+            return ipc.Error(type='error', message=str(error))
+        return {'images': [p.as_posix() for p in paths]}
 
     def handle_service_command(
         self, command: str, payload: dict[str, object]
     ) -> rpc.Result:
         if self.service is None:
             return ipc.Error(
-                type="error", message="streaming service is not configured"
+                type='error', message='streaming service is not configured'
             )
         try:
             return self.service.perform(command, payload)
@@ -192,7 +192,7 @@ class ControlController:
             KickApiError,
             UnsupportedServiceOperation,
         ) as error:
-            return ipc.Error(type="error", message=str(error))
+            return ipc.Error(type='error', message=str(error))
 
 
 SERVICE_COMMANDS = set(COMMAND_CAPABILITIES)
@@ -209,23 +209,23 @@ def store_images(image_dir: Path, urls: list[str]) -> list[Path]:
 
 def store_image(image_dir: Path, url: str) -> Path:
     parsed = urlparse(url)
-    if parsed.scheme == "file":
+    if parsed.scheme == 'file':
         source = Path(url2pathname(parsed.path))
         target = unique_image_path(image_dir, image_name(parsed.path))
         try:
             publish_image(target, source.read_bytes())
         except OSError as error:
-            raise ImageStoreError(f"could not copy {url}: {error}") from error
+            raise ImageStoreError(f'could not copy {url}: {error}') from error
         return target
-    if parsed.scheme in {"http", "https"}:
+    if parsed.scheme in {'http', 'https'}:
         target = unique_image_path(image_dir, image_name(parsed.path))
         try:
             with urlopen(url, timeout=10) as response:
                 publish_image(target, response.read())
         except (OSError, URLError) as error:
-            raise ImageStoreError(f"could not download {url}: {error}") from error
+            raise ImageStoreError(f'could not download {url}: {error}') from error
         return target
-    raise ImageStoreError(f"unsupported image URL {url}")
+    raise ImageStoreError(f'unsupported image URL {url}')
 
 
 def publish_image(target: Path, contents: bytes) -> None:
@@ -249,20 +249,20 @@ def remove_last_image(image_dir: Path) -> Path | None:
 
 def image_name(path: str) -> str:
     name = Path(unquote(path)).name
-    if name in {"", ".", ".."}:
-        name = "image.png"
+    if name in {'', '.', '..'}:
+        name = 'image.png'
     if Path(name).suffix:
         return name
-    return f"{name}.png"
+    return f'{name}.png'
 
 
 def unique_image_path(image_dir: Path, name: str) -> Path:
     target = image_dir / name
     if not target.exists():
         return target
-    suffix = target.suffix or ".png"
+    suffix = target.suffix or '.png'
     stem = target.stem if target.suffix else target.name
     index = 2
-    while (candidate := image_dir / f"{stem}-{index}{suffix}").exists():
+    while (candidate := image_dir / f'{stem}-{index}{suffix}').exists():
         index += 1
     return candidate

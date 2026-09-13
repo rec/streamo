@@ -13,9 +13,9 @@ from PIL import Image, ImageDraw, ImageFont
 from pydantic import BaseModel, Field, ValidationError
 from reccy.runtime.process import run_silent
 
-BLACK = Path("__black__")
-IMAGE_SUFFIXES = {".avif", ".bmp", ".gif", ".jpeg", ".jpg", ".png", ".webp"}
-MARKDOWN_SUFFIXES = {".markdown", ".md"}
+BLACK = Path('__black__')
+IMAGE_SUFFIXES = {'.avif', '.bmp', '.gif', '.jpeg', '.jpg', '.png', '.webp'}
+MARKDOWN_SUFFIXES = {'.markdown', '.md'}
 MAX_XFADE_DURATION = 59.999
 
 
@@ -40,7 +40,7 @@ class TitleEvent(BaseModel):
 
 
 class TitleLine(BaseModel):
-    text: str = ""
+    text: str = ''
     level: int = 0
     bullet: bool = False
     blank: bool = False
@@ -63,8 +63,8 @@ class Render(BaseModel, frozen=True):
     title_jitter: float = 30.0
     title_duration: float = 8.0
     title_fade: float = 4.0
-    plan: Annotated[bool, tyro.conf.arg(aliases=["-p"])] = False
-    plan_only: Annotated[bool, tyro.conf.arg(aliases=["-P"])] = False
+    plan: Annotated[bool, tyro.conf.arg(aliases=['-p'])] = False
+    plan_only: Annotated[bool, tyro.conf.arg(aliases=['-P'])] = False
 
 
 class RenderPlan(BaseModel):
@@ -75,14 +75,14 @@ class RenderPlan(BaseModel):
 
 
 def render(config: Render) -> None:
-    if config.inputs and config.inputs[0].suffix.lower() == ".toml":
+    if config.inputs and config.inputs[0].suffix.lower() == '.toml':
         render_plan_file(config)
         return
     validate_config(config)
     media = [probe_media(path, config.still_duration) for path in config.inputs]
     plan = build_plan(config, media)
     if config.plan or config.plan_only:
-        print(plan_toml(plan), end="")
+        print(plan_toml(plan), end='')
     if config.plan_only:
         return
     execute_plan(config, plan)
@@ -90,39 +90,39 @@ def render(config: Render) -> None:
 
 def render_plan_file(config: Render) -> None:
     if len(config.inputs) != 1:
-        sys.exit("a render plan must be the only input")
+        sys.exit('a render plan must be the only input')
     if config.plan or config.plan_only:
-        sys.exit("--plan and --plan-only cannot be used with a render plan")
+        sys.exit('--plan and --plan-only cannot be used with a render plan')
     path = config.inputs[0]
     try:
         plan = RenderPlan.model_validate(tomllib.loads(path.read_text()))
     except (tomllib.TOMLDecodeError, ValidationError) as error:
-        sys.exit(f"{path} is not a valid render plan: {error}")
+        sys.exit(f'{path} is not a valid render plan: {error}')
     if plan.render is None:
-        sys.exit(f"{path} does not contain render settings")
+        sys.exit(f'{path} does not contain render settings')
     validate_config(plan.render)
     execute_plan(plan.render, plan)
 
 
 def execute_plan(config: Render, plan: RenderPlan) -> None:
     if config.title_card is not None and is_markdown(config.title_card):
-        with tempfile.TemporaryDirectory(prefix="streamo-title-") as directory:
-            title_card = Path(directory) / "title-card.png"
+        with tempfile.TemporaryDirectory(prefix='streamo-title-') as directory:
+            title_card = Path(directory) / 'title-card.png'
             render_markdown_title_card(
                 config.title_card,
                 title_card,
                 width=work_width(config),
                 height=work_height(config),
             )
-            prepared_config = config.model_copy(update={"title_card": title_card})
+            prepared_config = config.model_copy(update={'title_card': title_card})
             prepared_plan = plan.model_copy(
                 update={
-                    "scenes": [
+                    'scenes': [
                         s
                         if s.media.path != config.title_card
                         else s.model_copy(
                             update={
-                                "media": s.media.model_copy(update={"path": title_card})
+                                'media': s.media.model_copy(update={'path': title_card})
                             }
                         )
                         for s in plan.scenes
@@ -142,13 +142,13 @@ def execute_prepared_plan(config: Render, plan: RenderPlan) -> None:
 
 def validate_config(config: Render) -> None:
     if not config.inputs:
-        sys.exit("at least one input is required")
+        sys.exit('at least one input is required')
     if config.output is None:
-        sys.exit("output is required")
+        sys.exit('output is required')
     if config.title_card is not None and not config.title_card.exists():
-        sys.exit(f"{config.title_card} does not exist")
+        sys.exit(f'{config.title_card} does not exist')
     if config.duration <= 0:
-        sys.exit("duration must be positive")
+        sys.exit('duration must be positive')
     if (
         config.width <= 0
         or config.height <= 0
@@ -156,15 +156,15 @@ def validate_config(config: Render) -> None:
         or config.work_scale <= 0
         or config.work_fps <= 0
     ):
-        sys.exit("width, height, fps, work_scale, and work_fps must be positive")
+        sys.exit('width, height, fps, work_scale, and work_fps must be positive')
     if config.still_duration <= 0:
-        sys.exit("still_duration must be positive")
+        sys.exit('still_duration must be positive')
     if config.title_interval <= 0 or config.title_jitter < 0:
         sys.exit(
-            "title_interval must be positive and title_jitter must not be negative"
+            'title_interval must be positive and title_jitter must not be negative'
         )
     if config.title_duration <= 0 or config.title_fade < 0:
-        sys.exit("title_duration must be positive and title_fade must not be negative")
+        sys.exit('title_duration must be positive and title_fade must not be negative')
 
 
 def is_markdown(path: Path | None) -> bool:
@@ -174,7 +174,7 @@ def is_markdown(path: Path | None) -> bool:
 def render_markdown_title_card(
     input_path: Path, output_path: Path, *, width: int, height: int
 ) -> None:
-    image = Image.new("RGB", (width, height), color=(8, 8, 10))
+    image = Image.new('RGB', (width, height), color=(8, 8, 10))
     draw = ImageDraw.Draw(image)
     lines = parse_markdown_title(input_path.read_text())
     layout = layout_title_lines(draw, lines, width=width, height=height)
@@ -197,36 +197,36 @@ def parse_markdown_title(text: str) -> list[TitleLine]:
             if lines and not lines[-1].blank:
                 lines.append(TitleLine(blank=True))
             continue
-        if match := re.match(r"^(#{1,6})\s+(.+)$", line):
+        if match := re.match(r'^(#{1,6})\s+(.+)$', line):
             lines.append(
                 TitleLine(
                     text=clean_markdown_text(match.group(2)),
                     level=len(match.group(1)),
                 )
             )
-        elif match := re.match(r"^[-*+]\s+(.+)$", line):
+        elif match := re.match(r'^[-*+]\s+(.+)$', line):
             lines.append(
                 TitleLine(text=clean_markdown_text(match.group(1)), bullet=True)
             )
-        elif match := re.match(r"^\d+[.)]\s+(.+)$", line):
+        elif match := re.match(r'^\d+[.)]\s+(.+)$', line):
             lines.append(
                 TitleLine(text=clean_markdown_text(match.group(1)), bullet=True)
             )
         else:
-            lines.append(TitleLine(text=clean_markdown_text(line.lstrip("> "))))
+            lines.append(TitleLine(text=clean_markdown_text(line.lstrip('> '))))
     return lines or [TitleLine(text=input_title_fallback(text))]
 
 
 def input_title_fallback(text: str) -> str:
-    return text.strip() or "Streamo"
+    return text.strip() or 'Streamo'
 
 
 def clean_markdown_text(text: str) -> str:
-    text = re.sub(r"!\[([^]]*)]\([^)]+\)", r"\1", text)
-    text = re.sub(r"\[([^]]+)]\([^)]+\)", r"\1", text)
-    text = re.sub(r"`([^`]+)`", r"\1", text)
-    text = re.sub(r"[*_~]+", "", text)
-    return re.sub(r"\s+", " ", text).strip()
+    text = re.sub(r'!\[([^]]*)]\([^)]+\)', r'\1', text)
+    text = re.sub(r'\[([^]]+)]\([^)]+\)', r'\1', text)
+    text = re.sub(r'`([^`]+)`', r'\1', text)
+    text = re.sub(r'[*_~]+', '', text)
+    return re.sub(r'\s+', ' ', text).strip()
 
 
 def layout_title_lines(
@@ -238,7 +238,7 @@ def layout_title_lines(
 
     for line in lines:
         if line.blank:
-            layout.append(("", body_font(height), height // 22, (230, 230, 235)))
+            layout.append(('', body_font(height), height // 22, (230, 230, 235)))
             continue
         font = font_for_line(line, height)
         color = (245, 245, 248) if line.level else (220, 220, 226)
@@ -268,10 +268,10 @@ def load_font(size: int) -> ImageFont.ImageFont:
 
 def font_paths() -> list[Path]:
     return [
-        Path("/System/Library/Fonts/Supplemental/Arial.ttf"),
-        Path("/System/Library/Fonts/Supplemental/Helvetica.ttf"),
-        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
-        Path("C:/Windows/Fonts/arial.ttf"),
+        Path('/System/Library/Fonts/Supplemental/Arial.ttf'),
+        Path('/System/Library/Fonts/Supplemental/Helvetica.ttf'),
+        Path('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'),
+        Path('C:/Windows/Fonts/arial.ttf'),
     ]
 
 
@@ -281,16 +281,16 @@ def wrap_text(
     font: ImageFont.ImageFont,
     max_width: int,
 ) -> list[str]:
-    prefix = "• " if line.bullet else ""
+    prefix = '• ' if line.bullet else ''
     words = line.text.split()
     if not words:
         return [prefix.rstrip()]
 
     wrapped: list[str] = []
     current = prefix + words[0]
-    hanging = "  " if line.bullet else ""
+    hanging = '  ' if line.bullet else ''
     for word in words[1:]:
-        candidate = f"{current} {word}"
+        candidate = f'{current} {word}'
         if text_width(draw, candidate, font) <= max_width:
             current = candidate
         else:
@@ -301,7 +301,7 @@ def wrap_text(
 
 
 def line_height(font: ImageFont.ImageFont) -> int:
-    _, top, _, bottom = font.getbbox("Ag")
+    _, top, _, bottom = font.getbbox('Ag')
     return int((bottom - top) * 1.35)
 
 
@@ -311,26 +311,26 @@ def text_width(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont) 
 
 def probe_media(path: Path, still_duration: float) -> Media:
     if not path.exists():
-        sys.exit(f"{path} does not exist")
+        sys.exit(f'{path} does not exist')
     is_still = path.suffix.lower() in IMAGE_SUFFIXES
     duration = still_duration if is_still else probe_duration(path)
     if duration <= 0:
-        sys.exit(f"{path} has no positive duration")
+        sys.exit(f'{path} has no positive duration')
     return Media(path=path, duration=duration, is_still=is_still)
 
 
 def probe_duration(path: Path) -> float:
     result = run_silent(
         [
-            "ffprobe",
-            "-v",
-            "error",
-            "-select_streams",
-            "v:0",
-            "-show_entries",
-            "format=duration",
-            "-of",
-            "default=nokey=1:noprint_wrappers=1",
+            'ffprobe',
+            '-v',
+            'error',
+            '-select_streams',
+            'v:0',
+            '-show_entries',
+            'format=duration',
+            '-of',
+            'default=nokey=1:noprint_wrappers=1',
             path.as_posix(),
         ],
         text=True,
@@ -384,7 +384,7 @@ def build_plan(config: Render, media: list[Media]) -> RenderPlan:
         title_events = title_schedule(config, rng, earliest_start=title_overlay_start)
 
     return RenderPlan(
-        render=config.model_copy(update={"plan": False, "plan_only": False}),
+        render=config.model_copy(update={'plan': False, 'plan_only': False}),
         scenes=scenes,
         transitions=transitions,
         title_events=title_events,
@@ -445,10 +445,10 @@ def timeline_duration(scenes: list[Scene], transitions: list[Transition]) -> flo
 def print_render_schedule(config: Render, plan: RenderPlan) -> None:
     for start, scene in scene_start_times(plan):
         if scene.media.path != BLACK:
-            print(f"{format_time(start)} {scene.media.path.name}")
+            print(f'{format_time(start)} {scene.media.path.name}')
     if config.title_card is not None:
         for event in plan.title_events:
-            print(f"{format_time(event.start)} {config.title_card.name}")
+            print(f'{format_time(event.start)} {config.title_card.name}')
 
 
 def scene_start_times(plan: RenderPlan) -> list[tuple[float, Scene]]:
@@ -466,47 +466,47 @@ def format_time(seconds: float) -> str:
     milliseconds = int(round(seconds * 1000))
     minutes, milliseconds = divmod(milliseconds, 60_000)
     seconds, milliseconds = divmod(milliseconds, 1000)
-    return f"{minutes}:{seconds:02}.{milliseconds:03}"
+    return f'{minutes}:{seconds:02}.{milliseconds:03}'
 
 
 def plan_toml(plan: RenderPlan) -> str:
     if plan.render is None:
-        raise ValueError("render settings are required to write a plan")
+        raise ValueError('render settings are required to write a plan')
     render = plan.render.model_dump(
-        mode="json", exclude={"plan", "plan_only"}, exclude_none=True
+        mode='json', exclude={'plan', 'plan_only'}, exclude_none=True
     )
-    lines = ["[render]"]
-    lines.extend(f"{key} = {toml_value(value)}" for key, value in render.items())
+    lines = ['[render]']
+    lines.extend(f'{key} = {toml_value(value)}' for key, value in render.items())
     for scene in plan.scenes:
         lines.extend(
             [
-                "",
-                "[[scenes]]",
-                f"duration = {toml_value(scene.duration)}",
-                "[scenes.media]",
-                f"path = {toml_value(scene.media.path)}",
-                f"duration = {toml_value(scene.media.duration)}",
-                f"is_still = {toml_value(scene.media.is_still)}",
+                '',
+                '[[scenes]]',
+                f'duration = {toml_value(scene.duration)}',
+                '[scenes.media]',
+                f'path = {toml_value(scene.media.path)}',
+                f'duration = {toml_value(scene.media.duration)}',
+                f'is_still = {toml_value(scene.media.is_still)}',
             ]
         )
     for transition in plan.transitions:
         lines.extend(
             [
-                "",
-                "[[transitions]]",
-                f"duration = {toml_value(transition.duration)}",
+                '',
+                '[[transitions]]',
+                f'duration = {toml_value(transition.duration)}',
             ]
         )
     for event in plan.title_events:
         lines.extend(
             [
-                "",
-                "[[title_events]]",
-                f"start = {toml_value(event.start)}",
-                f"duration = {toml_value(event.duration)}",
+                '',
+                '[[title_events]]',
+                f'start = {toml_value(event.start)}',
+                f'duration = {toml_value(event.duration)}',
             ]
         )
-    return "\n".join(lines) + "\n"
+    return '\n'.join(lines) + '\n'
 
 
 def toml_value(value: object) -> str:
@@ -519,8 +519,8 @@ def toml_value(value: object) -> str:
     if isinstance(value, (int, float)):
         return str(value)
     if isinstance(value, list):
-        return f"[{', '.join(toml_value(item) for item in value)}]"
-    raise TypeError(f"unsupported TOML value {value!r}")
+        return f'[{", ".join(toml_value(item) for item in value)}]'
+    raise TypeError(f'unsupported TOML value {value!r}')
 
 
 def black_media(duration: float) -> Media:
@@ -537,7 +537,7 @@ def work_height(config: Render) -> int:
 
 def ffmpeg_command(config: Render, plan: RenderPlan) -> list[str]:
     assert config.output is not None
-    command = ["ffmpeg", "-hide_banner", "-y"]
+    command = ['ffmpeg', '-hide_banner', '-y']
 
     for scene in plan.scenes:
         command.extend(input_args(scene))
@@ -546,11 +546,11 @@ def ffmpeg_command(config: Render, plan: RenderPlan) -> list[str]:
         if config.title_card is not None:
             command.extend(
                 [
-                    "-loop",
-                    "1",
-                    "-t",
-                    f"{event.duration:.6f}",
-                    "-i",
+                    '-loop',
+                    '1',
+                    '-t',
+                    f'{event.duration:.6f}',
+                    '-i',
                     config.title_card.as_posix(),
                 ]
             )
@@ -558,19 +558,19 @@ def ffmpeg_command(config: Render, plan: RenderPlan) -> list[str]:
     filter_complex, output_label = filter_graph(config, plan)
     command.extend(
         [
-            "-filter_complex",
+            '-filter_complex',
             filter_complex,
-            "-map",
+            '-map',
             output_label,
-            "-an",
-            "-c:v",
-            "libx264",
-            "-pix_fmt",
-            "yuv420p",
-            "-movflags",
-            "+faststart",
-            "-t",
-            f"{config.duration:.6f}",
+            '-an',
+            '-c:v',
+            'libx264',
+            '-pix_fmt',
+            'yuv420p',
+            '-movflags',
+            '+faststart',
+            '-t',
+            f'{config.duration:.6f}',
             config.output.as_posix(),
         ]
     )
@@ -578,19 +578,19 @@ def ffmpeg_command(config: Render, plan: RenderPlan) -> list[str]:
 
 
 def input_args(scene: Scene) -> list[str]:
-    duration = f"{scene.duration:.6f}"
+    duration = f'{scene.duration:.6f}'
     if scene.media.path == BLACK:
         return [
-            "-f",
-            "lavfi",
-            "-t",
+            '-f',
+            'lavfi',
+            '-t',
             duration,
-            "-i",
-            f"color=c=black:s=16x16:r=1:d={duration}",
+            '-i',
+            f'color=c=black:s=16x16:r=1:d={duration}',
         ]
     if scene.media.is_still:
-        return ["-loop", "1", "-t", duration, "-i", scene.media.path.as_posix()]
-    return ["-stream_loop", "-1", "-t", duration, "-i", scene.media.path.as_posix()]
+        return ['-loop', '1', '-t', duration, '-i', scene.media.path.as_posix()]
+    return ['-stream_loop', '-1', '-t', duration, '-i', scene.media.path.as_posix()]
 
 
 def filter_graph(config: Render, plan: RenderPlan) -> tuple[str, str]:
@@ -598,46 +598,46 @@ def filter_graph(config: Render, plan: RenderPlan) -> tuple[str, str]:
     for index, scene in enumerate(plan.scenes):
         filters.append(normalize_filter(index, scene, config))
 
-    current_label = "v0"
+    current_label = 'v0'
     elapsed = plan.scenes[0].duration
     for index, transition in enumerate(plan.transitions, start=1):
         offset = max(0.0, elapsed - transition.duration)
-        next_label = f"x{index}"
+        next_label = f'x{index}'
         filters.append(
-            f"[{current_label}][v{index}]"
-            f"xfade=transition=fade:duration={transition.duration:.6f}:"
-            f"offset={offset:.6f}[{next_label}]"
+            f'[{current_label}][v{index}]'
+            f'xfade=transition=fade:duration={transition.duration:.6f}:'
+            f'offset={offset:.6f}[{next_label}]'
         )
         current_label = next_label
         elapsed += plan.scenes[index].duration - transition.duration
 
     title_input = len(plan.scenes)
     for index, event in enumerate(plan.title_events):
-        title_label = f"title{index}"
+        title_label = f'title{index}'
         filters.append(title_filter(config, title_input + index, event, title_label))
-        next_label = f"overlay{index}"
+        next_label = f'overlay{index}'
         filters.append(
-            f"[{current_label}][{title_label}]"
-            f"overlay=(W-w)/2:(H-h)/2:eof_action=pass[{next_label}]"
+            f'[{current_label}][{title_label}]'
+            f'overlay=(W-w)/2:(H-h)/2:eof_action=pass[{next_label}]'
         )
         current_label = next_label
 
     filters.append(
-        f"[{current_label}]"
-        f"scale={config.width}:{config.height},"
-        f"fps={config.fps},format=yuv420p[out]"
+        f'[{current_label}]'
+        f'scale={config.width}:{config.height},'
+        f'fps={config.fps},format=yuv420p[out]'
     )
-    return ";".join(filters), "[out]"
+    return ';'.join(filters), '[out]'
 
 
 def normalize_filter(index: int, scene: Scene, config: Render) -> str:
     return (
-        f"[{index}:v]"
-        f"scale={work_width(config)}:{work_height(config)}:"
-        "force_original_aspect_ratio=decrease,"
-        f"pad={work_width(config)}:{work_height(config)}:(ow-iw)/2:(oh-ih)/2,"
-        f"setsar=1,fps={config.work_fps},format=yuv420p,"
-        f"trim=duration={scene.duration:.6f},setpts=PTS-STARTPTS[v{index}]"
+        f'[{index}:v]'
+        f'scale={work_width(config)}:{work_height(config)}:'
+        'force_original_aspect_ratio=decrease,'
+        f'pad={work_width(config)}:{work_height(config)}:(ow-iw)/2:(oh-ih)/2,'
+        f'setsar=1,fps={config.work_fps},format=yuv420p,'
+        f'trim=duration={scene.duration:.6f},setpts=PTS-STARTPTS[v{index}]'
     )
 
 
@@ -646,15 +646,15 @@ def title_filter(
 ) -> str:
     fade_out_start = max(0.0, event.duration - config.title_fade)
     return (
-        f"[{input_index}:v]"
-        f"scale={work_width(config)}:{work_height(config)}:"
-        "force_original_aspect_ratio=decrease,"
-        f"pad={work_width(config)}:{work_height(config)}:(ow-iw)/2:(oh-ih)/2,"
-        f"fps={config.work_fps},"
-        "format=rgba,"
-        f"fade=t=in:st=0:d={config.title_fade:.6f}:alpha=1,"
-        f"fade=t=out:st={fade_out_start:.6f}:d={config.title_fade:.6f}:alpha=1,"
-        f"setpts=PTS-STARTPTS+{event.start:.6f}/TB[{output_label}]"
+        f'[{input_index}:v]'
+        f'scale={work_width(config)}:{work_height(config)}:'
+        'force_original_aspect_ratio=decrease,'
+        f'pad={work_width(config)}:{work_height(config)}:(ow-iw)/2:(oh-ih)/2,'
+        f'fps={config.work_fps},'
+        'format=rgba,'
+        f'fade=t=in:st=0:d={config.title_fade:.6f}:alpha=1,'
+        f'fade=t=out:st={fade_out_start:.6f}:d={config.title_fade:.6f}:alpha=1,'
+        f'setpts=PTS-STARTPTS+{event.start:.6f}/TB[{output_label}]'
     )
 
 
@@ -662,5 +662,5 @@ def main() -> None:
     render(tyro.cli(Render))
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

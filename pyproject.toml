@@ -39,5 +39,8 @@ reccy = { git = "https://github.com/rec/reccy.git", branch = "main" }
 [tool.ruff]
 line-length = 88
 
+[tool.ruff.format]
+quote-style = "single"
+
 [tool.ruff.lint]
 select = ["B", "E", "F", "I"]

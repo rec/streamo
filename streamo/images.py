@@ -32,12 +32,12 @@ class ImageFeed(BaseModel, frozen=True):
     token: SecretStr = Field(min_length=20)
     poll_interval: float = Field(default=2.0, ge=0.5)
 
-    @field_validator("url")
+    @field_validator('url')
     @classmethod
     def validate_url(cls, value: str) -> str:
         parts = urlsplit(value)
-        if parts.scheme != "https" or parts.hostname is None:
-            raise ValueError("image feed URL must use HTTPS")
+        if parts.scheme != 'https' or parts.hostname is None:
+            raise ValueError('image feed URL must use HTTPS')
         return value
 
     model_config = ConfigDict(hide_input_in_errors=True)
@@ -57,16 +57,16 @@ class ImageFeedPoller:
         self.image_dir = image_dir
         self.stop_event = threading.Event()
         self.thread: threading.Thread | None = None
-        identity = f"{feed.url}\0{feed.token.get_secret_value()}".encode()
+        identity = f'{feed.url}\0{feed.token.get_secret_value()}'.encode()
         digest = hashlib.sha256(identity).hexdigest()[:12]
         self.feed_id = digest
-        self.cursor_path = image_dir / f".streamo-image-feed-{digest}.cursor"
+        self.cursor_path = image_dir / f'.streamo-image-feed-{digest}.cursor'
 
     def start(self) -> None:
         self.image_dir.mkdir(parents=True, exist_ok=True)
         self.thread = threading.Thread(
             target=self.run,
-            name="StreamoImageFeed",
+            name='StreamoImageFeed',
             daemon=True,
         )
         self.thread.start()
@@ -81,8 +81,8 @@ class ImageFeedPoller:
             try:
                 self.poll()
             except (ImageFeedError, OSError) as error:
-                host = urlsplit(self.feed.url).hostname or "image feed"
-                LOGGER.error("Could not poll image feed at %s: %s", host, error)
+                host = urlsplit(self.feed.url).hostname or 'image feed'
+                LOGGER.error('Could not poll image feed at %s: %s', host, error)
             self.stop_event.wait(self.feed.poll_interval)
 
     def poll(self) -> list[Path]:
@@ -97,7 +97,7 @@ class ImageFeedPoller:
                 continue
             contents = fetch_feed_image(self.feed, item.id)
             validate_feed_image(contents)
-            target = self.image_dir / f"remote-{self.feed_id}-{item.id:08}.jpg"
+            target = self.image_dir / f'remote-{self.feed_id}-{item.id:08}.jpg'
             publish_file(target, contents)
             write_feed_cursor(self.cursor_path, item.id)
             cursor = item.id
@@ -197,7 +197,7 @@ class ImageFrameProducer:
             try:
                 return load_image(path, self.width, self.height)
             except (OSError, UnidentifiedImageError) as error:
-                LOGGER.error("Could not load image %s: %s", path, error)
+                LOGGER.error('Could not load image %s: %s', path, error)
         return None
 
     def opacity(self, frame: int) -> float:
@@ -234,9 +234,9 @@ def image_paths(image_dir: Path) -> list[Path]:
 
 def load_image(path: Path, width: int, height: int) -> np.ndarray:
     with Image.open(path) as source:
-        image = source.convert("RGBA")
+        image = source.convert('RGBA')
     image.thumbnail((width, height), Image.Resampling.LANCZOS)
-    canvas = Image.new("RGBA", (width, height))
+    canvas = Image.new('RGBA', (width, height))
     position = ((width - image.width) // 2, (height - image.height) // 2)
     canvas.alpha_composite(image, position)
     return np.asarray(canvas, dtype=np.uint8)
@@ -253,13 +253,13 @@ def faded_frame(image: np.ndarray, opacity: float) -> bytes:
 
 def fetch_feed_items(feed: ImageFeed, after: int) -> list[ImageFeedItem]:
     try:
-        url = feed_request_url(feed, "feed", after=after)
+        url = feed_request_url(feed, 'feed', after=after)
         with urlopen(url, timeout=10) as response:
             contents = response.read(MAX_FEED_BYTES + 1)
     except (HTTPError, OSError, URLError) as error:
-        raise ImageFeedError(f"feed request failed ({type(error).__name__})") from error
+        raise ImageFeedError(f'feed request failed ({type(error).__name__})') from error
     if len(contents) > MAX_FEED_BYTES:
-        raise ImageFeedError("feed response is too large")
+        raise ImageFeedError('feed response is too large')
     try:
         items = [
             ImageFeedItem.model_validate(json.loads(line))
@@ -267,49 +267,49 @@ def fetch_feed_items(feed: ImageFeed, after: int) -> list[ImageFeedItem]:
             if line.strip()
         ]
     except (UnicodeDecodeError, json.JSONDecodeError, ValidationError) as error:
-        raise ImageFeedError("feed returned invalid JSON Lines") from error
+        raise ImageFeedError('feed returned invalid JSON Lines') from error
     if any(a.id >= b.id for a, b in pairwise(items)):
-        raise ImageFeedError("feed item IDs are not increasing")
+        raise ImageFeedError('feed item IDs are not increasing')
     return items
 
 
 def fetch_feed_image(feed: ImageFeed, image_id: int) -> bytes:
     try:
         with urlopen(
-            feed_request_url(feed, "image", id=image_id), timeout=10
+            feed_request_url(feed, 'image', id=image_id), timeout=10
         ) as response:
             contents = response.read(MAX_IMAGE_BYTES + 1)
     except (HTTPError, OSError, URLError) as error:
         raise ImageFeedError(
-            f"image {image_id} request failed ({type(error).__name__})"
+            f'image {image_id} request failed ({type(error).__name__})'
         ) from error
     if len(contents) > MAX_IMAGE_BYTES:
-        raise ImageFeedError(f"image {image_id} is too large")
+        raise ImageFeedError(f'image {image_id} is too large')
     return contents
 
 
 def validate_feed_image(contents: bytes) -> None:
     try:
         with Image.open(io.BytesIO(contents)) as image:
-            if image.format != "JPEG":
-                raise ImageFeedError("image feed returned a non-JPEG image")
+            if image.format != 'JPEG':
+                raise ImageFeedError('image feed returned a non-JPEG image')
             if image.width > MAX_IMAGE_SIDE or image.height > MAX_IMAGE_SIDE:
-                raise ImageFeedError("image feed returned an oversized image")
+                raise ImageFeedError('image feed returned an oversized image')
             image.load()
     except (OSError, UnidentifiedImageError) as error:
-        raise ImageFeedError("image feed returned an invalid JPEG") from error
+        raise ImageFeedError('image feed returned an invalid JPEG') from error
 
 
 def feed_request_url(feed: ImageFeed, action: str, **parameters: object) -> str:
     parts = urlsplit(feed.url)
     query = urlencode(
         {
-            "action": action,
-            "token": feed.token.get_secret_value(),
+            'action': action,
+            'token': feed.token.get_secret_value(),
             **parameters,
         }
     )
-    return urlunsplit((parts.scheme, parts.netloc, parts.path, query, ""))
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, query, ''))
 
 
 def read_feed_cursor(path: Path) -> int:
@@ -318,21 +318,21 @@ def read_feed_cursor(path: Path) -> int:
     try:
         cursor = int(path.read_text())
     except (OSError, ValueError) as error:
-        raise ImageFeedError("image feed cursor is invalid") from error
+        raise ImageFeedError('image feed cursor is invalid') from error
     if cursor < 0:
-        raise ImageFeedError("image feed cursor is invalid")
+        raise ImageFeedError('image feed cursor is invalid')
     return cursor
 
 
 def write_feed_cursor(path: Path, cursor: int) -> None:
-    publish_file(path, f"{cursor}\n".encode())
+    publish_file(path, f'{cursor}\n'.encode())
 
 
 def publish_file(target: Path, contents: bytes) -> None:
     temporary: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(
-            dir=target.parent, prefix=f".{target.name}.", suffix=".part", delete=False
+            dir=target.parent, prefix=f'.{target.name}.', suffix='.part', delete=False
         ) as output:
             temporary = Path(output.name)
             output.write(contents)
@@ -343,7 +343,7 @@ def publish_file(target: Path, contents: bytes) -> None:
         raise
 
 
-IMAGE_SUFFIXES = {".gif", ".jpeg", ".jpg", ".png", ".webp"}
+IMAGE_SUFFIXES = {'.gif', '.jpeg', '.jpg', '.png', '.webp'}
 MAX_FEED_BYTES = 256 * 1024
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 MAX_IMAGE_SIDE = 2048

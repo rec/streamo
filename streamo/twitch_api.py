@@ -37,10 +37,10 @@ def urllib_transport(request: TwitchRequest) -> tuple[int, bytes]:
         with urllib.request.urlopen(urllib_request, timeout=10) as response:
             return response.status, response.read()
     except urllib.error.HTTPError as error:
-        body = error.read().decode(errors="replace")
-        raise TwitchApiError(f"Twitch API {error.code}: {body}") from error
+        body = error.read().decode(errors='replace')
+        raise TwitchApiError(f'Twitch API {error.code}: {body}') from error
     except urllib.error.URLError as error:
-        raise TwitchApiError(f"Twitch API request failed: {error.reason}") from error
+        raise TwitchApiError(f'Twitch API request failed: {error.reason}') from error
 
 
 @dataclass
@@ -50,7 +50,7 @@ class TwitchApi:
     broadcaster_id: str
     sender_id: str
     moderator_id: str
-    api_url: str = "https://api.twitch.tv/helix"
+    api_url: str = 'https://api.twitch.tv/helix'
     transport: Callable[[TwitchRequest], tuple[int, bytes]] = urllib_transport
 
     @classmethod
@@ -71,110 +71,110 @@ class TwitchApi:
         )
 
     def perform(self, command: str, payload: Mapping[str, object]) -> dict[str, object]:
-        if command == "update_stream_info":
+        if command == 'update_stream_info':
             return self.update_stream_info(payload)
-        if command == "chat":
+        if command == 'chat':
             return self.send_chat_message(payload)
-        if command == "announce":
+        if command == 'announce':
             return self.send_announcement(payload)
-        if command == "clip":
+        if command == 'clip':
             return self.create_clip(payload)
-        if command == "marker":
+        if command == 'marker':
             return self.create_marker(payload)
-        raise TwitchApiError(f"unsupported Twitch API command {command}")
+        raise TwitchApiError(f'unsupported Twitch API command {command}')
 
     def update_stream_info(self, payload: Mapping[str, object]) -> dict[str, object]:
         body = self.channel_update_body(payload)
         if not body:
-            raise TwitchApiError("update_stream_info requires at least one field")
+            raise TwitchApiError('update_stream_info requires at least one field')
         self.request(
-            "PATCH",
-            "channels",
-            query={"broadcaster_id": self.broadcaster_id},
+            'PATCH',
+            'channels',
+            query={'broadcaster_id': self.broadcaster_id},
             body=body,
         )
         return {}
 
     def send_chat_message(self, payload: Mapping[str, object]) -> dict[str, object]:
-        message = required_string(payload, "message")
+        message = required_string(payload, 'message')
         body: dict[str, object] = {
-            "broadcaster_id": self.broadcaster_id,
-            "sender_id": self.sender_id,
-            "message": message,
+            'broadcaster_id': self.broadcaster_id,
+            'sender_id': self.sender_id,
+            'message': message,
         }
         copy_optional(
             payload,
             body,
-            "reply_parent_message_id",
-            "for_source_only",
-            "pin",
+            'reply_parent_message_id',
+            'for_source_only',
+            'pin',
         )
-        return self.request("POST", "chat/messages", body=body)
+        return self.request('POST', 'chat/messages', body=body)
 
     def send_announcement(self, payload: Mapping[str, object]) -> dict[str, object]:
-        body: dict[str, object] = {"message": required_string(payload, "message")}
-        copy_optional(payload, body, "color", "for_source_only")
+        body: dict[str, object] = {'message': required_string(payload, 'message')}
+        copy_optional(payload, body, 'color', 'for_source_only')
         self.request(
-            "POST",
-            "chat/announcements",
+            'POST',
+            'chat/announcements',
             query={
-                "broadcaster_id": self.broadcaster_id,
-                "moderator_id": self.moderator_id,
+                'broadcaster_id': self.broadcaster_id,
+                'moderator_id': self.moderator_id,
             },
             body=body,
         )
         return {}
 
     def create_clip(self, payload: Mapping[str, object]) -> dict[str, object]:
-        query: dict[str, object] = {"broadcaster_id": self.broadcaster_id}
-        copy_optional(payload, query, "has_delay")
-        return self.request("POST", "clips", query=query)
+        query: dict[str, object] = {'broadcaster_id': self.broadcaster_id}
+        copy_optional(payload, query, 'has_delay')
+        return self.request('POST', 'clips', query=query)
 
     def create_marker(self, payload: Mapping[str, object]) -> dict[str, object]:
-        body: dict[str, object] = {"user_id": self.broadcaster_id}
-        copy_optional(payload, body, "description")
-        return self.request("POST", "streams/markers", body=body)
+        body: dict[str, object] = {'user_id': self.broadcaster_id}
+        copy_optional(payload, body, 'description')
+        return self.request('POST', 'streams/markers', body=body)
 
     def channel_update_body(self, payload: Mapping[str, object]) -> dict[str, object]:
         body: dict[str, object] = {}
         copy_optional(
             payload,
             body,
-            "title",
-            "game_id",
-            "broadcaster_language",
-            "delay",
-            "tags",
-            "content_classification_labels",
-            "is_branded_content",
+            'title',
+            'game_id',
+            'broadcaster_language',
+            'delay',
+            'tags',
+            'content_classification_labels',
+            'is_branded_content',
         )
-        if "category_id" in payload:
-            body["game_id"] = payload["category_id"]
-        if "category" in payload and "game_id" not in body:
-            body["game_id"] = self.search_category(required_string(payload, "category"))
+        if 'category_id' in payload:
+            body['game_id'] = payload['category_id']
+        if 'category' in payload and 'game_id' not in body:
+            body['game_id'] = self.search_category(required_string(payload, 'category'))
         return body
 
     def search_category(self, name: str) -> str:
         response = self.request(
-            "GET", "search/categories", query={"query": name, "first": 20}
+            'GET', 'search/categories', query={'query': name, 'first': 20}
         )
-        data = response.get("data")
+        data = response.get('data')
         if not isinstance(data, list) or not data:
-            raise TwitchApiError(f"Twitch category not found: {name}")
+            raise TwitchApiError(f'Twitch category not found: {name}')
         categories: list[dict[str, object]] = [
             cast(dict[str, object], c) for c in data if isinstance(c, dict)
         ]
-        exact = [c for c in categories if c.get("name") == name]
+        exact = [c for c in categories if c.get('name') == name]
         casefolded = [
             c
             for c in categories
-            if isinstance((category_name := c.get("name")), str)
+            if isinstance((category_name := c.get('name')), str)
             and category_name.casefold() == name.casefold()
         ]
         category = (exact or casefolded or categories)[0]
-        category_id = category.get("id")
+        category_id = category.get('id')
         if not isinstance(category_id, str):
-            raise TwitchApiError(f"Twitch category response missing id: {name}")
+            raise TwitchApiError(f'Twitch category response missing id: {name}')
         return category_id
 
     def request(
@@ -185,34 +185,34 @@ class TwitchApi:
         query: Mapping[str, object] | None = None,
         body: Mapping[str, object] | None = None,
     ) -> dict[str, object]:
-        url = f"{self.api_url.rstrip('/')}/{path.lstrip('/')}"
+        url = f'{self.api_url.rstrip("/")}/{path.lstrip("/")}'
         if query:
-            url = f"{url}?{urllib.parse.urlencode(query)}"
+            url = f'{url}?{urllib.parse.urlencode(query)}'
         headers = {
-            "Authorization": f"Bearer {self.access_token}",
-            "Client-Id": self.client_id,
+            'Authorization': f'Bearer {self.access_token}',
+            'Client-Id': self.client_id,
         }
         data = None
         if body is not None:
-            headers["Content-Type"] = "application/json"
-            data = json.dumps(body, separators=(",", ":")).encode()
+            headers['Content-Type'] = 'application/json'
+            data = json.dumps(body, separators=(',', ':')).encode()
         status, response = self.transport(TwitchRequest(method, url, headers, data))
         if status >= 400:
             raise TwitchApiError(
-                f"Twitch API {status}: {response.decode(errors='replace')}"
+                f'Twitch API {status}: {response.decode(errors="replace")}'
             )
         if status == 204 or not response:
             return {}
         parsed = json.loads(response)
         if not isinstance(parsed, dict):
-            raise TwitchApiError("Twitch API response was not an object")
+            raise TwitchApiError('Twitch API response was not an object')
         return parsed
 
 
 def required_string(payload: Mapping[str, object], name: str) -> str:
     value = payload.get(name)
     if not isinstance(value, str) or not value:
-        raise TwitchApiError(f"{name} is required")
+        raise TwitchApiError(f'{name} is required')
     return value
 
 

@@ -5,12 +5,12 @@ from . import auth, daemon
 
 def main(argv: list[str] | None = None) -> int:
     arguments = sys.argv[1:] if argv is None else argv
-    if arguments[:1] == ["auth"]:
+    if arguments[:1] == ['auth']:
         return auth.main(arguments[1:])
-    if arguments[:1] == ["daemon"]:
+    if arguments[:1] == ['daemon']:
         arguments = arguments[1:]
     return daemon.main(arguments)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     raise SystemExit(main())
