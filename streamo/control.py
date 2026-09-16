@@ -40,6 +40,10 @@ class RuntimeState:
         self.endpoint_host: str | None = None
         self.capabilities: list[str] = []
         self.remote_health: dict[str, object] | None = None
+        self.audio_error: str | None = None
+        self.audio_dropped_frames = 0
+        self.audio_error_count = 0
+        self.audio_last_error: str | None = None
 
     def snapshot(self) -> dict[str, object]:
         with self._lock:
@@ -56,6 +60,10 @@ class RuntimeState:
                 'clipping': self.clipping,
                 'output_bitrate_kbps': self.output_bitrate_kbps,
                 'last_error': self.last_error,
+                'audio_error': self.audio_error,
+                'audio_last_error': self.audio_last_error,
+                'audio_error_count': self.audio_error_count,
+                'audio_dropped_frames': self.audio_dropped_frames,
                 'service': self.service,
                 'endpoint_host': self.endpoint_host,
                 'capabilities': list(self.capabilities),
@@ -69,6 +77,14 @@ class RuntimeState:
             self.service = adapter.service.service
             self.endpoint_host = endpoint_host(adapter.service)
             self.capabilities = [c.value for c in adapter.capabilities]
+
+    def set_audio_health(self, error: str | None, dropped_frames: int) -> None:
+        with self._lock:
+            if error and error != self.audio_error:
+                self.audio_error_count += 1
+                self.audio_last_error = error
+            self.audio_error = error
+            self.audio_dropped_frames = dropped_frames
 
     def set_remote_health(self, health: dict[str, object] | None) -> None:
         with self._lock:

@@ -1,0 +1,122 @@
+import os
+import queue
+import time
+from typing import IO
+
+import numpy as np
+import sounddevice
+
+from .control import RuntimeState
+
+
+class AudioCapture:
+    """Keep capture independent of FFmpeg; retain at most one second of audio."""
+
+    def __init__(
+        self,
+        device: str,
+        channel: int,
+        sample_rate: int,
+        output: IO[bytes],
+        state: RuntimeState,
+    ) -> None:
+        self.device = device
+        self.channel = channel
+        self.sample_rate = sample_rate
+        self.output = output
+        self.state = state
+        self.blocks: queue.Queue[tuple[np.ndarray, str]] = queue.Queue(
+            maxsize=max(1, sample_rate // 1024)
+        )
+        self.pending = b''
+        self.dropped_frames = 0
+        self.last_capture = time.monotonic()
+        self.last_write = self.last_capture
+        self.retry_at = 0.0
+        self.capture: sounddevice.InputStream | None = None
+        self.error: str | None = None
+        os.set_blocking(output.fileno(), False)
+
+    def callback(
+        self, data: np.ndarray, frames: int, timing: object, status: object
+    ) -> None:
+        self.last_capture = time.monotonic()
+        block = (data[:, self.channel - 1 : self.channel + 1].copy(), str(status))
+        try:
+            self.blocks.put_nowait(block)
+        except queue.Full:
+            try:
+                discarded, _ = self.blocks.get_nowait()
+                self.dropped_frames += len(discarded)
+            except queue.Empty:
+                pass
+            self.blocks.put_nowait(block)
+
+    def update(self) -> None:
+        now = time.monotonic()
+        status = ''
+        if self.capture is not None and (
+            not self.capture.active or now - self.last_capture > 3
+        ):
+            self.error = 'Audio capture stopped; retrying'
+            self.close_capture()
+            self.retry_at = now + 1
+        if self.capture is None and now >= self.retry_at:
+            try:
+                self.capture = sounddevice.InputStream(
+                    device=self.device,
+                    channels=self.channel + 1,
+                    samplerate=self.sample_rate,
+                    dtype='float32',
+                    blocksize=1024,
+                    callback=self.callback,
+                )
+                self.capture.start()
+                self.last_capture = now
+            except (sounddevice.PortAudioError, OSError, ValueError):
+                self.error = 'Audio device unavailable; retrying'
+                self.close_capture()
+                self.retry_at = now + 5
+        if not self.pending:
+            try:
+                block, status = self.blocks.get_nowait()
+            except queue.Empty:
+                block = None
+                status = ''
+            if block is not None:
+                if self.state.is_muted():
+                    block.fill(0)
+                self.state.record_audio(
+                    frames=len(block),
+                    sample_rate=self.sample_rate,
+                    left_level_db=level_db(block[:, 0]),
+                    right_level_db=level_db(block[:, 1]),
+                    clipping=bool(np.max(np.abs(block)) >= 1),
+                )
+                self.pending = block.tobytes()
+                if status:
+                    self.error = f'Audio capture: {status}'
+        if self.pending:
+            try:
+                written = os.write(self.output.fileno(), self.pending)
+            except BlockingIOError:
+                if now - self.last_write > 1:
+                    self.error = 'FFmpeg audio input stalled; discarding old audio'
+            except OSError:
+                self.error = 'FFmpeg audio input closed'
+            else:
+                self.pending = self.pending[written:]
+                self.last_write = now
+                if not status and self.capture is not None:
+                    self.error = None
+        self.state.set_audio_health(self.error, self.dropped_frames)
+
+    def close_capture(self) -> None:
+        if self.capture is not None:
+            capture, self.capture = self.capture, None
+            capture.close()
+
+
+def level_db(samples: np.ndarray) -> float:
+    peak = float(np.max(np.abs(samples)))
+    return float(20 * np.log10(peak)) if peak > 0 else -120.0

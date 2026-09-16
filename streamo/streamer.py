@@ -2,19 +2,18 @@ import os
 import subprocess
 import threading
 import time
-from collections.abc import Callable
+from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import quote, quote_plus, unquote, unquote_plus
 
-import numpy as np
-import sounddevice
 from pydantic import SecretStr
 from reccy.runtime import process
 from reccy.runtime.logging import get_logger
 
+from .audio import AudioCapture
 from .config import Streamo
-from .control import ControlController, RuntimeState
+from .control import ControlController
 from .images import ImageFrameProducer, ImageScheduler, write_image_frames
 from .programs import update_bitrate
 from .services import (
@@ -105,149 +104,125 @@ def stream(
     preview: bool = False,
 ) -> int:
     state = controller.state
-    prepared = None
-    service_output = None
-    if not preview:
-        prepared = service.prepare(config.streaming_service.metadata)
-        state.configure_service(service)
-        service_output = service.output(prepared)
-    requested_stop = False
-    result = 1
-    image_read: int | None = None
-    image_write: int | None = None
-    image_thread: threading.Thread | None = None
-    preview_process: subprocess.Popen[bytes] | None = None
-    local_display: LocalDisplayController | None = None
-    if (
-        config.streaming_service.encoding.video is not None
-        and config.image_interval > 0
-    ):
-        image_read, image_write = os.pipe()
+    ffmpeg: subprocess.Popen[bytes] | None = None
     try:
-        if preview:
-            preview_process = subprocess.Popen(
-                ffplay_command(), stdin=subprocess.PIPE, stdout=subprocess.DEVNULL
+        with ExitStack() as resources:
+            producer = (
+                image_frame_producer(config, initial_image_paths)
+                if config.streaming_service.encoding.video is not None
+                and config.image_interval > 0
+                else None
             )
-        command_output = (
-            None if preview else local_display_output(config, service_output)
-        )
-        command = ffmpeg_command(
-            config,
-            output=command_output,
-            image_pipe=image_read,
-            preview=preview,
-        )
-        stdout = (
-            preview_process.stdin if preview_process is not None else subprocess.DEVNULL
-        )
-        ffmpeg = subprocess.Popen(
-            command,
-            stdin=subprocess.PIPE,
-            stdout=stdout,
-            stderr=subprocess.PIPE,
-            pass_fds=() if image_read is None else (image_read,),
-        )
-        if (
-            not preview
-            and config.local_display
-            and config.streaming_service.encoding.video is not None
-        ):
-            local_display = LocalDisplayController()
-    except OSError:
-        if image_read is not None:
-            os.close(image_read)
-        if image_write is not None:
-            os.close(image_write)
-        if preview_process is not None:
-            process.terminate(preview_process)
-        if prepared is not None:
-            service.finish()
-        raise
-    if preview_process is not None and preview_process.stdin is not None:
-        preview_process.stdin.close()
-    if image_read is not None:
-        os.close(image_read)
-    if image_write is not None:
-        image_stream = os.fdopen(image_write, 'wb')
-        image_thread = threading.Thread(
-            target=write_image_frames,
-            args=(image_stream, image_frame_producer(config, initial_image_paths)),
-            name='StreamoImageFrames',
-            daemon=True,
-        )
-        image_thread.start()
-    ffmpeg_output = process.capture_stderr(
-        ffmpeg,
-        lambda line: update_bitrate(state, line),
-        thread_name='StreamoProcessOutput',
-    )
-    next_display_poll = 0.0
-    try:
-        state.set_ffmpeg(alive=True)
-        state.set_state('streaming')
-        if prepared is not None:
-            service.publish(prepared)
-        with sounddevice.InputStream(
-            callback=_audio_callback(config, ffmpeg, state),
-            channels=config.required_channels,
-            device=config.device_name,
-            dtype='float32',
-            samplerate=config.sample_rate,
-        ):
+            prepared = None
+            output = None
+            if not preview:
+                resources.callback(service.finish)
+                prepared = service.prepare(config.streaming_service.metadata)
+                state.configure_service(service)
+                output = local_display_output(config, service.output(prepared))
+            image_input = None
+            image_stream = None
+            if producer is not None:
+                read_fd, write_fd = os.pipe()
+                image_input = resources.enter_context(os.fdopen(read_fd, 'rb'))
+                image_stream = os.fdopen(write_fd, 'wb')
+                resources.callback(image_stream.close)
+            preview_process = None
+            if preview:
+                preview_process = subprocess.Popen(
+                    ffplay_command(), stdin=subprocess.PIPE, stdout=subprocess.DEVNULL
+                )
+                resources.callback(process.terminate, preview_process)
+                if preview_process.stdin is not None:
+                    resources.callback(preview_process.stdin.close)
+            command = ffmpeg_command(
+                config,
+                output=output,
+                image_pipe=None if image_input is None else image_input.fileno(),
+                preview=preview,
+            )
+            ffmpeg = subprocess.Popen(
+                command,
+                stdin=subprocess.PIPE,
+                stdout=preview_process.stdin if preview_process else subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                pass_fds=() if image_input is None else (image_input.fileno(),),
+                bufsize=0,
+            )
+            resources.callback(process.terminate, ffmpeg)
+            assert ffmpeg.stdin is not None
+            resources.callback(ffmpeg.stdin.close)
+            audio = AudioCapture(
+                config.device_name,
+                config.channel,
+                config.sample_rate,
+                ffmpeg.stdin,
+                state,
+            )
+            resources.callback(audio.close_capture)
+            local_display = None
+            if (
+                not preview
+                and config.local_display
+                and config.streaming_service.encoding.video
+            ):
+                local_display = LocalDisplayController()
+                resources.callback(local_display.close)
+            if image_stream is not None and producer is not None:
+                image_thread = threading.Thread(
+                    target=write_image_frames,
+                    args=(image_stream, producer),
+                    name='StreamoImageFrames',
+                    daemon=True,
+                )
+                image_thread.start()
+                resources.callback(image_thread.join, 5)
+                # Terminate the reader before waiting for the image writer.
+                resources.callback(process.terminate, ffmpeg)
+            if preview_process is not None and preview_process.stdin is not None:
+                preview_process.stdin.close()
+            if image_input is not None:
+                image_input.close()
+            ffmpeg_output = process.capture_stderr(
+                ffmpeg,
+                lambda line: update_bitrate(state, line),
+                thread_name='StreamoProcessOutput',
+            )
+            state.set_ffmpeg(alive=True)
+            state.set_state('muted' if state.is_muted() else 'streaming')
+            if prepared is not None:
+                service.publish(prepared)
+            next_display_poll = 0.0
             while ffmpeg.poll() is None:
-                if local_display is not None and time.monotonic() >= next_display_poll:
-                    local_display.update()
-                    next_display_poll = time.monotonic() + DISPLAY_POLL_INTERVAL
                 if should_stop(controller) or (
                     preview_process is not None and preview_process.poll() is not None
                 ):
-                    requested_stop = True
                     state.set_state('stopping')
-                    process.terminate(ffmpeg)
-                    break
-                time.sleep(0.05)
+                    return 0
+                audio.update()
+                if local_display is not None and time.monotonic() >= next_display_poll:
+                    local_display.update()
+                    next_display_poll = time.monotonic() + DISPLAY_POLL_INTERVAL
+                time.sleep(0.01)
             returncode = ffmpeg.wait()
-            state.set_ffmpeg(alive=False, returncode=returncode)
-            if returncode and not requested_stop:
-                diagnostic_command = command
-                if not preview:
-                    assert command_output is not None
-                    diagnostic_command = redacted_ffmpeg_command(
-                        command, command_output
-                    )
+            if returncode:
                 diagnostic_output = ffmpeg_output.text()
-                if not preview:
-                    assert command_output is not None
+                if output is not None:
+                    command = redacted_ffmpeg_command(command, output)
                     diagnostic_output = redacted_ffmpeg_stderr(
-                        diagnostic_output, command_output, service.service
+                        diagnostic_output, output, service.service
                     )
-                process.report_failed_command(
-                    diagnostic_command, None, diagnostic_output
-                )
-            result = 0 if requested_stop else returncode
+                process.report_failed_command(command, None, diagnostic_output)
+                state.set_error(f'FFmpeg exited with {returncode}')
+            return returncode
     except KeyboardInterrupt:
-        state.set_state('stopping')
-        process.terminate(ffmpeg)
-        result = 0
-    except BrokenPipeError:
-        state.set_error('ffmpeg input pipe closed')
-        result = 1
+        return 0
     finally:
-        if ffmpeg.stdin is not None:
-            ffmpeg.stdin.close()
-        process.terminate(ffmpeg)
-        if image_thread is not None:
-            image_thread.join(timeout=5)
-        if preview_process is not None:
-            process.terminate(preview_process)
-        if local_display is not None:
-            local_display.close()
-        if prepared is not None:
-            service.finish()
-        state.set_ffmpeg(alive=False, returncode=ffmpeg.returncode)
+        state.set_ffmpeg(
+            alive=False, returncode=None if ffmpeg is None else ffmpeg.returncode
+        )
         if state.snapshot()['state'] != 'failed':
             state.set_state('stopped')
-    return result
 
 
 def should_stop(controller: ControlController) -> bool:
@@ -611,49 +586,6 @@ def overlay_video_filter(config: Streamo, overlay: VideoOverlay) -> str:
 def video_size(config: Streamo) -> tuple[int, int]:
     width, height = config.video_resolution.lower().split('x', maxsplit=1)
     return int(width), int(height)
-
-
-def select_stereo_pair(config: Streamo, data: np.ndarray) -> np.ndarray:
-    begin = config.channel - 1
-    end = begin + 2
-    if data.shape[1] < end:
-        raise ValueError(
-            f'device returned {data.shape[1]} channels; channel {config.channel} '
-            'requires a stereo pair'
-        )
-    return np.ascontiguousarray(data[:, begin:end])
-
-
-def _audio_callback(
-    config: Streamo, process: subprocess.Popen[bytes], state: RuntimeState
-) -> Callable[[np.ndarray, int, object, object], None]:
-    def callback(
-        indata: np.ndarray,
-        frames: int,
-        time: object,
-        status: object,
-    ) -> None:
-        if process.stdin is not None:
-            stereo = select_stereo_pair(config, indata)
-            if state.is_muted():
-                stereo = np.zeros_like(stereo)
-            state.record_audio(
-                frames=frames,
-                sample_rate=config.sample_rate,
-                left_level_db=level_db(stereo[:, 0]),
-                right_level_db=level_db(stereo[:, 1]),
-                clipping=bool(np.max(np.abs(stereo)) >= 1.0),
-            )
-            process.stdin.write(stereo.tobytes())
-
-    return callback
-
-
-def level_db(samples: np.ndarray) -> float:
-    peak = float(np.max(np.abs(samples)))
-    if peak <= 0:
-        return -120.0
-    return float(20 * np.log10(peak))
 
 
 AUDIO_CODECS = {

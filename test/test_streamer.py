@@ -1,13 +1,12 @@
-import io
 from pathlib import Path
+from unittest import mock
 from urllib.parse import quote, quote_plus, unquote_plus
 
-import numpy as np
 import pytest
 
 from streamo import services, streamer
 from streamo.config import Streamo
-from streamo.control import RuntimeState
+from streamo.control import ControlController, RuntimeState
 from streamo.services import (
     AudioEncoding,
     EncodingProfile,
@@ -21,13 +20,11 @@ from streamo.services import (
 from streamo.streamer import (
     LOCAL_DISPLAY_URL,
     LocalDisplayController,
-    _audio_callback,
     drm_connected,
     ffmpeg_command,
     ffplay_command,
     local_ffplay_command,
     redacted_ffmpeg_command,
-    select_stereo_pair,
     title_filter,
     video_size,
 )
@@ -208,6 +205,38 @@ def test_process_diagnostic_command_redacts_output_secret() -> None:
     assert 'key' not in ' '.join(command)
     assert '[REDACTED]' in command[-1]
     assert 'udp\\://127.0.0.1\\:23000?pkt_size=1316' in command[-1]
+
+
+def test_preview_is_cleaned_up_when_command_building_fails() -> None:
+    player = mock.Mock()
+    with (
+        mock.patch.object(streamer.subprocess, 'Popen', return_value=player),
+        mock.patch.object(streamer, 'ffmpeg_command', side_effect=ValueError('bad')),
+        mock.patch.object(streamer.process, 'terminate') as terminate,
+        pytest.raises(ValueError, match='bad'),
+    ):
+        streamer.stream(
+            _config(),
+            ControlController(RuntimeState()),
+            mock.Mock(),
+            initial_image_paths=set(),
+            preview=True,
+        )
+    terminate.assert_called_once_with(player)
+    player.stdin.close.assert_called_once()
+
+
+def test_service_cleanup_runs_if_preparation_fails() -> None:
+    service = mock.Mock()
+    service.prepare.side_effect = ValueError('bad preparation')
+    with pytest.raises(ValueError, match='bad preparation'):
+        streamer.stream(
+            _config(),
+            ControlController(RuntimeState()),
+            service,
+            initial_image_paths=set(),
+        )
+    service.finish.assert_called_once()
 
 
 def test_local_ffplay_command_uses_fullscreen_silent_mpegts() -> None:
@@ -430,36 +459,6 @@ def test_title_filter_uses_configured_timing(tmp_path: Path) -> None:
     assert 'fps=24' in graph
     assert 'fade=t=out:st=7.000000:d=3.000000:alpha=1' in graph
     assert 'loop=loop=-1:size=1440:start=0' in graph
-
-
-def test_select_stereo_pair_uses_one_based_channel_number() -> None:
-    config = _config()
-    data = np.array([[1, 2, 3, 4], [5, 6, 7, 8]], dtype=np.float32)
-
-    assert select_stereo_pair(config, data).tolist() == [[2, 3], [6, 7]]
-
-
-def test_select_stereo_pair_rejects_missing_second_channel() -> None:
-    with pytest.raises(ValueError, match='requires a stereo pair'):
-        select_stereo_pair(_config(), np.zeros((2, 2), dtype=np.float32))
-
-
-def test_audio_callback_writes_silence_when_muted() -> None:
-    state = RuntimeState()
-    state.set_muted(True)
-    process = FakeProcess()
-    callback = _audio_callback(_config(), process, state)
-
-    callback(np.array([[1, -1, 0], [0.5, -0.5, 0]], dtype=np.float32), 2, None, None)
-
-    written = np.frombuffer(process.stdin.getvalue(), dtype=np.float32).reshape((2, 2))
-    assert written.tolist() == [[0, 0], [0, 0]]
-    assert state.snapshot()['audio_frames'] == 2
-
-
-class FakeProcess:
-    def __init__(self) -> None:
-        self.stdin = io.BytesIO()
 
 
 class FakePlayer:

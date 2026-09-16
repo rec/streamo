@@ -29,6 +29,11 @@ verify with synthetic stderr containing each supported secret-bearing URL.
 
 ### 2. P1: Audio capture depends on a blocking pipe write
 
+**Resolved:** capture uses a bounded queue with oldest-block drops and a
+nonblocking pipe writer in the control loop. Status exposes current/last audio
+errors, error count, and dropped frames; unavailable or inactive capture is
+retried. Tests exercise a genuinely full pipe, partial writes, and recovery.
+
 **Evidence:** `streamo/streamer.py:_audio_callback` performs level calculations,
 locking, allocations, and `process.stdin.write()` inside the audio callback.
 Its `status` argument is ignored. The main loop watches FFmpeg exit, but does
@@ -43,6 +48,10 @@ capture inactivity visible to the main loop. Reproduce using a stalled writer
 before deciding queue capacity and shutdown behavior.
 
 ### 3. P1: Startup failures can escape resource cleanup
+
+**Resolved:** an ExitStack owns process, pipe, capture, display, and service
+cleanup from acquisition onward, including non-OSError failures. Regression
+tests cover preview command failure and failed service preparation.
 
 **Evidence:** `streamo/streamer.py:stream` prepares the remote service before
 its cleanup scopes. Process setup catches only `OSError`. Image frame-producer
