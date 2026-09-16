@@ -52,7 +52,10 @@ device is distinguished from an unsupported sample rate.
 
 ## 2. Recover publishing after failure
 
-**Next step: lifecycle design approval.** Proposed implementation boundary:
+**Implemented following user approval.** `recover_publish` enables session-owned
+encoder recovery. Tests cover cleanup, stop during backoff, launch errors,
+progress stability, mute preservation, and fresh audio after reconnection.
+Approved implementation boundary:
 
 - streamO owns encoder recovery inside one running session. The operating-system
   service manager only restarts the whole application if that application exits;
@@ -90,8 +93,7 @@ device is distinguished from an unsupported sample rate.
   verify attempt cleanup, stop during backoff, preserved state, and secret-free
   failure reporting without contacting a provider.
 
-Approval is needed before changing ownership of capture and process resources.
-No recovery implementation has been made yet.
+Provider reconnection and remote auto-stop behavior still need live validation.
 
 **Problem:** audio capture retries and the HDMI player recovers, but an FFmpeg
 exit still ends the streaming run.

@@ -227,7 +227,10 @@ def write_image_frames(stream: BinaryIO, producer: ImageFrameProducer) -> None:
     except BrokenPipeError:
         pass
     finally:
-        stream.close()
+        try:
+            stream.close()
+        except BrokenPipeError:
+            pass
 
 
 def image_paths(image_dir: Path) -> list[Path]:

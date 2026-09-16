@@ -272,7 +272,25 @@ and `audio_dropped_frames` retain the history after recovery. Capture retries
 unavailable devices every five seconds and inactive capture after one second.
 Controllers should monitor these fields as well as `last_audio_at`, rather than
 treating a running FFmpeg process as proof of healthy audio. An FFmpeg process
-exit is reported as failure; the capture retry policy does not restart FFmpeg.
+exit is reported as failure. Set `recover_publish = true` to keep the session
+alive and retry unexpected encoder exits, including exit code zero. Recovery is
+disabled by default and does not apply to preview. Retry delays are 1, 2, 5, 10,
+then 30 seconds indefinitely; 60 seconds of advancing output progress resets
+the delay. Mute state, capture, image history, and control access survive retries.
+Audio that cannot be delivered is discarded and counted, not replayed later.
+
+Status includes `publish_requested`, `encoder_attempts`, `next_retry_at` (Unix
+seconds), `publish_error`, `last_publish_error`, and `last_output_progress_at`.
+`starting` means the encoder has not yet reported advancing output; `recovering`
+means a retry is pending. Local progress marks encoding as resumed, not confirmed
+delivery. Stop cancels pending retries.
+
+The provider is prepared once per session. Recovery reuses that destination and
+does not change remote auto-stop settings; an ended broadcast can still require
+operator intervention. Initial configuration, media, and authorization failures
+are not replayed. Temporary encoder-launch resource errors retry; missing or
+inaccessible executables fail. The service manager supervises the application,
+while streamO owns these encoder retries.
 
 Capabilities describe available provider commands and health queries. Lifecycle
 steps and the always-available local `stop` command are not provider capabilities.

@@ -40,6 +40,7 @@ class Streamo(Reccy, frozen=True):
     title_duration: float = 8.0
     title_fade: float = 2.0
     local_display: bool = True
+    recover_publish: bool = False
     image_dir: Path = Path('images')
     image_feed: ImageFeed | None = None
     current_session_image_weight: int = 3

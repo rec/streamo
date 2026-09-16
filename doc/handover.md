@@ -4,7 +4,9 @@
 
 Feature implementation is tracked in [the feature plan](../plan/features.md).
 Preflight is implemented, including CLI/RPC reports and explicit device/provider
-probes. Publishing recovery is next and requires a reviewed lifecycle design.
+probes. The approved publishing-recovery design is implemented with opt-in
+`recover_publish`, persistent session resources, and controller-visible retries.
+Incident history and actionable health warnings are next.
 
 All 22 findings from the completed issue review are addressed in source.
 The resolved issue list has been removed; its history remains in Git.
@@ -15,7 +17,7 @@ Issue 1 was committed as `7cf183f` and audio recovery/lifecycle fixes as
 The remaining fixes, tests, module moves, and documentation were committed in
 `402d0d6`. All implementation commits were pushed.
 
-Verification: 207 tests pass, including preflight, reccy CLI-help snapshots, and a small
+Verification: 214 tests pass, including recovery, preflight, CLI-help snapshots, and a small
 rendered-video regression. Ruff, type checks, pyupgrade, and diff checks pass.
 PHP syntax and feed pagination were checked with 10,000 manifest records.
 No live provider, audio-device, HDMI, or browser upload tests were run. Planning

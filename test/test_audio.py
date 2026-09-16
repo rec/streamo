@@ -72,3 +72,31 @@ def test_partial_writes_preserve_sample_alignment(tmp_path: Path) -> None:
         with mock.patch('streamo.audio.os.write', return_value=3):
             audio.update()
         assert audio.pending == b'defgh'
+
+
+def test_reconnecting_discards_old_audio_and_starts_on_frame_boundary(
+    tmp_path: Path,
+) -> None:
+    state = RuntimeState()
+    audio = AudioCapture('unused', 1, 48000, None, state)
+    audio.capture = mock.Mock(active=True)
+    audio.pending = b'12345'
+    audio.attach_output(None)
+    old = np.full((48000, 2), -0.5, dtype=np.float32)
+    audio.callback(old, len(old), None, '')
+    audio.update()
+    with (tmp_path / 'reconnected.pcm').open('w+b') as output:
+        audio.attach_output(output)
+        new = np.full((48000, 2), 0.25, dtype=np.float32)
+        for start in range(0, len(new), 1024):
+            block = new[start : start + 1024]
+            audio.callback(block, len(block), None, '')
+            audio.update()
+        output.seek(0)
+        samples = np.frombuffer(output.read(), dtype=np.float32).reshape(-1, 2)
+    assert len(samples) == 48000
+    assert np.all(samples == 0.25)
+    assert state.snapshot()['audio_dropped_frames'] == 48001
+    with wave.open(str(tmp_path / 'reconnected.wav'), 'wb') as recording:
+        recording.setparams((2, 2, 48000, 0, 'NONE', 'not compressed'))
+        recording.writeframes((samples * 32767).astype('<i2').tobytes())

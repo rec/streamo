@@ -17,7 +17,7 @@ class AudioCapture:
         device: str,
         channel: int,
         sample_rate: int,
-        output: IO[bytes],
+        output: IO[bytes] | None,
         state: RuntimeState,
     ) -> None:
         self.device = device
@@ -30,12 +30,29 @@ class AudioCapture:
         )
         self.pending = b''
         self.dropped_frames = 0
+        self.overflow_frames = 0
         self.last_capture = time.monotonic()
         self.last_write = self.last_capture
         self.retry_at = 0.0
         self.capture: sounddevice.InputStream | None = None
         self.error: str | None = None
-        os.set_blocking(output.fileno(), False)
+        if output is not None:
+            os.set_blocking(output.fileno(), False)
+
+    def attach_output(self, output: IO[bytes] | None) -> None:
+        """Start a new encoder on fresh, complete audio frames."""
+        self.dropped_frames += (len(self.pending) + 7) // 8
+        self.pending = b''
+        while True:
+            try:
+                block, _ = self.blocks.get_nowait()
+            except queue.Empty:
+                break
+            self.dropped_frames += len(block)
+        if output is not None:
+            os.set_blocking(output.fileno(), False)
+        self.output = output
+        self.last_write = time.monotonic()
 
     def callback(
         self, data: np.ndarray, frames: int, timing: object, status: object
@@ -47,7 +64,7 @@ class AudioCapture:
         except queue.Full:
             try:
                 discarded, _ = self.blocks.get_nowait()
-                self.dropped_frames += len(discarded)
+                self.overflow_frames += len(discarded)
             except queue.Empty:
                 pass
             self.blocks.put_nowait(block)
@@ -96,7 +113,11 @@ class AudioCapture:
                 self.pending = block.tobytes()
                 if status:
                     self.error = f'Audio capture: {status}'
-        if self.pending:
+        if self.pending and self.output is None:
+            self.dropped_frames += (len(self.pending) + 7) // 8
+            self.pending = b''
+            self.error = 'Encoder unavailable; discarding captured audio'
+        if self.pending and self.output is not None:
             try:
                 written = os.write(self.output.fileno(), self.pending)
             except BlockingIOError:
@@ -109,7 +130,9 @@ class AudioCapture:
                 self.last_write = now
                 if not status and self.capture is not None:
                     self.error = None
-        self.state.set_audio_health(self.error, self.dropped_frames)
+        self.state.set_audio_health(
+            self.error, self.dropped_frames + self.overflow_frames
+        )
 
     def close_capture(self) -> None:
         if self.capture is not None:
