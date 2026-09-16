@@ -52,6 +52,47 @@ device is distinguished from an unsupported sample rate.
 
 ## 2. Recover publishing after failure
 
+**Next step: lifecycle design approval.** Proposed implementation boundary:
+
+- streamO owns encoder recovery inside one running session. The operating-system
+  service manager only restarts the whole application if that application exits;
+  encoder failure alone does not exit it when recovery is enabled.
+- Recovery is opt-in. After successful provider preparation, an unexpected
+  FFmpeg exit, including a zero exit code, starts recovery while the operator's
+  intent is still to publish. Explicit stop and preview-window closure never
+  restart publishing. Preview keeps its current finite lifecycle.
+- Retry indefinitely with delays of 1, 2, 5, 10, then 30 seconds, capped at
+  30 seconds. Reset the delay only after 60 seconds of output progress, so a
+  process that repeatedly starts and dies does not create a rapid restart loop.
+- Session resources are the RPC endpoint, control state, capture, image feed,
+  image-selection history, provider adapter, and prepared provider destination.
+  Attempt resources are FFmpeg, its pipes, stderr reader, and frame writer.
+  Replacing an attempt must not reset mute state, counters, or image history.
+- Capture continues while the encoder is unavailable, discarding samples that
+  cannot be delivered. Reattaching a pipe starts on an audio-frame boundary;
+  stale audio is not replayed after reconnection. Dropped frames remain visible.
+- Prepare the provider once per session. Reuse that destination when reconnecting
+  instead of repeating metadata updates or creating a remote broadcast. Call
+  final cleanup once when the session ends. Remote auto-stop can end a broadcast
+  during a disconnect; this feature must report that limitation and must not
+  silently change auto-stop settings or claim that an ended broadcast resumed.
+- Expose requested publishing state, actual encoder state, cumulative attempt
+  count, next retry time, and the latest sanitized failure. Receiving FFmpeg
+  progress marks local encoding as resumed; provider delivery remains a separate
+  health observation. Feature 3 will retain incident/recovery history.
+- Configuration, local-media, and initial authorization failures retain their
+  existing failure behavior. This first version retries an already prepared
+  publishing session; it does not repeatedly replay failed setup operations.
+  Child-launch errors need classification: unavailable binaries are terminal;
+  temporary process-resource errors use the same delayed retry policy.
+- Stop interrupts both the active attempt and the retry wait immediately, then
+  closes session resources. Tests use fake processes and a controlled clock to
+  verify attempt cleanup, stop during backoff, preserved state, and secret-free
+  failure reporting without contacting a provider.
+
+Approval is needed before changing ownership of capture and process resources.
+No recovery implementation has been made yet.
+
 **Problem:** audio capture retries and the HDMI player recovers, but an FFmpeg
 exit still ends the streaming run.
 
