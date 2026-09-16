@@ -3,7 +3,6 @@ import subprocess
 import threading
 import time
 from contextlib import ExitStack
-from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import quote, quote_plus, unquote, unquote_plus
 
@@ -12,35 +11,23 @@ from reccy.runtime import process
 from reccy.runtime.logging import get_logger
 
 from .audio import AudioCapture
-from .config import Streamo
-from .control import ControlController
-from .images import ImageFrameProducer, ImageScheduler, write_image_frames
-from .programs import update_bitrate
-from .services import (
-    FfmpegDestination,
-    FfmpegOutput,
-    StreamingServiceAdapter,
-    StreamingServiceConfiguration,
-    ingest_output,
-    tee_escape,
+from .composition import (
+    LOCAL_DISPLAY_URL,
+    ffmpeg_command,
+    local_display_output,
+    video_size,
 )
+from .config import Streamo
+from .control import ControlController, HealthPoller
+from .ffmpeg_progress import update_bitrate
+from .images import ImageFrameProducer, ImageScheduler, write_image_frames
+from .provider_config import StreamingServiceConfiguration
+from .providers import FfmpegOutput, StreamingServiceAdapter, tee_escape
 
 LOGGER = get_logger(__name__)
-LOCAL_DISPLAY_URL = 'udp://127.0.0.1:23000?pkt_size=1316'
 DRM_STATUS_ROOT = Path('/sys/class/drm')
 DISPLAY_POLL_INTERVAL = 1.0
 PLAYER_SHUTDOWN_TIMEOUT = 5.0
-
-
-@dataclass(frozen=True)
-class VideoOverlay:
-    name: str
-    image: Path
-    input_index: int
-    gap_index: int
-    interval: float
-    duration: float
-    fade: float
 
 
 class LocalDisplayController:
@@ -48,18 +35,24 @@ class LocalDisplayController:
         self.status_root = status_root
         self.connected = False
         self.player: subprocess.Popen[bytes] | None = None
+        self.retry_at = 0.0
+        self.player_output: process.OutputTail | None = None
 
     def update(self) -> None:
         if self.player is not None and self.player.poll() is not None:
-            LOGGER.warning('Local display player exited')
+            LOGGER.warning(
+                'Local display player exited: %s',
+                self.player_output.text() if self.player_output else '',
+            )
             self.player = None
+            self.retry_at = time.monotonic() + 5
         connected = drm_connected(self.status_root)
-        if connected == self.connected:
-            return
+        if connected != self.connected:
+            self.retry_at = 0
         self.connected = connected
-        if connected:
+        if connected and time.monotonic() >= self.retry_at:
             self.start_player()
-        else:
+        elif not connected:
             self.stop_player()
 
     def close(self) -> None:
@@ -74,11 +67,13 @@ class LocalDisplayController:
                 local_ffplay_command(),
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
                 env={**os.environ, 'SDL_VIDEODRIVER': 'KMSDRM'},
             )
+            self.player_output = process.capture_stderr(self.player)
         except OSError as error:
             LOGGER.error('Could not start local display player: %s', error)
+            self.retry_at = time.monotonic() + 5
 
     def stop_player(self) -> None:
         if self.player is None:
@@ -192,6 +187,9 @@ def stream(
             state.set_state('muted' if state.is_muted() else 'streaming')
             if prepared is not None:
                 service.publish(prepared)
+                health = HealthPoller(service, state)
+                health.start()
+                resources.callback(health.close)
             next_display_poll = 0.0
             while ffmpeg.poll() is None:
                 if should_stop(controller) or (
@@ -233,142 +231,6 @@ def should_stop(controller: ControlController) -> bool:
     return False
 
 
-def ffmpeg_command(
-    config: Streamo,
-    *,
-    output: FfmpegOutput | None = None,
-    image_pipe: int | None = None,
-    preview: bool = False,
-) -> list[str]:
-    encoding = config.streaming_service.encoding
-    overlays: list[VideoOverlay] = []
-    image_input: int | None = None
-    next_input = 2
-    command = [
-        'ffmpeg',
-        '-hide_banner',
-        '-loglevel',
-        'warning',
-        '-nostats',
-        '-progress',
-        'pipe:2',
-        '-f',
-        'f32le',
-        '-ar',
-        str(config.sample_rate),
-        '-ac',
-        '2',
-        '-i',
-        'pipe:0',
-    ]
-    if encoding.video is not None:
-        assert config.video is not None
-        command.extend(
-            [
-                '-re',
-                '-stream_loop',
-                '-1',
-                '-i',
-                config.video.as_posix(),
-            ]
-        )
-    if encoding.video is not None and config.title_card is not None:
-        overlays.append(
-            VideoOverlay(
-                name='title',
-                image=config.title_card,
-                input_index=next_input,
-                gap_index=next_input + 1,
-                interval=config.title_interval,
-                duration=config.title_duration,
-                fade=config.title_fade,
-            )
-        )
-        command.extend(overlay_input_args(config, overlays[-1]))
-        next_input += 2
-    if encoding.video is not None and config.image_interval > 0:
-        if image_pipe is None:
-            raise ValueError(
-                'image pipe is required when participant images are enabled'
-            )
-        image_input = next_input
-        width, height = video_size(config)
-        command.extend(
-            [
-                '-f',
-                'rawvideo',
-                '-pixel_format',
-                'rgba',
-                '-video_size',
-                f'{width}x{height}',
-                '-framerate',
-                str(config.video_frame_rate),
-                '-i',
-                f'pipe:{image_pipe}',
-            ]
-        )
-    if overlays or image_input is not None:
-        command.extend(
-            [
-                '-filter_complex',
-                overlay_filter(config, overlays, image_input=image_input),
-                '-map',
-                '[video]',
-            ]
-        )
-    elif encoding.video is not None:
-        command.extend(['-map', '1:v:0'])
-    command.extend(['-map', '0:a:0'])
-    if encoding.video is not None:
-        command.extend(
-            [
-                '-c:v',
-                VIDEO_CODECS[encoding.video.codec],
-                '-b:v',
-                encoding.video.bitrate,
-                '-pix_fmt',
-                encoding.video.pixel_format,
-                '-r',
-                str(encoding.video.frame_rate),
-                '-s',
-                encoding.video.resolution,
-                '-g',
-                str(
-                    round(encoding.video.frame_rate * encoding.video.keyframe_interval)
-                ),
-            ]
-        )
-        if encoding.video.codec in {'h264', 'hevc'}:
-            command.extend(['-preset', 'veryfast'])
-        if encoding.video.codec == 'h264':
-            command.extend(['-tune', 'animation'])
-    command.extend(
-        [
-            '-c:a',
-            AUDIO_CODECS[encoding.audio.codec],
-            '-b:a',
-            encoding.audio.bitrate,
-            '-ar',
-            str(encoding.audio.sample_rate),
-            '-ac',
-            str(encoding.audio.channels),
-        ]
-    )
-    if preview:
-        command.extend(['-f', 'nut', 'pipe:1'])
-    else:
-        command.extend(
-            (
-                output
-                if output is not None
-                else local_display_output(
-                    config, ingest_output(config.streaming_service)
-                )
-            ).arguments
-        )
-    return command
-
-
 def ffplay_command() -> list[str]:
     return [
         'ffplay',
@@ -399,22 +261,6 @@ def local_ffplay_command() -> list[str]:
         'mpegts',
         LOCAL_DISPLAY_URL,
     ]
-
-
-def local_display_output(config: Streamo, output: FfmpegOutput | None) -> FfmpegOutput:
-    output = output or ingest_output(config.streaming_service)
-    if not config.local_display or config.streaming_service.encoding.video is None:
-        return output
-    return output.model_copy(
-        update={
-            'destinations': [
-                *output.destinations,
-                FfmpegDestination(
-                    muxer='mpegts', url=LOCAL_DISPLAY_URL, secret_url=False
-                ),
-            ]
-        }
-    )
 
 
 def drm_connected(status_root: Path) -> bool:
@@ -470,133 +316,3 @@ def image_frame_producer(
         duration=config.image_duration,
         fade=config.image_fade,
     )
-
-
-def title_input_args(config: Streamo) -> list[str]:
-    assert config.title_card is not None
-    return overlay_input_args(
-        config,
-        VideoOverlay(
-            name='title',
-            image=config.title_card,
-            input_index=2,
-            gap_index=3,
-            interval=config.title_interval,
-            duration=config.title_duration,
-            fade=config.title_fade,
-        ),
-    )
-
-
-def overlay_input_args(config: Streamo, overlay: VideoOverlay) -> list[str]:
-    gap_duration = overlay.interval - overlay.duration
-    width, height = video_size(config)
-    return [
-        '-loop',
-        '1',
-        '-t',
-        f'{overlay.duration:.6f}',
-        '-i',
-        overlay.image.as_posix(),
-        '-f',
-        'lavfi',
-        '-t',
-        f'{gap_duration:.6f}',
-        '-i',
-        (
-            'color='
-            f'c=black@0.0:s={width}x{height}:'
-            f'r={config.video_frame_rate}:d={gap_duration:.6f}'
-        ),
-    ]
-
-
-def title_filter(config: Streamo) -> str:
-    assert config.title_card is not None
-    return overlay_filter(
-        config,
-        [
-            VideoOverlay(
-                name='title',
-                image=config.title_card,
-                input_index=2,
-                gap_index=3,
-                interval=config.title_interval,
-                duration=config.title_duration,
-                fade=config.title_fade,
-            )
-        ],
-    )
-
-
-def overlay_filter(
-    config: Streamo,
-    overlays: list[VideoOverlay],
-    *,
-    image_input: int | None = None,
-) -> str:
-    width, height = video_size(config)
-    parts = [
-        '[1:v]'
-        f'scale={width}:{height},fps={config.video_frame_rate},'
-        'format=yuv420p[base];'
-    ]
-    current = 'base'
-    for index, overlay in enumerate(overlays):
-        output = (
-            'video'
-            if index == len(overlays) - 1 and image_input is None
-            else f'base{index + 1}'
-        )
-        parts.append(overlay_video_filter(config, overlay))
-        parts.append(
-            f'[{current}][{overlay.name}_loop]'
-            f'overlay=(W-w)/2:(H-h)/2:eof_action=repeat[{output}]'
-        )
-        current = output
-    if image_input is not None:
-        parts.append(f'[{image_input}:v]setpts=PTS-STARTPTS[image_live];')
-        parts.append(
-            f'[{current}][image_live]overlay=(W-w)/2:(H-h)/2:eof_action=pass[video]'
-        )
-    return ''.join(parts)
-
-
-def overlay_video_filter(config: Streamo, overlay: VideoOverlay) -> str:
-    width, height = video_size(config)
-    fade_out_start = max(0.0, overlay.duration - overlay.fade)
-    loop_frames = max(1, round(overlay.interval * config.video_frame_rate))
-    return (
-        f'[{overlay.input_index}:v]'
-        f'scale={width}:{height}:force_original_aspect_ratio=decrease,'
-        f'pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,'
-        f'fps={config.video_frame_rate},format=rgba,'
-        f'trim=duration={overlay.duration:.6f},'
-        'setpts=PTS-STARTPTS,'
-        f'fade=t=in:st=0:d={overlay.fade:.6f}:alpha=1,'
-        f'fade=t=out:st={fade_out_start:.6f}:d={overlay.fade:.6f}:alpha=1'
-        f'[{overlay.name}_visible];'
-        f'[{overlay.gap_index}:v]format=rgba,setpts=PTS-STARTPTS[{overlay.name}_gap];'
-        f'[{overlay.name}_visible][{overlay.name}_gap]concat=n=2:v=1:a=0,'
-        f'loop=loop=-1:size={loop_frames}:start=0,'
-        f'setpts=N/FRAME_RATE/TB[{overlay.name}_loop];'
-    )
-
-
-def video_size(config: Streamo) -> tuple[int, int]:
-    width, height = config.video_resolution.lower().split('x', maxsplit=1)
-    return int(width), int(height)
-
-
-AUDIO_CODECS = {
-    'aac': 'aac',
-    'mp3': 'libmp3lame',
-    'opus': 'libopus',
-    'vorbis': 'libvorbis',
-}
-
-VIDEO_CODECS = {
-    'h264': 'libx264',
-    'hevc': 'libx265',
-    'av1': 'libaom-av1',
-}

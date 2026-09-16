@@ -1,4 +1,6 @@
+import io
 import queue
+import tempfile
 import threading
 import time
 from dataclasses import dataclass, field
@@ -7,11 +9,12 @@ from urllib.error import URLError
 from urllib.parse import unquote, urlparse
 from urllib.request import url2pathname, urlopen
 
+from PIL import Image
 from reccy.protocol import ipc, rpc
 
-from .images import IMAGE_SUFFIXES, publish_file
+from .images import IMAGE_SUFFIXES, MAX_IMAGE_BYTES, MAX_IMAGE_SIDE, publish_file
 from .kick_api import KickApiError
-from .services import (
+from .providers import (
     COMMAND_CAPABILITIES,
     StreamingServiceAdapter,
     UnsupportedServiceOperation,
@@ -40,6 +43,8 @@ class RuntimeState:
         self.endpoint_host: str | None = None
         self.capabilities: list[str] = []
         self.remote_health: dict[str, object] | None = None
+        self.remote_health_error: str | None = None
+        self.remote_health_updated_at: float | None = None
         self.audio_error: str | None = None
         self.audio_dropped_frames = 0
         self.audio_error_count = 0
@@ -67,6 +72,8 @@ class RuntimeState:
                 'service': self.service,
                 'endpoint_host': self.endpoint_host,
                 'capabilities': list(self.capabilities),
+                'remote_health_error': self.remote_health_error,
+                'remote_health_updated_at': self.remote_health_updated_at,
                 'remote_health': (
                     None if self.remote_health is None else dict(self.remote_health)
                 ),
@@ -86,9 +93,13 @@ class RuntimeState:
             self.audio_error = error
             self.audio_dropped_frames = dropped_frames
 
-    def set_remote_health(self, health: dict[str, object] | None) -> None:
+    def set_remote_health(
+        self, health: dict[str, object] | None, error: str | None = None
+    ) -> None:
         with self._lock:
             self.remote_health = health
+            self.remote_health_error = error
+            self.remote_health_updated_at = time.time()
 
     def set_state(self, state: str) -> None:
         with self._lock:
@@ -154,11 +165,6 @@ class ControlController:
         if command == 'ping':
             return 'pong'
         if command == 'status':
-            if self.service is not None:
-                health = self.service.health()
-                self.state.set_remote_health(
-                    None if health is None else health.model_dump()
-                )
             return self.state.snapshot()
         if command == 'mute':
             self.state.set_muted(True)
@@ -214,13 +220,65 @@ class ControlController:
 SERVICE_COMMANDS = set(COMMAND_CAPABILITIES)
 
 
+class HealthPoller:
+    def __init__(self, service: StreamingServiceAdapter, state: RuntimeState) -> None:
+        self.service = service
+        self.state = state
+        self.stopped = threading.Event()
+        self.thread = threading.Thread(
+            target=self.run, daemon=True, name='ProviderHealth'
+        )
+
+    def start(self) -> None:
+        self.thread.start()
+
+    def close(self) -> None:
+        self.stopped.set()
+        self.thread.join(timeout=1)
+
+    def poll(self) -> None:
+        try:
+            health = self.service.health()
+        except (
+            TwitchApiError,
+            YouTubeApiError,
+            KickApiError,
+            OSError,
+            ValueError,
+        ) as error:
+            self.state.set_remote_health(
+                None, f'Provider health unavailable ({type(error).__name__})'
+            )
+        else:
+            self.state.set_remote_health(
+                None if health is None else health.model_dump()
+            )
+
+    def run(self) -> None:
+        while not self.stopped.is_set():
+            self.poll()
+            self.stopped.wait(30)
+
+
 class ImageStoreError(ValueError):
     pass
 
 
 def store_images(image_dir: Path, urls: list[str]) -> list[Path]:
     image_dir.mkdir(parents=True, exist_ok=True)
-    return [store_image(image_dir, u) for u in urls]
+    with tempfile.TemporaryDirectory(dir=image_dir) as directory:
+        staged = [store_image(Path(directory), u) for u in urls]
+        published = []
+        try:
+            for source in staged:
+                target = unique_image_path(image_dir, source.name)
+                source.replace(target)
+                published.append(target)
+        except OSError as error:
+            for path in published:
+                path.unlink(missing_ok=True)
+            raise ImageStoreError('could not publish image batch') from error
+    return published
 
 
 def store_image(image_dir: Path, url: str) -> Path:
@@ -229,7 +287,8 @@ def store_image(image_dir: Path, url: str) -> Path:
         source = Path(url2pathname(parsed.path))
         target = unique_image_path(image_dir, image_name(parsed.path))
         try:
-            publish_image(target, source.read_bytes())
+            with source.open('rb') as input_file:
+                publish_image(target, input_file.read(MAX_IMAGE_BYTES + 1))
         except OSError as error:
             raise ImageStoreError(f'could not copy {url}: {error}') from error
         return target
@@ -237,7 +296,7 @@ def store_image(image_dir: Path, url: str) -> Path:
         target = unique_image_path(image_dir, image_name(parsed.path))
         try:
             with urlopen(url, timeout=10) as response:
-                publish_image(target, response.read())
+                publish_image(target, response.read(MAX_IMAGE_BYTES + 1))
         except (OSError, URLError) as error:
             raise ImageStoreError(f'could not download {url}: {error}') from error
         return target
@@ -245,6 +304,19 @@ def store_image(image_dir: Path, url: str) -> Path:
 
 
 def publish_image(target: Path, contents: bytes) -> None:
+    if target.suffix.lower() not in IMAGE_SUFFIXES:
+        raise ImageStoreError('unsupported image filename extension')
+    if len(contents) > MAX_IMAGE_BYTES:
+        raise ImageStoreError('image exceeds 8 MiB')
+    try:
+        with Image.open(io.BytesIO(contents)) as image:
+            if image.format not in {'GIF', 'JPEG', 'PNG', 'WEBP'}:
+                raise ImageStoreError('unsupported image format')
+            if image.width > MAX_IMAGE_SIDE or image.height > MAX_IMAGE_SIDE:
+                raise ImageStoreError('image dimensions exceed 2048 pixels')
+            image.load()
+    except (OSError, Image.DecompressionBombError) as error:
+        raise ImageStoreError('invalid image') from error
     publish_file(target, contents)
 
 

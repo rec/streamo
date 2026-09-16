@@ -16,8 +16,8 @@ def test_looped_path_adds_looped_before_suffix() -> None:
 def test_ffmpeg_command_trims_duplicate_endpoint_frames() -> None:
     command = ffmpeg_command(Path('movie.mp4'), Path('movie-looped.mp4'), 10)
 
-    assert '-y' in command
-    assert '-n' not in command
+    assert '-n' in command
+    assert '-y' not in command
     assert 'movie.mp4' in command
     assert 'movie-looped.mp4' in command
     filters = command[command.index('-filter_complex') + 1]

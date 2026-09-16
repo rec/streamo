@@ -2,7 +2,7 @@ import json
 
 from pydantic import SecretStr
 
-from streamo.services import (
+from streamo.provider_config import (
     AudioEncoding,
     EncodingProfile,
     RtmpIngest,

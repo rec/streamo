@@ -1,4 +1,5 @@
 from pathlib import Path
+from unittest import mock
 
 import pytest
 from pydantic import ValidationError
@@ -6,7 +7,7 @@ from reccy.reccy import Reccy
 
 from streamo.config import Streamo
 from streamo.images import ImageFeed
-from streamo.services import (
+from streamo.provider_config import (
     AudioEncoding,
     EncodingProfile,
     RtmpIngest,
@@ -37,6 +38,36 @@ def _service() -> TwitchService:
             ),
         ),
     )
+
+
+@pytest.mark.parametrize('value', [float('nan'), float('inf'), -1.0])
+def test_overlay_times_must_be_finite(value: float) -> None:
+    with pytest.raises(ValidationError):
+        Streamo(
+            device_name='X18',
+            channel=1,
+            video=Path('bed.mp4'),
+            streaming_service=_service(),
+            image_interval=value,
+        )
+
+
+def test_preview_does_not_initialize_provider(tmp_path: Path) -> None:
+    video = tmp_path / 'bed.mp4'
+    video.touch()
+    config = Streamo(
+        device_name='X18', channel=1, video=video, streaming_service=_service()
+    )
+    with (
+        mock.patch(
+            'streamo.config.adapter_for',
+            side_effect=AssertionError('provider initialized'),
+        ),
+        mock.patch.object(Streamo, 'start'),
+        mock.patch.object(Streamo, 'close'),
+        mock.patch('streamo.streamer.stream', return_value=0),
+    ):
+        assert config.run(preview=True) == 0
 
 
 def test_channel_must_be_positive() -> None:

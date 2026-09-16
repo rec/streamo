@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
-import argparse
 import sys
 from pathlib import Path
+from typing import Annotated, cast
 
+import tyro
+from pydantic import BaseModel
 from reccy.runtime.process import run_silent
+
+from .media_output import new_media_output
+
+
+class LoopVideos(BaseModel, frozen=True):
+    """Create forward/backward loops beside each source without replacing files."""
+
+    videos: Annotated[list[Path], tyro.conf.Positional]
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description='Create seamless forward/backward loops from video files.'
-    )
-    parser.add_argument('videos', nargs='+', type=Path)
-    args = parser.parse_args()
-
-    for video in args.videos:
+    options = tyro.cli(LoopVideos)
+    for video in options.videos:
         loop_video(video)
 
 
@@ -26,7 +31,8 @@ def loop_video(video: Path) -> Path:
         sys.exit(f'{video} has fewer than 3 frames')
 
     output = looped_path(video)
-    run_silent(ffmpeg_command(video, output, frame_count))
+    with new_media_output(output) as temporary:
+        run_silent(ffmpeg_command(video, temporary, frame_count))
     return output
 
 
@@ -51,7 +57,7 @@ def count_frames(video: Path) -> int:
         ],
         text=True,
     )
-    return int(result.stdout.strip())
+    return int(cast(str, result.stdout).strip())
 
 
 def ffmpeg_command(video: Path, output: Path, frame_count: int) -> list[str]:
@@ -66,7 +72,7 @@ def ffmpeg_command(video: Path, output: Path, frame_count: int) -> list[str]:
     return [
         'ffmpeg',
         '-hide_banner',
-        '-y',
+        '-n',
         '-i',
         video.as_posix(),
         '-filter_complex',

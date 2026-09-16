@@ -1,21 +1,25 @@
+import io
 from pathlib import Path
+from unittest import mock
 
 import pytest
+from PIL import Image
 from reccy.protocol import ipc, rpc
 
 import streamo.control
 from streamo.config import Streamo
 from streamo.control import (
     ControlController,
+    HealthPoller,
     RuntimeState,
 )
-from streamo.services import (
+from streamo.provider_config import (
     AudioEncoding,
     CustomService,
     EncodingProfile,
     RtmpIngest,
-    adapter_for,
 )
+from streamo.providers import adapter_for
 
 
 def test_status_request_returns_runtime_snapshot() -> None:
@@ -27,6 +31,22 @@ def test_status_request_returns_runtime_snapshot() -> None:
     response = controller.handle_request(rpc.Request(command='status'))
 
     assert response == state.snapshot()
+
+
+def test_status_never_waits_for_provider_and_reports_health_failure() -> None:
+    state = RuntimeState()
+    service = mock.Mock()
+    controller = ControlController(state=state, service=service)
+    controller.handle_request(rpc.Request(command='status'))
+    service.health.assert_not_called()
+    service.health.side_effect = OSError('unavailable')
+    poller = HealthPoller(service, state)
+    poller.poll()
+    assert state.snapshot()['remote_health_error'] is not None
+    service.health.side_effect = None
+    service.health.return_value = None
+    poller.poll()
+    assert state.snapshot()['remote_health_error'] is None
 
 
 def test_mute_and_unmute_requests_change_runtime_state() -> None:
@@ -83,14 +103,14 @@ def test_service_status_and_unsupported_capability_are_generic() -> None:
     assert isinstance(status, dict)
     assert status['service'] == 'custom'
     assert status['endpoint_host'] == 'ingest.example.test'
-    assert status['capabilities'] == ['publish', 'stop']
+    assert status['capabilities'] == []
     assert response == ipc.Error(type='error', message='Custom does not support chat')
 
 
 def test_image_request_copies_file_url_to_image_dir(tmp_path: Path) -> None:
     image_dir = tmp_path / 'images'
     source = tmp_path / 'source.png'
-    source.write_bytes(b'first')
+    Image.new('RGB', (8, 8), 'red').save(source)
     (image_dir / 'source.png').parent.mkdir(parents=True)
     (image_dir / 'source.png').write_bytes(b'existing')
     controller = ControlController(state=RuntimeState(), image_dir=image_dir)
@@ -101,7 +121,7 @@ def test_image_request_copies_file_url_to_image_dir(tmp_path: Path) -> None:
 
     target = image_dir / 'source-2.png'
     assert response == {'images': [target.as_posix()]}
-    assert target.read_bytes() == b'first'
+    assert target.read_bytes() == source.read_bytes()
     assert not any(p.suffix == '.part' for p in image_dir.iterdir())
 
 
@@ -114,7 +134,9 @@ def test_image_request_downloads_http_url(
     def urlopen(url: str, timeout: int) -> FakeHttpResponse:
         assert url == 'https://example.test/card.png'
         assert timeout == 10
-        return FakeHttpResponse(b'downloaded')
+        image = io.BytesIO()
+        Image.new('RGB', (8, 8), 'blue').save(image, 'PNG')
+        return FakeHttpResponse(image.getvalue())
 
     monkeypatch.setattr(streamo.control, 'urlopen', urlopen)
 
@@ -127,7 +149,8 @@ def test_image_request_downloads_http_url(
 
     target = image_dir / 'card.png'
     assert response == {'images': [target.as_posix()]}
-    assert target.read_bytes() == b'downloaded'
+    with Image.open(target) as image:
+        assert image.size == (8, 8)
 
 
 def test_image_request_rejects_unsupported_url() -> None:
@@ -140,6 +163,25 @@ def test_image_request_rejects_unsupported_url() -> None:
     assert response == ipc.Error(
         type='error', message='unsupported image URL ftp://example.test/card.png'
     )
+
+
+def test_image_batch_failure_publishes_nothing(tmp_path: Path) -> None:
+    source = tmp_path / 'good.png'
+    Image.new('RGB', (8, 8), 'blue').save(source)
+    invalid = tmp_path / 'bad.png'
+    invalid.write_bytes(b'not an image')
+    directory = tmp_path / 'images'
+    controller = ControlController(RuntimeState(), image_dir=directory)
+    result = controller.handle_request(
+        rpc.Request(
+            command='image',
+            params={
+                'urls': [source.as_uri(), invalid.as_uri()],
+            },
+        )
+    )
+    assert isinstance(result, ipc.Error)
+    assert list(directory.iterdir()) == []
 
 
 def test_remove_last_image_can_be_repeated_until_directory_is_empty(
@@ -184,5 +226,5 @@ class FakeHttpResponse:
     def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
         pass
 
-    def read(self) -> bytes:
-        return self.body
+    def read(self, limit: int) -> bytes:
+        return self.body[:limit]

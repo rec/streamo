@@ -1,0 +1,58 @@
+$ streamo --help
+usage: streamo [-h] [{run,preview,install,uninstall,start,stop,restart,status}] [--config PATH]
+
+Capture and publish a stereo pair with streamO.
+
+Use `streamo daemon ACTION` to manage the background service, or
+`streamo auth youtube --help` / `streamo auth kick --help` to authorize provider access. Without a command, streamO runs in the foreground.
+
+ positional arguments
+ -------------------------------------------------------------
+  [{run,preview,install,uninstall,start,stop,restart,status}]
+                 action (default: run)
+
+ options
+ -------------------------------------------------------------
+  -h, --help     show this help message and exit
+  --config PATH  (default: '~/.config/streamo/config.toml')
+
+
+$ streamo auth --help
+usage: streamo [-h] [OPTIONS]
+
+Authorize YouTube. For Kick, use `streamo auth kick --help`.
+
+ positional arguments
+ --------------------------------------------------------------
+  {youtube}   service (required)
+
+ options
+ --------------------------------------------------------------
+  -h, --help  show this help message and exit
+  --client-secrets PATH
+              (required)
+  --credentials PATH
+              (default: '~/.config/streamo/youtube-auth.toml')
+  --no-browser, --no-no-browser
+              (default: False)
+  --callback-port INT
+              (default: 8765)
+
+
+$ streamo daemon --help
+usage: streamo [-h] [{run,preview,install,uninstall,start,stop,restart,status}] [--config PATH]
+
+Capture and publish a stereo pair with streamO.
+
+Use `streamo daemon ACTION` to manage the background service, or
+`streamo auth youtube --help` / `streamo auth kick --help` to authorize provider access. Without a command, streamO runs in the foreground.
+
+ positional arguments
+ -------------------------------------------------------------
+  [{run,preview,install,uninstall,start,stop,restart,status}]
+                 action (default: run)
+
+ options
+ -------------------------------------------------------------
+  -h, --help     show this help message and exit
+  --config PATH  (default: '~/.config/streamo/config.toml')

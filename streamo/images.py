@@ -30,7 +30,7 @@ LOGGER = get_logger(__name__)
 class ImageFeed(BaseModel, frozen=True):
     url: str
     token: SecretStr = Field(min_length=20)
-    poll_interval: float = Field(default=2.0, ge=0.5)
+    poll_interval: float = Field(default=2.0, ge=0.5, allow_inf_nan=False)
 
     @field_validator('url')
     @classmethod
@@ -48,6 +48,10 @@ class ImageFeedItem(BaseModel, frozen=True):
 
 
 class ImageFeedError(ValueError):
+    pass
+
+
+class RejectedFeedImage(ImageFeedError):
     pass
 
 
@@ -95,13 +99,17 @@ class ImageFeedPoller:
                 break
             if item.id <= cursor:
                 continue
-            contents = fetch_feed_image(self.feed, item.id)
-            validate_feed_image(contents)
-            target = self.image_dir / f'remote-{self.feed_id}-{item.id:08}.jpg'
-            publish_file(target, contents)
+            try:
+                contents = fetch_feed_image(self.feed, item.id)
+                validate_feed_image(contents)
+            except RejectedFeedImage as error:
+                LOGGER.error('Skipping image feed item %s: %s', item.id, error)
+            else:
+                target = self.image_dir / f'remote-{self.feed_id}-{item.id:08}.jpg'
+                publish_file(target, contents)
+                stored.append(target)
             write_feed_cursor(self.cursor_path, item.id)
             cursor = item.id
-            stored.append(target)
         return stored
 
 
@@ -279,12 +287,18 @@ def fetch_feed_image(feed: ImageFeed, image_id: int) -> bytes:
             feed_request_url(feed, 'image', id=image_id), timeout=10
         ) as response:
             contents = response.read(MAX_IMAGE_BYTES + 1)
-    except (HTTPError, OSError, URLError) as error:
+    except HTTPError as error:
+        if error.code in {404, 410}:
+            raise RejectedFeedImage(f'image {image_id} no longer exists') from error
+        raise ImageFeedError(
+            f'image {image_id} request failed (HTTP {error.code})'
+        ) from error
+    except (OSError, URLError) as error:
         raise ImageFeedError(
             f'image {image_id} request failed ({type(error).__name__})'
         ) from error
     if len(contents) > MAX_IMAGE_BYTES:
-        raise ImageFeedError(f'image {image_id} is too large')
+        raise RejectedFeedImage(f'image {image_id} is too large')
     return contents
 
 
@@ -292,12 +306,12 @@ def validate_feed_image(contents: bytes) -> None:
     try:
         with Image.open(io.BytesIO(contents)) as image:
             if image.format != 'JPEG':
-                raise ImageFeedError('image feed returned a non-JPEG image')
+                raise RejectedFeedImage('image feed returned a non-JPEG image')
             if image.width > MAX_IMAGE_SIDE or image.height > MAX_IMAGE_SIDE:
-                raise ImageFeedError('image feed returned an oversized image')
+                raise RejectedFeedImage('image feed returned an oversized image')
             image.load()
-    except (OSError, UnidentifiedImageError) as error:
-        raise ImageFeedError('image feed returned an invalid JPEG') from error
+    except (OSError, UnidentifiedImageError, Image.DecompressionBombError) as error:
+        raise RejectedFeedImage('image feed returned an invalid JPEG') from error
 
 
 def feed_request_url(feed: ImageFeed, action: str, **parameters: object) -> str:

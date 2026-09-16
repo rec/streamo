@@ -14,7 +14,7 @@ def test_reencode_command_uses_mezzanine_settings() -> None:
     assert command == [
         'ffmpeg',
         '-hide_banner',
-        '-y',
+        '-n',
         '-i',
         'source.mov',
         '-vf',
@@ -59,10 +59,7 @@ def test_reencode_files_writes_mp4_files_to_output_directory(
     reencode_videos.reencode_files([a, b], output)
 
     ffmpeg_commands = [c for c in commands if c[0] == 'ffmpeg']
-    assert [c[-1] for c in ffmpeg_commands] == [
-        (output / 'a.mp4').as_posix(),
-        (output / 'b.mp4').as_posix(),
-    ]
+    assert [Path(c[-1]).name for c in ffmpeg_commands] == ['a.mp4', 'b.mp4']
     assert (output / 'a.mp4').read_text() == 'encoded'
     assert (output / 'b.mp4').read_text() == 'encoded'
 

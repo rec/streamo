@@ -1,39 +1,34 @@
 #!/usr/bin/env python3
-import argparse
 import sys
 from pathlib import Path
+from typing import Annotated, cast
 
+import tyro
+from pydantic import BaseModel
 from reccy.runtime.process import run_silent
+
+from .media_output import new_media_output
 
 DEFAULT_MAX_BITRATE_KBPS = 1200
 DEFAULT_SOURCE_RATIO = 0.8
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description='Re-encode videos as 720p H.264 mezzanine files.'
-    )
-    parser.add_argument(
-        '--max-bitrate-kbps',
-        type=int,
-        default=DEFAULT_MAX_BITRATE_KBPS,
-        help='Maximum video bitrate for re-encoded files.',
-    )
-    parser.add_argument(
-        '--source-ratio',
-        type=float,
-        default=DEFAULT_SOURCE_RATIO,
-        help='Target this fraction of the source file bitrate.',
-    )
-    parser.add_argument('output_directory', type=Path)
-    parser.add_argument('videos', nargs='+', type=Path)
-    args = parser.parse_args()
+class ReencodeVideos(BaseModel, frozen=True):
+    """Write 720p H.264 mezzanine files, rejecting existing or duplicate outputs."""
 
+    output_directory: Annotated[Path, tyro.conf.Positional]
+    videos: Annotated[list[Path], tyro.conf.Positional]
+    max_bitrate_kbps: int = DEFAULT_MAX_BITRATE_KBPS
+    source_ratio: float = DEFAULT_SOURCE_RATIO
+
+
+def main() -> None:
+    options = tyro.cli(ReencodeVideos)
     reencode_files(
-        args.videos,
-        args.output_directory,
-        max_bitrate_kbps=args.max_bitrate_kbps,
-        source_ratio=args.source_ratio,
+        options.videos,
+        options.output_directory,
+        max_bitrate_kbps=options.max_bitrate_kbps,
+        source_ratio=options.source_ratio,
     )
 
 
@@ -48,6 +43,12 @@ def reencode_files(
         sys.exit(f'{output_directory} is not a directory')
 
     output_directory.mkdir(exist_ok=True)
+    targets = [output_directory / f'{v.stem}.mp4' for v in videos]
+    if len(set(targets)) != len(targets):
+        sys.exit('input filenames produce duplicate output paths')
+    for target in targets:
+        if target.exists():
+            sys.exit(f'{target} already exists')
     for video in videos:
         if not video.is_file():
             sys.exit(f'{video} is not a file')
@@ -70,14 +71,15 @@ def reencode_video(
         video, max_bitrate_kbps=max_bitrate_kbps, source_ratio=source_ratio
     )
     print(f'Re-encoding {video} to {output} at {bitrate_kbps} kbps...')
-    run_silent(reencode_command(video, output, bitrate_kbps=bitrate_kbps))
+    with new_media_output(output) as temporary:
+        run_silent(reencode_command(video, temporary, bitrate_kbps=bitrate_kbps))
 
 
 def reencode_command(video: Path, output: Path, *, bitrate_kbps: int) -> list[str]:
     return [
         'ffmpeg',
         '-hide_banner',
-        '-y',
+        '-n',
         '-i',
         video.as_posix(),
         '-vf',
@@ -123,7 +125,7 @@ def duration(video: Path) -> float:
         ],
         text=True,
     )
-    return float(result.stdout.strip())
+    return float(cast(str, result.stdout).strip())
 
 
 if __name__ == '__main__':

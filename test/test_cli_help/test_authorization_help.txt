@@ -1,0 +1,50 @@
+$ streamo auth --help
+usage: streamo auth [-h] [OPTIONS]
+
+Authorize YouTube. For Kick, use `streamo auth kick --help`.
+
+ positional arguments
+ --------------------------------------------------------------
+  {youtube}   service (required)
+
+ options
+ --------------------------------------------------------------
+  -h, --help  show this help message and exit
+  --client-secrets PATH
+              (required)
+  --credentials PATH
+              (default: '~/.config/streamo/youtube-auth.toml')
+  --no-browser, --no-no-browser
+              (default: False)
+  --callback-port INT
+              (default: 8765)
+
+
+$ streamo auth kick --help
+usage: streamo auth [-h] [OPTIONS]
+
+ options
+ --------------------------------------------------------------------
+  -h, --help           show this help message and exit
+  --client-secrets PATH
+                       (required)
+  --credentials PATH   (default: '~/.config/streamo/kick-auth.toml')
+  --no-browser, --no-no-browser
+                       (default: False)
+  --callback-port INT  (default: 8765)
+
+
+$ streamo auth youtube --help
+usage: streamo auth [-h] [OPTIONS]
+
+Authorize YouTube. For Kick, use `streamo auth kick --help`.
+
+ options
+ -----------------------------------------------------------------------
+  -h, --help           show this help message and exit
+  --client-secrets PATH
+                       (required)
+  --credentials PATH   (default: '~/.config/streamo/youtube-auth.toml')
+  --no-browser, --no-no-browser
+                       (default: False)
+  --callback-port INT  (default: 8765)

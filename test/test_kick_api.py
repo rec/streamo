@@ -12,7 +12,7 @@ from streamo.kick_api import (
     KickRequest,
     StoredKickCredentials,
 )
-from streamo.services import StreamMetadata
+from streamo.provider_config import StreamMetadata
 
 
 class FakeTokens:

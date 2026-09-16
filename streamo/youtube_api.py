@@ -16,7 +16,7 @@ from google.oauth2.credentials import Credentials
 from pydantic import BaseModel, SecretStr, ValidationError
 
 from .auth import YOUTUBE_SCOPE
-from .services import HlsPushIngest, RtmpIngest, StreamMetadata, YouTubeService
+from .provider_config import HlsPushIngest, RtmpIngest, StreamMetadata, YouTubeService
 
 YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3'
 YOUTUBE_TOKEN_URL = 'https://oauth2.googleapis.com/token'

@@ -1,0 +1,13 @@
+$ python -m scripts.auto_loop --help
+usage: python -m scripts.auto_loop [-h] [[PATH [PATH ...]]] [--threshold FLOAT]
+
+Render loops when sampled endpoints differ, then move sources to originals/.
+
+ positional arguments
+ ------------------------------------------------------
+  [[PATH [PATH ...]]]  videos (default: )
+
+ options
+ ------------------------------------------------------
+  -h, --help           show this help message and exit
+  --threshold FLOAT    (default: 10.0)

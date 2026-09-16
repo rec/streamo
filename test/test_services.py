@@ -4,27 +4,29 @@ from collections.abc import Callable
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from streamo.services import (
+from streamo.provider_config import (
     AudioEncoding,
     CustomService,
     EncodingProfile,
     FacebookService,
-    FfmpegDestination,
-    FfmpegOutput,
     HlsPushIngest,
     IcecastIngest,
     IcecastService,
     KickService,
     LinkedInService,
     RtmpIngest,
-    ServiceCapability,
     SrtIngest,
     StreamingServiceConfiguration,
     StreamMetadata,
     TwitchService,
-    TwitchServiceAdapter,
     VimeoService,
     YouTubeService,
+)
+from streamo.providers import (
+    FfmpegDestination,
+    FfmpegOutput,
+    ServiceCapability,
+    TwitchServiceAdapter,
     adapter_for,
     ingest_output,
 )
@@ -181,7 +183,7 @@ def test_kick_api_configuration_requires_video() -> None:
         )
 
 
-def test_rtmp_requires_flv_and_matching_backup_fields() -> None:
+def test_rtmp_requires_flv_and_rejects_backup_fields() -> None:
     with pytest.raises(ValidationError, match='flv container'):
         CustomService(
             service='custom',
@@ -193,12 +195,15 @@ def test_rtmp_requires_flv_and_matching_backup_fields() -> None:
             encoding=EncodingProfile.model_validate(encoding('mpegts')),
         )
 
-    with pytest.raises(ValidationError, match='must appear together'):
-        RtmpIngest(
-            protocol='rtmps',
-            server_url='rtmps://ingest.example.test/app',
-            stream_key='secret',
-            backup_server_url='rtmps://backup.example.test/app',
+    with pytest.raises(ValidationError, match='Extra inputs are not permitted'):
+        RtmpIngest.model_validate(
+            {
+                'protocol': 'rtmps',
+                'server_url': 'rtmps://ingest.example.test/app',
+                'stream_key': 'secret',
+                'backup_server_url': 'rtmps://backup.example.test/app',
+                'backup_stream_key': 'backup-secret',
+            }
         )
 
 
@@ -435,10 +440,7 @@ def test_named_adapters_expose_only_configured_capabilities() -> None:
         broadcaster_id='broadcaster',
     )
 
-    assert adapter_for(without_api).capabilities == [
-        ServiceCapability.PUBLISH,
-        ServiceCapability.STOP,
-    ]
+    assert adapter_for(without_api).capabilities == []
     assert ServiceCapability.CHAT in adapter_for(with_api).capabilities
 
 

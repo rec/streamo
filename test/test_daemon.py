@@ -9,6 +9,37 @@ from streamo import daemon
 from streamo.config import Streamo
 
 
+@pytest.mark.parametrize(
+    ('action', 'installed', 'running', 'expected'),
+    [
+        ('stop', True, False, 0),
+        ('stop', True, True, 1),
+        ('uninstall', False, False, 0),
+        ('uninstall', True, False, 1),
+        ('install', True, False, 0),
+        ('start', True, False, 1),
+    ],
+)
+def test_service_exit_code_matches_requested_action(
+    action: str, installed: bool, running: bool, expected: int
+) -> None:
+    with (
+        mock.patch.object(
+            Streamo,
+            f'{action}_service',
+            return_value=StatusResult(
+                installed=installed,
+                running=running,
+            ),
+        ),
+        mock.patch('streamo.daemon.print_service_status'),
+    ):
+        assert (
+            daemon.run(daemon.DaemonOptions.model_validate({'action': action}))
+            == expected
+        )
+
+
 def test_install_creates_daemon_service_with_absolute_config_path() -> None:
     config = Path('private/config.toml')
     with (

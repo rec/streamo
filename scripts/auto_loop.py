@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-import argparse
 import shutil
 import sys
 from pathlib import Path
+from typing import Annotated, cast
 
 import numpy as np
+import tyro
+from pydantic import BaseModel
 from reccy.runtime.process import run_silent
 
-from scripts import loop_videos
+from . import loop_videos
+from .media_output import new_media_output
 
 FRAME_SIZE = 64
 FRAME_CHANNELS = 3
@@ -15,25 +18,21 @@ FRAME_BYTE_COUNT = FRAME_SIZE * FRAME_SIZE * FRAME_CHANNELS
 DEFAULT_THRESHOLD = 10.0
 
 
+class AutoLoop(BaseModel, frozen=True):
+    """Render loops when sampled endpoints differ, then move sources to originals/."""
+
+    videos: Annotated[list[Path], tyro.conf.Positional]
+    threshold: float = DEFAULT_THRESHOLD
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description='Automatically loop videos that are clearly not seamless loops.'
-    )
-    parser.add_argument(
-        '--threshold',
-        type=float,
-        default=DEFAULT_THRESHOLD,
-        help='Mean endpoint-frame difference needed to auto-loop a file.',
-    )
-    parser.add_argument('videos', nargs='+', type=Path)
-    args = parser.parse_args()
-
-    for video in args.videos:
-        auto_test(video, threshold=args.threshold)
+    options = tyro.cli(AutoLoop)
+    for video in options.videos:
+        auto_loop(video, threshold=options.threshold)
 
 
-def auto_test(video: Path, *, threshold: float = DEFAULT_THRESHOLD) -> None:
-    if ignored(video):
+def auto_loop(video: Path, *, threshold: float = DEFAULT_THRESHOLD) -> None:
+    if is_named_loop(video):
         print(f'Leaving possible loop in place: {video}')
         return
     if not video.exists():
@@ -45,12 +44,15 @@ def auto_test(video: Path, *, threshold: float = DEFAULT_THRESHOLD) -> None:
         print(f'Leaving possible loop in place: {video} ({difference:.1f})')
         return
 
-    print(f'Looping definitely non-loop file: {video} ({difference:.1f})')
+    for target in (looped_output(video), video.parent / 'originals' / video.name):
+        if target.exists():
+            sys.exit(f'{target} already exists')
+    print(f'Looping file with differing sampled endpoints: {video} ({difference:.1f})')
     write_loop(video, looped_output(video))
     move_original(video)
 
 
-def ignored(video: Path) -> bool:
+def is_named_loop(video: Path) -> bool:
     return 'looped' in video.name.lower()
 
 
@@ -89,7 +91,7 @@ def frame_command(video: Path, *, seek_from_end: bool) -> list[str]:
 
 
 def frame_sample(command: list[str]) -> np.ndarray:
-    data = run_silent(command).stdout
+    data = cast(bytes, run_silent(command).stdout)
     if len(data) != FRAME_BYTE_COUNT:
         sys.exit(f'Expected {FRAME_BYTE_COUNT} frame bytes, got {len(data)}')
     return np.frombuffer(data, dtype=np.uint8).reshape(
@@ -112,7 +114,8 @@ def write_loop(video: Path, output: Path) -> None:
     if frame_count < 3:
         sys.exit(f'{video} has fewer than 3 frames')
     print(f'Writing loop to {output}...')
-    run_silent(loop_videos.ffmpeg_command(video, output, frame_count))
+    with new_media_output(output) as temporary:
+        run_silent(loop_videos.ffmpeg_command(video, temporary, frame_count))
 
 
 def move_original(video: Path) -> Path:

@@ -1,0 +1,14 @@
+$ python -m scripts.preview_loops --help
+usage: python -m scripts.preview_loops [-h] [[PATH [PATH ...]]]
+
+Preview loop boundaries; accept into loops/ and archive converted sources.
+
+Files named with 'looped' move directly to loops/ without a preview.
+
+ positional arguments
+ ------------------------------------------------------
+  [[PATH [PATH ...]]]  videos (default: )
+
+ options
+ ------------------------------------------------------
+  -h, --help           show this help message and exit

@@ -4,10 +4,16 @@ from urllib.parse import quote, quote_plus, unquote_plus
 
 import pytest
 
-from streamo import services, streamer
+from streamo import composition, provider_config, providers, streamer
+from streamo.composition import (
+    LOCAL_DISPLAY_URL,
+    ffmpeg_command,
+    title_filter,
+    video_size,
+)
 from streamo.config import Streamo
 from streamo.control import ControlController, RuntimeState
-from streamo.services import (
+from streamo.provider_config import (
     AudioEncoding,
     EncodingProfile,
     IcecastIngest,
@@ -15,18 +21,14 @@ from streamo.services import (
     RtmpIngest,
     TwitchService,
     VideoEncoding,
-    ingest_output,
 )
+from streamo.providers import ingest_output
 from streamo.streamer import (
-    LOCAL_DISPLAY_URL,
     LocalDisplayController,
     drm_connected,
-    ffmpeg_command,
     ffplay_command,
     local_ffplay_command,
     redacted_ffmpeg_command,
-    title_filter,
-    video_size,
 )
 
 
@@ -81,6 +83,7 @@ def test_ffmpeg_command_streams_audio_pipe_and_video_loop() -> None:
     ]
     assert 'visual-bed.mp4' in command
     assert '-stream_loop' in command
+
     assert '-filter_complex' not in command
     assert command[-3:-1] == ['-f', 'tee']
     assert command[-1] == (
@@ -88,6 +91,28 @@ def test_ffmpeg_command_streams_audio_pipe_and_video_loop() -> None:
         '[f=mpegts]udp\\://127.0.0.1\\:23000?pkt_size=1316'
     )
     assert command.count('-c:v') == 1
+
+
+def test_overlay_preserves_encoded_base_resolution_and_frame_rate() -> None:
+    config = _config()
+    service = config.streaming_service.model_copy(
+        update={
+            'encoding': config.streaming_service.encoding.model_copy(
+                update={
+                    'video': VideoEncoding(
+                        codec='h264',
+                        bitrate='2500k',
+                        resolution='1920x1080',
+                        frame_rate=30,
+                        keyframe_interval=2,
+                    ),
+                }
+            ),
+        }
+    )
+    config = config.model_copy(update={'streaming_service': service})
+    graph = composition.overlay_filter(config, [], image_input=2)
+    assert '[1:v]scale=1920:1080,fps=30' in graph
 
 
 def test_ffmpeg_command_can_disable_local_display() -> None:
@@ -197,7 +222,7 @@ def test_process_diagnostic_command_redacts_output_secret() -> None:
     config = _config()
     output = ingest_output(config.streaming_service)
 
-    local_output = streamer.local_display_output(config, output)
+    local_output = composition.local_display_output(config, output)
     command = redacted_ffmpeg_command(
         ffmpeg_command(config, output=local_output), local_output
     )
@@ -297,7 +322,7 @@ def test_local_ffplay_command_uses_fullscreen_silent_mpegts() -> None:
 def test_failure_logs_hide_ingest_urls_and_secrets(
     ingest: dict[str, object], container: str, caplog: pytest.LogCaptureFixture
 ) -> None:
-    service = services.CustomService.model_validate(
+    service = provider_config.CustomService.model_validate(
         {
             'service': 'custom',
             'ingest': ingest,
@@ -312,13 +337,13 @@ def test_failure_logs_hide_ingest_urls_and_secrets(
             },
         }
     )
-    output = streamer.local_display_output(_config(), ingest_output(service))
+    output = composition.local_display_output(_config(), ingest_output(service))
     url = output.destinations[0].url
     secret = 'private/key value'
     variants = [
         url,
         unquote_plus(url),
-        services.tee_escape(url),
+        providers.tee_escape(url),
         secret,
         quote(secret, safe=''),
         quote_plus(secret),
@@ -385,7 +410,7 @@ def test_local_display_follows_connector_transitions(
     assert calls[0]['env'] == {**streamer.os.environ, 'SDL_VIDEODRIVER': 'KMSDRM'}
 
 
-def test_local_display_restarts_only_after_a_connector_transition(
+def test_local_display_restarts_after_delay_without_connector_transition(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     status = tmp_path / 'card0-HDMI-A-1' / 'status'
@@ -402,9 +427,8 @@ def test_local_display_restarts_only_after_a_connector_transition(
     display.update()
     players[0].returncode = 1
     display.update()
-    status.write_text('disconnected\n')
-    display.update()
-    status.write_text('connected\n')
+    assert len(players) == 1
+    display.retry_at = 0
     display.update()
 
     assert len(players) == 2
@@ -463,6 +487,7 @@ def test_title_filter_uses_configured_timing(tmp_path: Path) -> None:
 
 class FakePlayer:
     def __init__(self) -> None:
+        self.stderr = None
         self.returncode: int | None = None
         self.terminated = False
 

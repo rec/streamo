@@ -13,7 +13,7 @@ from typing import Protocol, Self, cast
 from pydantic import BaseModel, SecretStr, ValidationError
 
 from .credentials import write_private_toml
-from .services import KickService, RtmpIngest, StreamMetadata
+from .provider_config import KickService, RtmpIngest, StreamMetadata
 
 KICK_API_URL = 'https://api.kick.com/public/v1'
 KICK_TOKEN_URL = 'https://id.kick.com/oauth/token'

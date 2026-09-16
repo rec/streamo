@@ -1,9 +1,23 @@
 # streamO issues
 
-Source review of commit `29ec7d0`, 2026-09-16. This is a backlog, not a list
-of implemented fixes. No services, provider APIs, hardware flows, or media
-commands were run. Findings below identify code paths and concrete triggers;
-runtime-dependent consequences are explicitly qualified.
+Source review of commit `29ec7d0`, 2026-09-16. All 22 findings have been
+addressed in source. Each resolution below describes the change; the original
+evidence is retained for context and can refer to renamed files or old behavior.
+
+Issues 1–3 were committed separately. CLI-help dependencies are recorded in
+`97c8595`, independently of the remaining implementation and documentation fixes.
+The temporary Git write restriction has been resolved.
+
+Verification: 197 pytest tests, Ruff, type checks for `streamo` and `scripts`,
+pyupgrade, and `git diff --check`; PHP syntax and feed cursor/page boundaries
+checked against 10,000 records. Tests include a small rendered-video regression.
+No live streaming, provider calls, browser upload interaction, or HDMI/audio
+hardware tests were performed. Hour-long render planning was measured; actual
+long-render decoder/memory capacity still needs target-machine validation.
+
+## Additional work beyond the prompt
+
+None.
 
 Priorities: **P1** can disrupt a show, expose credentials, or overwrite media;
 **P2** is incorrect behavior or a significant operator trap; **P3** is
@@ -66,6 +80,8 @@ preparation, and ensure cleanup continues if an earlier cleanup step fails.
 
 ### 4. P2: Successful stop and uninstall report failure
 
+**Resolved:** Daemon exit codes now test the requested end state, including stopped and uninstalled services.
+
 **Evidence:** `streamo/daemon.py:run` returns 1 whenever `result.running is False`,
 independently of the requested action. A stopped process is the intended result
 of `stop`; an uninstalled service is also not running. Existing daemon tests
@@ -75,6 +91,8 @@ Use action-specific success conditions so shell scripts can distinguish a
 successful stop/uninstall from a failed start.
 
 ### 5. P2: Local status depends on a successful remote health request
+
+**Resolved:** Provider health is cached by a background poller every 30 seconds. Status returns immediately with a separate health error and update timestamp.
 
 **Evidence:** `streamo/control.py:ControlController.handle_request` calls
 `self.service.health()` synchronously before returning the local snapshot.
@@ -88,6 +106,8 @@ unavailable; represent the health failure separately and define its refresh
 cadence rather than making every status request an API poll.
 
 ### 6. P2: HDMI player failure requires a cable state change to recover
+
+**Resolved:** A connected HDMI display retries a failed player after five seconds and retains its stderr for failure logging.
 
 **Evidence:** `streamo/streamer.py:LocalDisplayController.update` clears an exited
 player but returns immediately when connector state still equals `connected`.
@@ -103,6 +123,8 @@ connected display.
 
 ### 7. P2: Backup ingest configuration is accepted but unused
 
+**Resolved:** By explicit user decision, backup settings are rejected at validation and the unsupported capability has been removed.
+
 **Evidence:** `streamo/services.py:RtmpIngest` validates backup URL/key pairs and
 `GenericServiceAdapter` advertises `BACKUP_INGEST` when supplied. However,
 `ingest_output` creates only the primary destination and never reads the backup
@@ -114,6 +136,8 @@ and the capability until supported. Specify whether backup means simultaneous
 publishing or failover before implementation.
 
 ### 8. P2: Enabling an overlay reduces the entire base video's quality
+
+**Resolved:** Base video scaling and frame rate now follow the output encoding profile. Overlay working settings no longer reduce base-video quality.
 
 **Evidence:** `streamo/streamer.py:overlay_filter` scales the base video to
 `video_resolution` and converts it to `video_frame_rate`. Defaults are 640x360
@@ -128,6 +152,8 @@ and align defaults/examples with it.
 
 ### 9. P2: Relative media paths depend on launch directory
 
+**Resolved:** Configuration media, image directories, and credential paths resolve relative to the TOML file, with home expansion. Generated render plans use absolute paths; hand-written relative paths resolve from the plan file.
+
 **Evidence:** `streamo/daemon.py:load_config` expands only the configuration
 filename. `video`, `title_card`, and `image_dir` remain relative paths. Daemon
 installation resolves the config path but does not resolve its contents.
@@ -138,6 +164,8 @@ Define one path base, apply it consistently, and document it. Apply the same
 decision to paths stored in render plans.
 
 ### 10. P2: Configuration accepts values that fail only during streaming
+
+**Resolved:** Dimensions and finite timings are validated, including feed polling. Readable local media and decodable title cards are checked before provider preparation. Unsupported video/audio-only container combinations are rejected.
 
 **Evidence:** `streamo/config.py` does not validate `video_resolution`, checks
 only presence of `video`, and checks `title_card.exists()` rather than a usable
@@ -153,6 +181,8 @@ structural configuration validation.
 
 ### 11. P2: Preview still requires provider credential initialization
 
+**Resolved:** Preview uses local ingest composition without constructing a credential-backed provider adapter or polling provider health. A configured participant feed remains active, as documented.
+
 **Evidence:** `streamo/config.py:Streamo.run` always constructs `adapter_for`
 before passing `preview=True`. YouTube and Kick adapter constructors load their
 configured credential files. The preview flag suppresses prepare/publish/finish,
@@ -167,6 +197,8 @@ match the implementation.
 
 ### 12. P2: One bad feed image blocks all later uploads
 
+**Resolved:** Missing (404/410), oversized, or invalid feed images are logged and skipped with cursor advancement. Transient failures remain retryable and do not advance the cursor.
+
 **Evidence:** `streamo/images.py:ImageFeedPoller.poll` advances its cursor only
 after downloading and validating each image. An error aborts the iteration;
 `run` retries from the unchanged cursor.
@@ -178,6 +210,8 @@ an operator-visible error.
 
 ### 13. P2: Feed backlog can exceed a hard client limit permanently
 
+**Resolved:** Feed pages are capped at 1000 IDs. Cursor lookup uses binary search over the append-only manifest; uploads read only its tail. PHP boundary checks cover 10,000 records.
+
 **Evidence:** `web/foto.php:send_feed` emits every entry after the cursor without
 pagination. `streamo/images.py:fetch_feed_items` rejects responses larger than
 256 KiB without processing any entries or advancing the cursor.
@@ -188,6 +222,8 @@ feed and upload paths also scan the entire manifest for every poll/upload, so
 their work grows with total show history, not just new entries.
 
 ### 14. P2: The image RPC has weaker guarantees than the remote feed
+
+**Resolved:** RPC images have 8 MiB and 2048-pixel limits and must decode as supported formats. The entire batch validates in staging before individual atomic publication; a publication failure rolls back that batch.
 
 **Evidence:** `streamo/control.py:store_image` reads entire local files or HTTP
 responses without a size limit and publishes bytes without image validation.
@@ -202,6 +238,8 @@ RPC publishes only valid images while it merely copies bytes.
 
 ### 15. P2: An earlier upload completion overwrites a newer selection's UI
 
+**Resolved:** Upload success and failure handlers capture the selection generation and ignore stale completions after the participant selects a different photo.
+
 **Evidence:** `web/foto.php` guards asynchronous photo preparation with
 `currentSelection`, but its upload click handler does not capture/check that
 generation and does not disable the photo picker.
@@ -214,6 +252,8 @@ against selection changes or prevent changes while an upload is active.
 
 ### 16. P1: Media tools silently overwrite existing outputs
 
+**Resolved:** Media renderers reject existing outputs and duplicate stems, preflight archive collisions, and publish completed output from temporary files without replacement. Tests cover failed renders and concurrent destination creation.
+
 **Evidence:** `scripts/reencode_videos.py:reencode_files` maps every input to
 `output_directory / (video.stem + '.mp4')` and its FFmpeg command uses `-y`.
 Two inputs with the same stem overwrite one another. `scripts/auto_tester.py`
@@ -225,6 +265,8 @@ Require explicit overwrite intent and publish finished media atomically so a
 failed render does not replace a previously usable output.
 
 ### 17. P2: Saved render plans lack timeline invariants
+
+**Resolved:** Saved plans require finite positive durations, nonempty scenes, exactly one transition per adjacent pair, sufficient timeline length, valid overlap sums, and title events within the output duration.
 
 **Evidence:** `scripts/render.py:RenderPlan` validates field types but permits
 empty scenes, negative durations, and any transition count. `render_plan_file`
@@ -239,6 +281,8 @@ valid overlap/title bounds before rendering. Also validate
 
 ### 18. P3: Long renders build one growing graph and repeatedly scan the plan
 
+**Resolved:** Planning maintains an incremental duration. A one-hour plan of ten-second clips produced 720 scenes in about 2 ms; two hours took about 4 ms. The one-hour graph was 179,200 bytes, so execution now passes the graph via a temporary file. Decoder/memory limits have not been measured; no speculative segmented renderer was added.
+
 **Evidence:** `scripts/render.py:build_plan` recomputes `timeline_duration` and
 calls `stretch_scenes_for_transitions` across all accumulated scenes on every
 iteration, making planning quadratic in scene count. `ffmpeg_command` adds a
@@ -250,6 +294,8 @@ maintain an incremental timeline total and consider bounded render segments
 if actual decoder/memory or command-length limits are reached.
 
 ### 19. P2: "Randomized cycles" is not the renderer's selection behavior
+
+**Resolved:** Documentation now specifies random choice without immediate repeats, not shuffled cycles. The automatic loop tool describes differing sampled endpoints as a heuristic, not proof of a non-loop.
 
 **Evidence:** README and `doc/streamo.md` describe randomized cycles.
 `scripts/render.py:choose_media` samples randomly from all media except the
@@ -265,6 +311,8 @@ than the true final frame. Use wording that reflects that heuristic.
 
 ### 20. P3: Three large modules combine independently changing concerns
 
+**Resolved:** Provider configuration moved to `provider_config.py`, adapters and ingest output to `providers.py`, live composition to `composition.py`, audio to `audio.py`, render planning to `scripts/render_plan.py`, and Markdown cards to `scripts/title_card.py`. Imports use the defining modules; no compatibility wrappers remain.
+
 - `streamo/services.py` (846 lines): encoding and ingest models, validation,
   provider models, adapters, output serialization, and capability catalogs.
 - `streamo/streamer.py` (636 lines): process lifecycle, HDMI management, filter
@@ -278,6 +326,8 @@ generic framework. The tracked package and test directories have about 14 and
 17 Python files respectively; entry count alone does not justify subdivision.
 
 ### 21. P3: Names conceal scope or imply unsupported behavior
+
+**Resolved:** Renamed `programs.py` to `ffmpeg_progress.py`, and the media tools to `auto_loop.py` and `preview_loops.py`. Their help states rendering/moving behavior. Channel and category descriptions distinguish audio and provider meanings. Provider capabilities now advertise implemented commands/health only. Public prose uses streamO, reccy, and showCo.
 
 **Evidence and proposed direction:**
 
@@ -302,6 +352,8 @@ generic framework. The tracked package and test directories have about 14 and
   unchanged when correcting prose.
 
 ### 22. P3: Documentation is duplicated and already disagrees with the backlog
+
+**Resolved:** README is a short entry point to the authoritative operator guide. Handover links this review. Help exposes authorization and is recorded using reccy’s CLI-help fixture, including media tools. No pre-existing help-only tests were redundant; behavior tests remain.
 
 **Evidence:** README is 547 lines and `doc/streamo.md` is another 320-line
 operator guide with overlapping setup, configuration, OAuth, overlays, and

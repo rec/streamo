@@ -19,9 +19,11 @@ KICK_SCOPES = 'channel:read channel:write chat:write streamkey:read'
 
 
 class AuthOptions(BaseModel, frozen=True):
+    """Authorize YouTube. For Kick, use `streamo auth kick --help`."""
+
     service: Annotated[Literal['youtube'], tyro.conf.Positional]
     client_secrets: Path
-    credentials: Path = Path.home() / '.config/streamo/youtube-auth.toml'
+    credentials: Path = Path('~/.config/streamo/youtube-auth.toml')
     no_browser: bool = False
     callback_port: int = 8765
 
@@ -35,7 +37,7 @@ class AuthOptions(BaseModel, frozen=True):
 
 class KickAuthOptions(BaseModel, frozen=True):
     client_secrets: Path
-    credentials: Path = Path.home() / '.config/streamo/kick-auth.toml'
+    credentials: Path = Path('~/.config/streamo/kick-auth.toml')
     no_browser: bool = False
     callback_port: int = 8765
 
@@ -173,7 +175,7 @@ def receive_kick_code(
     server.code = None
     server.error = None
     try:
-        print(f'Open this URL to authorize Streamo:\n\n{authorization_url}\n')
+        print(f'Open this URL to authorize streamO:\n\n{authorization_url}\n')
         if open_browser:
             webbrowser.open(authorization_url)
         server.handle_request()

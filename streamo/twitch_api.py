@@ -6,7 +6,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Protocol, Self, cast
 
-from .services import TwitchService
+from .provider_config import TwitchService
 
 
 @dataclass

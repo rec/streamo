@@ -10,6 +10,13 @@ from .config import STREAMO_SERVICE, Streamo
 
 
 class DaemonOptions(BaseModel, frozen=True):
+    """Capture and publish a stereo pair with streamO.
+
+    Use `streamo daemon ACTION` to manage the background service, or
+    `streamo auth youtube --help` / `streamo auth kick --help` to authorize
+    provider access. Without a command, streamO runs in the foreground.
+    """
+
     action: Annotated[
         Literal[
             'run',
@@ -23,7 +30,7 @@ class DaemonOptions(BaseModel, frozen=True):
         ],
         tyro.conf.Positional,
     ] = 'run'
-    config: Path = Path.home() / '.config/streamo/config.toml'
+    config: Path = Path('~/.config/streamo/config.toml')
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -48,8 +55,27 @@ def run(options: DaemonOptions) -> int:
     else:
         result = getattr(streamo, f'{options.action}_service')()
     print_service_status(STREAMO_SERVICE.name, result)
-    return 0 if result.running is not False else 1
+    if options.action == 'uninstall':
+        return int(result.installed or result.running is True)
+    if options.action == 'stop':
+        return int(result.running is not False)
+    if options.action == 'install':
+        return int(not result.installed)
+    return int(result.running is not True)
 
 
 def load_config(path: Path) -> Streamo:
-    return Streamo.model_validate(tomllib.loads(path.expanduser().read_text()))
+    path = path.expanduser().resolve()
+    values = tomllib.loads(path.read_text())
+    for name in ('video', 'title_card', 'image_dir'):
+        value = values.get(name, 'images' if name == 'image_dir' else None)
+        if isinstance(value, str):
+            values[name] = resolve_path(path.parent, value)
+    service = values.get('streaming_service')
+    if isinstance(service, dict) and isinstance(service.get('credentials'), str):
+        service['credentials'] = resolve_path(path.parent, service['credentials'])
+    return Streamo.model_validate(values)
+
+
+def resolve_path(base: Path, value: str) -> Path:
+    return (base / Path(value).expanduser()).resolve()

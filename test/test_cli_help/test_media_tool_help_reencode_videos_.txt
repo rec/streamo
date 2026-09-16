@@ -1,0 +1,15 @@
+$ python -m scripts.reencode_videos --help
+usage: python -m scripts.reencode_videos [-h] PATH [[PATH [PATH ...]]] [--max-bitrate-kbps INT] [--source-ratio FLOAT]
+
+Write 720p H.264 mezzanine files, rejecting existing or duplicate outputs.
+
+ positional arguments
+ ---------------------------------------------------------
+  PATH                    output-directory (required)
+  [[PATH [PATH ...]]]     videos (default: )
+
+ options
+ ---------------------------------------------------------
+  -h, --help              show this help message and exit
+  --max-bitrate-kbps INT  (default: 1200)
+  --source-ratio FLOAT    (default: 0.8)

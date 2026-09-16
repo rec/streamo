@@ -78,7 +78,11 @@ function upload_image(string $dataDirectory): void
         fail(500, 'The image feed cannot be locked.');
     }
     $lastId = 0;
-    rewind($manifest);
+    // Records contain only a numeric ID. The tail contains the final record.
+    $size = fstat($manifest)['size'];
+    $offset = max(0, $size - 128);
+    fseek($manifest, $offset);
+    if ($offset > 0) fgets($manifest);
     while (($line = fgets($manifest)) !== false) {
         $item = json_decode($line, true);
         if (is_array($item) && isset($item['id']) && is_int($item['id'])) {
@@ -122,15 +126,37 @@ function send_feed(string $dataDirectory): void
     }
     header('Content-Type: application/x-ndjson; charset=utf-8');
     header('Cache-Control: no-store');
-    rewind($manifest);
+    seek_after($manifest, $after);
+    $sent = 0;
     while (($line = fgets($manifest)) !== false) {
         $item = json_decode($line, true);
         if (is_array($item) && isset($item['id']) && is_int($item['id']) && $item['id'] > $after) {
             echo json_encode(['id' => $item['id']]) . "\n";
+            if (++$sent >= 1000) break;
         }
     }
     flock($manifest, LOCK_UN);
     fclose($manifest);
+}
+
+function seek_after($manifest, int $after): void
+{
+    $low = 0;
+    $high = fstat($manifest)['size'];
+    while ($high - $low > 128) {
+        $middle = intdiv($low + $high, 2);
+        fseek($manifest, $middle);
+        fgets($manifest); // Skip the partial record.
+        $line = fgets($manifest);
+        if ($line === false) { $high = $middle; continue; }
+        $item = json_decode($line, true);
+        if (!is_array($item) || !isset($item['id'])) {
+            fail(500, 'The image feed is damaged.');
+        }
+        if ($item['id'] <= $after) $low = ftell($manifest);
+        else $high = $middle;
+    }
+    fseek($manifest, $low);
 }
 
 function send_image(string $dataDirectory): void
@@ -297,6 +323,7 @@ input.addEventListener('change', async () => {
 send.addEventListener('click', async () => {
   if (!prepared) return;
   send.disabled = true;
+  const uploadingSelection = selection;
   setStatus(text.sending);
   const body = new FormData();
   body.append('photo', prepared, 'photo.jpg');
@@ -305,8 +332,10 @@ send.addEventListener('click', async () => {
   try {
     const response = await fetch(url, { method: 'POST', body });
     if (!response.ok) throw new Error('upload failed');
+    if (uploadingSelection !== selection) return;
     setStatus(text.sent, 'success');
   } catch (error) {
+    if (uploadingSelection !== selection) return;
     send.disabled = false;
     setStatus(text.failed, 'error');
   }

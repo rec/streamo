@@ -1,0 +1,34 @@
+$ python -m scripts.render --help
+usage: python -m scripts.render [-h] [OPTIONS]
+
+ options
+ -----------------------------------------------------
+  -h, --help          show this help message and exit
+  --inputs [PATH [PATH ...]]
+                      (required)
+  --output {None}|PATH
+                      (default: None)
+  --duration FLOAT    (default: 3600.0)
+  --seed {None}|INT   (default: None)
+  --title-card {None}|PATH
+                      (default: None)
+  --width INT         (default: 640)
+  --height INT        (default: 360)
+  --fps INT           (default: 24)
+  --work-scale INT    (default: 2)
+  --work-fps INT      (default: 30)
+  --still-duration FLOAT
+                      (default: 30.0)
+  --start-black-duration FLOAT
+                      (default: 8.0)
+  --title-interval FLOAT
+                      (default: 180.0)
+  --title-jitter FLOAT
+                      (default: 30.0)
+  --title-duration FLOAT
+                      (default: 8.0)
+  --title-fade FLOAT  (default: 4.0)
+  -p, --plan, --no-plan
+                      (default: False)
+  -P, --plan-only, --no-plan-only
+                      (default: False)

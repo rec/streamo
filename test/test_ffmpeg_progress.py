@@ -6,7 +6,7 @@ import pytest
 from reccy.runtime.process import run_silent
 
 from streamo.control import RuntimeState
-from streamo.programs import parse_bitrate, update_bitrate
+from streamo.ffmpeg_progress import parse_bitrate, update_bitrate
 
 
 def test_run_silent_hides_successful_output(capsys: pytest.CaptureFixture[str]) -> None:

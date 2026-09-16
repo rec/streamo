@@ -1,13 +1,17 @@
+import re
+from math import isfinite
 from pathlib import Path
 from typing import TYPE_CHECKING, Self
 
-from pydantic import ConfigDict, PrivateAttr, field_validator, model_validator
+from PIL import Image
+from pydantic import ConfigDict, Field, PrivateAttr, field_validator, model_validator
 from reccy.protocol import ipc, rpc
 from reccy.reccy import Reccy, ReccyStatus
 from reccy.services.spec import load
 
 from .images import ImageFeed, ImageFeedPoller, image_paths
-from .services import StreamingServiceConfiguration, adapter_for
+from .provider_config import StreamingServiceConfiguration
+from .providers import GenericServiceAdapter, adapter_for
 
 STREAMO_SERVICE = load(Path(__file__).with_name('service.toml'))
 
@@ -22,7 +26,9 @@ class Streamo(Reccy, frozen=True):
     rpc_enabled = True
 
     device_name: str
-    channel: int
+    channel: int = Field(
+        description='First channel of the stereo input pair, numbered from 1.'
+    )
     streaming_service: StreamingServiceConfiguration
     video: Path | None = None
     title_card: Path | None = None
@@ -45,13 +51,20 @@ class Streamo(Reccy, frozen=True):
     def run(self, *, preview: bool = False) -> int:
         from . import control, streamer
 
-        service_adapter = adapter_for(self.streaming_service)
+        self.validate_media()
+        service_adapter = (
+            GenericServiceAdapter(self.streaming_service)
+            if preview
+            else adapter_for(self.streaming_service)
+        )
         controller = control.ControlController(
             state=control.RuntimeState(),
             image_dir=self.image_dir,
-            service=service_adapter,
+            service=None if preview else service_adapter,
         )
         controller.state.configure_service(service_adapter)
+        if preview:
+            controller.state.capabilities = []
         object.__setattr__(self, '_controller', controller)
         image_feed_poller = (
             None
@@ -78,9 +91,28 @@ class Streamo(Reccy, frozen=True):
                 image_feed_poller.stop()
             self.close()
 
+    def validate_media(self) -> None:
+        if self.streaming_service.encoding.video is not None:
+            if self.video is None or not self.video.is_file():
+                raise ValueError(f'Video file is unavailable: {self.video}')
+            with self.video.open('rb'):
+                pass
+        if self.title_card is not None:
+            with Image.open(self.title_card) as image:
+                image.load()
+
+    @field_validator('video_resolution')
+    @classmethod
+    def validate_resolution(cls, value: str) -> str:
+        if re.fullmatch(r'[1-9][0-9]*x[1-9][0-9]*', value.lower()) is None:
+            raise ValueError(
+                'video_resolution must contain positive WIDTHxHEIGHT values'
+            )
+        return value.lower()
+
     def rpc_response(self, request: rpc.Request) -> rpc.Result:
         if self._controller is None:
-            return ipc.Error(type='error', message='Streamo is not running')
+            return ipc.Error(type='error', message='streamO is not running')
         return self._controller.handle_request(request)
 
     @field_validator('channel', 'sample_rate', 'video_frame_rate')
@@ -93,7 +125,7 @@ class Streamo(Reccy, frozen=True):
     @field_validator('current_session_image_weight')
     @classmethod
     def validate_nonnegative_weight(cls, value: int) -> int:
-        if value < 0:
+        if not isfinite(value) or value < 0:
             raise ValueError('must not be negative')
         return value
 
@@ -107,15 +139,15 @@ class Streamo(Reccy, frozen=True):
     )
     @classmethod
     def validate_nonnegative_time(cls, value: float) -> float:
-        if value < 0:
-            raise ValueError('must not be negative')
+        if not isfinite(value) or value < 0:
+            raise ValueError('must be finite and nonnegative')
         return value
 
     @model_validator(mode='after')
     def validate_title_card(self) -> Self:
         if self.title_card is None:
             return self
-        if not self.title_card.exists():
+        if not self.title_card.is_file():
             raise ValueError(f'{self.title_card} does not exist')
         if self.title_interval <= 0:
             raise ValueError('title_interval must be positive')

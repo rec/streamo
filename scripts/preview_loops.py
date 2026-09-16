@@ -1,32 +1,34 @@
 #!/usr/bin/env python3
-import argparse
 import shutil
 import sys
 import tempfile
 from pathlib import Path
+from typing import Annotated, cast
 
+import tyro
+from pydantic import BaseModel
 from reccy.runtime.process import run_silent
 
-from scripts import loop_videos
+from . import loop_videos
+
+
+class PreviewLoops(BaseModel, frozen=True):
+    """Preview loop boundaries; accept into loops/ and archive converted sources.
+
+    Files named with 'looped' move directly to loops/ without a preview.
+    """
+
+    videos: Annotated[list[Path], tyro.conf.Positional]
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description='Preview videos as forward/backward loops before accepting them.'
-    )
-    parser.add_argument('videos', nargs='+', type=Path)
-    args = parser.parse_args()
-
-    for video in args.videos:
-        if ignored(video):
-            print(f'Moving existing loop {video} into {loops_directory(video)}/')
-            move_to_loops(video)
-        else:
-            test_loop(video)
+    options = tyro.cli(PreviewLoops)
+    for video in options.videos:
+        preview_loop(video)
 
 
-def test_loop(video: Path) -> None:
-    if ignored(video):
+def preview_loop(video: Path) -> None:
+    if is_named_loop(video):
         print(f'Moving existing loop {video} into {loops_directory(video)}/')
         move_to_loops(video)
         return
@@ -61,7 +63,7 @@ def test_loop(video: Path) -> None:
             print('Please enter r, l, m, or return.', file=sys.stderr)
 
 
-def ignored(video: Path) -> bool:
+def is_named_loop(video: Path) -> bool:
     return 'looped' in video.name.lower()
 
 
@@ -160,11 +162,13 @@ def duration(video: Path) -> float:
         ],
         text=True,
     )
-    return float(result.stdout.strip())
+    return float(cast(str, result.stdout).strip())
 
 
 def accept_loop(video: Path, preview: Path) -> None:
     output = looped_output(video)
+    if output.exists():
+        sys.exit(f'{output} already exists')
     output.parent.mkdir(exist_ok=True)
     originals = video.parent / 'originals'
     originals.mkdir(exist_ok=True)

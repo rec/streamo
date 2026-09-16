@@ -10,6 +10,15 @@ from PIL import Image
 
 from scripts import render
 from scripts.render import (
+    ffmpeg_command,
+    filter_graph,
+    format_time,
+    plan_toml,
+    print_render_schedule,
+    scene_start_times,
+)
+from scripts.render_plan import (
+    MAX_XFADE_DURATION,
     Media,
     Render,
     RenderPlan,
@@ -18,17 +27,67 @@ from scripts.render import (
     Transition,
     build_plan,
     fade_duration,
-    ffmpeg_command,
-    filter_graph,
-    format_time,
-    plan_toml,
-    print_render_schedule,
-    render_markdown_title_card,
-    scene_start_times,
     stretch_scenes_for_transitions,
     timeline_duration,
     title_schedule,
 )
+from scripts.title_card import render_markdown_title_card
+
+
+@pytest.mark.parametrize('duration', [0, -1, float('nan'), float('inf')])
+def test_render_rejects_invalid_durations(duration: float) -> None:
+    with pytest.raises(ValueError):
+        Render(inputs=[Path('clip.mp4')], start_black_duration=duration)
+    with pytest.raises(ValueError):
+        Media(path=Path('clip.mp4'), duration=duration)
+
+
+def test_saved_plan_rejects_missing_transitions_and_excessive_overlap() -> None:
+    scene = Scene(media=Media(path=Path('clip.mp4'), duration=2), duration=2)
+    with pytest.raises(ValueError, match='one transition'):
+        RenderPlan(scenes=[scene, scene])
+    with pytest.raises(ValueError, match='overlaps exceed'):
+        RenderPlan(scenes=[scene, scene], transitions=[Transition(duration=3)])
+    with pytest.raises(ValueError, match='needs scenes'):
+        RenderPlan(scenes=[])
+
+
+def test_saved_plan_rejects_short_timeline_and_out_of_bounds_title() -> None:
+    config = Render(
+        inputs=[Path('clip.mp4')], duration=10, title_card=Path('title.png')
+    )
+    scene = Scene(media=Media(path=Path('clip.mp4'), duration=10), duration=10)
+    with pytest.raises(ValueError, match='shorter'):
+        RenderPlan(render=config.model_copy(update={'duration': 11}), scenes=[scene])
+    with pytest.raises(ValueError, match='outside'):
+        RenderPlan(
+            render=config,
+            scenes=[scene],
+            title_events=[TitleEvent(start=9, duration=2)],
+        )
+
+
+def test_render_passes_large_filter_graph_through_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = Render(
+        inputs=[Path('a.mp4'), Path('b.mp4')],
+        output=tmp_path / 'out.mp4',
+        duration=3600,
+        seed=1,
+    )
+    plan = build_plan(config, [Media(path=p, duration=10) for p in config.inputs])
+
+    def run_silent(command: list[str]) -> None:
+        graph_path = Path(command[command.index('-filter_complex_script') + 1])
+        assert graph_path.read_text() == filter_graph(config, plan)[0]
+        assert max(map(len, command)) < 1024
+        Path(command[-1]).write_bytes(b'completed render')
+
+    monkeypatch.setattr(render, 'run_silent', run_silent)
+    render.execute_prepared_plan(config, plan)
+    assert config.output is not None
+    assert config.output.read_bytes() == b'completed render'
 
 
 def test_fade_duration_uses_half_longer_video() -> None:
@@ -63,7 +122,7 @@ def test_fade_duration_is_capped_below_ffmpeg_limit() -> None:
     first = Scene(media=Media(path=Path('a.mp4'), duration=200), duration=200)
     second = Scene(media=Media(path=Path('b.mp4'), duration=10), duration=10)
 
-    assert fade_duration(first, second) == render.MAX_XFADE_DURATION
+    assert fade_duration(first, second) == MAX_XFADE_DURATION
 
 
 def test_build_plan_is_seeded_and_avoids_immediate_repeats() -> None:
@@ -335,7 +394,10 @@ def test_plan_toml_round_trips_render_settings_and_scenes() -> None:
 
     loaded = RenderPlan.model_validate(tomllib.loads(plan_toml(plan)))
 
-    assert loaded == plan
+    assert loaded.render is not None
+    assert loaded.render.output == Path('out.mp4').resolve()
+    assert loaded.render.inputs == [Path('a.mp4').resolve()]
+    assert loaded.scenes == plan.scenes
 
 
 def test_render_executes_plan_input(monkeypatch, tmp_path: Path) -> None:
@@ -353,7 +415,10 @@ def test_render_executes_plan_input(monkeypatch, tmp_path: Path) -> None:
 
     render.render(Render(inputs=[path], output=Path('ignored.mp4')))
 
-    assert executed == [(config, plan)]
+    executed_config, executed_plan = executed[0]
+    assert executed_config.output == Path('out.mp4').resolve()
+    assert executed_config.inputs == [Path('a.mp4').resolve()]
+    assert executed_plan.scenes == plan.scenes
 
 
 def test_plan_input_rejects_other_inputs_and_plan_flags(tmp_path: Path) -> None:

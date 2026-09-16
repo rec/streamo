@@ -1,0 +1,12 @@
+$ python -m scripts.loop_videos --help
+usage: python -m scripts.loop_videos [-h] [[PATH [PATH ...]]]
+
+Create forward/backward loops beside each source without replacing files.
+
+ positional arguments
+ ------------------------------------------------------
+  [[PATH [PATH ...]]]  videos (default: )
+
+ options
+ ------------------------------------------------------
+  -h, --help           show this help message and exit

@@ -223,6 +223,32 @@ def test_image_feed_poller_requests_only_items_after_saved_cursor(
     assert poller.poll() == []
 
 
+def test_invalid_feed_image_does_not_block_later_images(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    jpeg = io.BytesIO()
+    Image.new('RGB', (8, 8), 'blue').save(jpeg, 'JPEG')
+
+    def urlopen(url: str, timeout: int) -> FakeHttpResponse:
+        query = parse_qs(urlsplit(url).query)
+        if query['action'] == ['feed']:
+            return FakeHttpResponse(b'{"id":1}\n{"id":2}\n')
+        return FakeHttpResponse(b'bad' if query['id'] == ['1'] else jpeg.getvalue())
+
+    monkeypatch.setattr(streamo.images, 'urlopen', urlopen)
+    poller = ImageFeedPoller(
+        ImageFeed(
+            url='https://example.test/photos',
+            token='room-secret-at-least-20-characters',
+        ),
+        tmp_path,
+    )
+    paths = poller.poll()
+    assert len(paths) == 1
+    assert paths[0].read_bytes() == jpeg.getvalue()
+    assert poller.cursor_path.read_text() == '2\n'
+
+
 class FakeHttpResponse:
     def __init__(self, contents: bytes) -> None:
         self.contents = contents
