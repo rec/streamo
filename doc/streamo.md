@@ -514,5 +514,5 @@ Source responsibilities are separated into `provider_config.py` (configuration),
 `providers.py` (adapters and ingest output), `composition.py` (live FFmpeg graph),
 `streamer.py` (process lifecycle), and `audio.py` (capture). Offline media uses
 `scripts/render_plan.py` for planning, `scripts/title_card.py` for Markdown cards,
-and `scripts/render.py` for execution. See [the issue review](../plan/issues.md)
-for completed fixes and the limits of verification.
+and `scripts/render.py` for execution. See [the handover](handover.md)
+for completed work and the limits of verification.

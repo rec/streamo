@@ -19,4 +19,4 @@ Requires Python 3.13+, FFmpeg, FFprobe, an audio input device, and FFplay for
 preview or local display. Live operation uses the same configuration:
 `uv run streamo --config ~/.config/streamo/config.toml`.
 
-Contributor context: [handover](doc/handover.md), [issue review](plan/issues.md).
+Contributor context: [handover](doc/handover.md).

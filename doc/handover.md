@@ -2,13 +2,14 @@
 
 ## Current work
 
-The 22 findings in [the issue review](../plan/issues.md) are addressed in source.
+All 22 findings from the completed issue review are addressed in source.
+The resolved issue list has been removed; its history remains in Git.
 The operator guide is [streamo.md](streamo.md); README only links into it.
 
 Issue 1 was committed as `7cf183f` and audio recovery/lifecycle fixes as
 `9b04a71`. CLI-help dependencies are recorded separately in `97c8595`.
-The remaining fixes, tests, module moves, and documentation form the backlog
-completion commit. The temporary Git write restriction has been resolved.
+The remaining fixes, tests, module moves, and documentation were committed in
+`402d0d6`. All implementation commits were pushed.
 
 Verification: 197 tests pass, including reccy CLI-help snapshots and a small
 rendered-video regression. Ruff, type checks, pyupgrade, and diff checks pass.
