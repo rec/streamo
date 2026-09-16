@@ -1,7 +1,7 @@
 [project]
 name = "streamo"
 version = "0.1.0"
-description = "Stream a stereo audio device pair to live ingest services."
+description = "🚰 Stream audio to all services 🚰"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
