@@ -176,6 +176,36 @@ provider-specific control commands.
 
 ## Service operation
 
+Check readiness before starting a show:
+
+```bash
+uv run streamo preflight --config ~/.config/streamo/config.toml
+```
+
+Preflight prints JSON containing `ok` and a list of checks, each with a `name`,
+`status` (`pass`, `fail`, `warning`, or `skipped`), and `detail`. Its exit code is
+one when any check fails, otherwise zero. Warnings and skipped checks do not
+mean that readiness has been established.
+
+The default checks inspect the selected device and stereo pair, capture-format
+support, FFmpeg encoders, video and title-card properties, image-storage access,
+and local-display prerequisites. Storage checking briefly creates and removes a
+temporary file in the directory or its nearest existing ancestor. Preflight
+does not start the daemon, open an audio stream, or contact a provider by default.
+
+`--probe-device` additionally opens and closes the input without starting
+capture; it can compete with an already running audio stream. `--probe-remote`
+queries provider health for supported YouTube/Kick configurations. That probe
+may refresh OAuth credentials, including writing a rotated Kick refresh token,
+but never prepares a stream or changes metadata. Other configurations report
+the provider probe as skipped. Successful health access does not prove publish
+permissions or delivery to viewers.
+
+A controller can request `preflight` with empty RPC parameters to get the same
+local report for the running configuration. Probes are available through the CLI
+only. Actual audio signal quality, SDL KMSDRM playback, and destination delivery
+still need an operational check.
+
 Install streamO as a background service with the configuration it should run:
 
 ```bash

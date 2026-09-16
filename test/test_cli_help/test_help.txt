@@ -4,7 +4,7 @@ usage: streamo [-h] [{run,preview,install,uninstall,start,stop,restart,status}] 
 Capture and publish a stereo pair with streamO.
 
 Use `streamo daemon ACTION` to manage the background service, or
-`streamo auth youtube --help` / `streamo auth kick --help` to authorize provider access. Without a command, streamO runs in the foreground.
+`streamo auth youtube --help` / `streamo auth kick --help` to authorize provider access. Without a command, streamO runs in the foreground. Use `streamo preflight --help` to check readiness without publishing.
 
  positional arguments
  -------------------------------------------------------------
@@ -45,7 +45,7 @@ usage: streamo [-h] [{run,preview,install,uninstall,start,stop,restart,status}] 
 Capture and publish a stereo pair with streamO.
 
 Use `streamo daemon ACTION` to manage the background service, or
-`streamo auth youtube --help` / `streamo auth kick --help` to authorize provider access. Without a command, streamO runs in the foreground.
+`streamo auth youtube --help` / `streamo auth kick --help` to authorize provider access. Without a command, streamO runs in the foreground. Use `streamo preflight --help` to check readiness without publishing.
 
  positional arguments
  -------------------------------------------------------------
@@ -56,3 +56,23 @@ Use `streamo daemon ACTION` to manage the background service, or
  -------------------------------------------------------------
   -h, --help     show this help message and exit
   --config PATH  (default: '~/.config/streamo/config.toml')
+
+
+$ streamo preflight --help
+usage: streamo [-h] [OPTIONS]
+
+Inspect local readiness and print JSON without publishing or starting a daemon.
+
+Passing checks do not prove delivery to viewers. Skipped checks remain untested.
+
+ options
+ ----------------------------------------------------------------------------------------------------------------------
+  -h, --help     show this help message and exit
+  --config PATH  (default: '~/.config/streamo/config.toml')
+  --probe-device, --no-probe-device
+                 Briefly open and close the audio input. May compete with a running capture. (default: False)
+  --probe-remote, --no-probe-remote
+                 Query supported provider health. May refresh stored OAuth credentials.
+
+
+                 Does not prepare a stream or change provider metadata. (default: False)

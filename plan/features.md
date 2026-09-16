@@ -1,6 +1,7 @@
 # Feature suggestions for streamO
 
-These are proposals, not an implementation backlog or approved API designs.
+Implementation has been requested in the order below. Completed work is marked
+in each section; unresolved architectural choices still require review.
 They build on the current stereo capture, visual composition, participant-image
 feed, local preview, and RPC control. No proposal requires another streaming
 provider. Priorities reflect usefulness during a show; effort is a rough relative
@@ -25,6 +26,11 @@ the actual state. Then choose live titles or image moderation according to the
 next show's needs.
 
 ## 1. Preflight report
+
+**Implemented:** `streamo preflight` and the `preflight` RPC return a structured
+readiness report. Device-opening and supported provider-health probes require
+explicit CLI options. See [the operator guide](../doc/streamo.md#service-operation)
+for behavior and limits. Ten focused tests cover reporting and probe boundaries.
 
 **Problem:** configuration validation catches structural errors, but an operator
 still has to discover device, encoder, media, and permission problems piecemeal.
@@ -187,10 +193,9 @@ coordination before touching that repository. Operator UI and cross-application
 cue scheduling belong in showCo. Recording and post-production should build on
 recs rather than introducing another general recording subsystem here.
 
-The existing [operator guide](../doc/streamo.md) describes implemented behavior;
-none of the proposals above should be advertised as available yet.
+The existing [operator guide](../doc/streamo.md) describes implemented behavior.
+Only features marked implemented should be advertised as available.
 
 ## Additional work beyond the prompt
 
-None. This document proposes features; it does not implement them or modify
-other repositories.
+None. Implementation stays within the requested features and this repository.

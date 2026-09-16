@@ -5,6 +5,10 @@ from . import auth, daemon
 
 def main(argv: list[str] | None = None) -> int:
     arguments = sys.argv[1:] if argv is None else argv
+    if arguments[:1] == ['preflight']:
+        from . import preflight
+
+        return preflight.main(arguments[1:])
     if arguments[:1] == ['auth']:
         return auth.main(arguments[1:])
     if arguments[:1] == ['daemon']:

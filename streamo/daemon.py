@@ -15,6 +15,7 @@ class DaemonOptions(BaseModel, frozen=True):
     Use `streamo daemon ACTION` to manage the background service, or
     `streamo auth youtube --help` / `streamo auth kick --help` to authorize
     provider access. Without a command, streamO runs in the foreground.
+    Use `streamo preflight --help` to check readiness without publishing.
     """
 
     action: Annotated[

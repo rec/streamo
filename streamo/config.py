@@ -111,6 +111,18 @@ class Streamo(Reccy, frozen=True):
         return value.lower()
 
     def rpc_response(self, request: rpc.Request) -> rpc.Result:
+        if request.command == 'preflight':
+            from .preflight import check
+
+            if request.params:
+                return ipc.Error(
+                    type='error',
+                    message=(
+                        'RPC preflight accepts no parameters; '
+                        'use the CLI for explicit probes'
+                    ),
+                )
+            return check(self).model_dump(mode='json')
         if self._controller is None:
             return ipc.Error(type='error', message='streamO is not running')
         return self._controller.handle_request(request)

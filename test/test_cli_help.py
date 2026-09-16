@@ -9,7 +9,7 @@ from streamo.__main__ import main
 
 
 def test_help(cli_help: CliHelp) -> None:
-    cli_help('streamo', main, subcommands=['auth', 'daemon'])
+    cli_help('streamo', main, subcommands=['auth', 'daemon', 'preflight'])
 
 
 def test_authorization_help(cli_help: CliHelp) -> None:
