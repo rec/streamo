@@ -13,6 +13,10 @@ maintainability, naming, or an improvement needing measurement.
 
 ### 1. P1: FFmpeg stderr bypasses secret redaction
 
+**Resolved:** failure reporting now sanitizes captured stderr as well as argv,
+including raw, URL-encoded, and tee-escaped ingest URLs and secrets. Regression
+coverage includes RTMP(S), SRT, HLS segment URLs, and Icecast credentials.
+
 **Evidence:** `streamo/streamer.py:stream` passes a redacted command but the
 original `ffmpeg_output` to `process.report_failed_process`. The reccy helper
 prints the captured stderr unchanged. `test/test_streamer.py` checks command

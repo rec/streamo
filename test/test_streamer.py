@@ -1,10 +1,11 @@
 import io
 from pathlib import Path
+from urllib.parse import quote, quote_plus, unquote_plus
 
 import numpy as np
 import pytest
 
-from streamo import streamer
+from streamo import services, streamer
 from streamo.config import Streamo
 from streamo.control import RuntimeState
 from streamo.services import (
@@ -215,6 +216,98 @@ def test_local_ffplay_command_uses_fullscreen_silent_mpegts() -> None:
     assert '-fs' in command
     assert '-an' in command
     assert command[-3:] == ['-f', 'mpegts', LOCAL_DISPLAY_URL]
+
+
+@pytest.mark.parametrize(
+    ('ingest', 'container'),
+    [
+        (
+            {
+                'protocol': 'rtmp',
+                'server_url': 'rtmp://ingest.test/app',
+                'stream_key': 'private/key value',
+            },
+            'flv',
+        ),
+        (
+            {
+                'protocol': 'rtmps',
+                'server_url': 'rtmps://ingest.test/app',
+                'stream_key': 'private/key value',
+            },
+            'flv',
+        ),
+        (
+            {
+                'protocol': 'srt',
+                'url': 'srt://ingest.test:9000',
+                'passphrase': 'private/key value',
+            },
+            'mpegts',
+        ),
+        (
+            {
+                'protocol': 'hls',
+                'upload_url': 'https://ingest.test/{stream_key}/live.m3u8',
+                'stream_key': 'private/key value',
+                'segment_duration': 2,
+            },
+            'mpegts',
+        ),
+        (
+            {
+                'protocol': 'icecast',
+                'server_url': 'icecast://ingest.test:8000',
+                'mountpoint': '/live',
+                'password': 'private/key value',
+            },
+            'adts',
+        ),
+    ],
+)
+def test_failure_logs_hide_ingest_urls_and_secrets(
+    ingest: dict[str, object], container: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    service = services.CustomService.model_validate(
+        {
+            'service': 'custom',
+            'ingest': ingest,
+            'encoding': {
+                'container': container,
+                'audio': {
+                    'codec': 'aac',
+                    'bitrate': '160k',
+                    'sample_rate': 48000,
+                    'channels': 2,
+                },
+            },
+        }
+    )
+    output = streamer.local_display_output(_config(), ingest_output(service))
+    url = output.destinations[0].url
+    secret = 'private/key value'
+    variants = [
+        url,
+        unquote_plus(url),
+        services.tee_escape(url),
+        secret,
+        quote(secret, safe=''),
+        quote_plus(secret),
+    ]
+    stderr = '\n'.join(variants) + '\nConnection refused; frame=10'
+    if ingest['protocol'] == 'hls':
+        stderr += '\n' + url.replace('live.m3u8', 'live0001.ts')
+
+    streamer.process.report_failed_command(
+        ['ffmpeg', *output.redacted_arguments()],
+        None,
+        streamer.redacted_ffmpeg_stderr(stderr, output, service),
+    )
+
+    assert all(v not in caplog.text for v in variants)
+    assert 'Connection refused; frame=10' in caplog.text
+    assert '[REDACTED]' in caplog.text
+    assert '127.0.0.1' in caplog.text
 
 
 def test_drm_connected_reads_any_connected_connector(tmp_path: Path) -> None:

@@ -5,9 +5,11 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import quote, quote_plus, unquote, unquote_plus
 
 import numpy as np
 import sounddevice
+from pydantic import SecretStr
 from reccy.runtime import process
 from reccy.runtime.logging import get_logger
 
@@ -19,7 +21,9 @@ from .services import (
     FfmpegDestination,
     FfmpegOutput,
     StreamingServiceAdapter,
+    StreamingServiceConfiguration,
     ingest_output,
+    tee_escape,
 )
 
 LOGGER = get_logger(__name__)
@@ -211,7 +215,15 @@ def stream(
                     diagnostic_command = redacted_ffmpeg_command(
                         command, command_output
                     )
-                process.report_failed_process(diagnostic_command, ffmpeg_output)
+                diagnostic_output = ffmpeg_output.text()
+                if not preview:
+                    assert command_output is not None
+                    diagnostic_output = redacted_ffmpeg_stderr(
+                        diagnostic_output, command_output, service.service
+                    )
+                process.report_failed_command(
+                    diagnostic_command, None, diagnostic_output
+                )
             result = 0 if requested_stop else returncode
     except KeyboardInterrupt:
         state.set_state('stopping')
@@ -442,6 +454,28 @@ def drm_connected(status_root: Path) -> bool:
 
 def redacted_ffmpeg_command(command: list[str], output: FfmpegOutput) -> list[str]:
     return command[: -len(output.arguments)] + output.redacted_arguments()
+
+
+def redacted_ffmpeg_stderr(
+    text: str, output: FfmpegOutput, service: StreamingServiceConfiguration
+) -> str:
+    sensitive = {d.url for d in output.destinations if d.secret_url}
+    if service.ingest is not None:
+        sensitive.update(
+            v.get_secret_value()
+            for v in service.ingest.model_dump().values()
+            if isinstance(v, SecretStr) and v.get_secret_value()
+        )
+    variants = {
+        v
+        for s in sensitive
+        for v in (s, unquote(s), unquote_plus(s), quote(s, safe=''), quote_plus(s))
+        if v
+    }
+    variants.update(tee_escape(v) for v in list(variants))
+    for value in sorted(variants, key=len, reverse=True):
+        text = text.replace(value, '[REDACTED]')
+    return text
 
 
 def image_frame_producer(
