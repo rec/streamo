@@ -7,6 +7,7 @@ import threading
 from collections.abc import Iterator
 from itertools import pairwise
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit, urlunsplit
 from urllib.request import urlopen
@@ -24,6 +25,9 @@ from pydantic import (
 from reccy.runtime.logging import get_logger
 
 LOGGER = get_logger(__name__)
+
+if TYPE_CHECKING:
+    from .moderation import ImageApproval
 
 
 class ImageFeed(BaseModel, frozen=True):
@@ -120,8 +124,10 @@ class ImageScheduler:
         *,
         initial_paths: set[Path] | None = None,
         session_weight: int = 3,
+        approval: 'ImageApproval | None' = None,
     ) -> None:
         self.image_dir = image_dir
+        self.approval = approval
         self.randomizer = randomizer or random.Random()
         self.known = (
             set(image_paths(image_dir)) if initial_paths is None else set(initial_paths)
@@ -135,6 +141,8 @@ class ImageScheduler:
 
     def next_image(self) -> Path | None:
         current = set(image_paths(self.image_dir))
+        if self.approval is not None:
+            current = {p for p in current if self.approval.allows(p)}
         new_session = sorted(current - self.known)
         self.known = current
         self.session_paths.intersection_update(current)
@@ -184,25 +192,34 @@ class ImageFrameProducer:
         self.fade = fade
         self.interval_frames = max(1, round(interval * frame_rate))
         self.transparent = bytes(width * height * 4)
+        self.current_path: Path | None = None
 
     def frames(self) -> Iterator[bytes]:
         while True:
             image = self.next_frame_image()
             for index in range(self.interval_frames):
                 opacity = self.opacity(index)
-                if image is None or opacity <= 0:
+                allowed = (
+                    self.scheduler.approval is None
+                    or self.current_path is not None
+                    and self.scheduler.approval.allows(self.current_path)
+                )
+                if image is None or opacity <= 0 or not allowed:
                     yield self.transparent
                 else:
                     yield faded_frame(image, opacity)
 
     def next_frame_image(self) -> np.ndarray | None:
+        self.current_path = None
         attempted: set[Path] = set()
         while (path := self.scheduler.next_image()) is not None:
             if path in attempted:
                 return None
             attempted.add(path)
             try:
-                return load_image(path, self.width, self.height)
+                image = load_image(path, self.width, self.height)
+                self.current_path = path
+                return image
             except (OSError, UnidentifiedImageError) as error:
                 LOGGER.error('Could not load image %s: %s', path, error)
         return None

@@ -13,6 +13,7 @@ from reccy.protocol import ipc, rpc
 
 from .images import IMAGE_SUFFIXES, MAX_IMAGE_BYTES, MAX_IMAGE_SIDE, publish_file
 from .kick_api import KickApiError
+from .moderation import ImagePreview, ImageQueue, ImageReview
 from .overlays import LiveOverlays, SlateCue, TitleCue
 from .providers import (
     COMMAND_CAPABILITIES,
@@ -49,6 +50,20 @@ class ControlController:
                 if self.overlays
                 else {'enabled': False},
             }
+        if command in {'image_queue', 'image_preview', 'image_review'}:
+            if self.overlays is None:
+                return ipc.Error(
+                    type='error', message='Image approval requires live overlays'
+                )
+            approval = self.overlays.approval
+            try:
+                if command == 'image_queue':
+                    return approval.queue(ImageQueue.model_validate(request.params))
+                if command == 'image_preview':
+                    return approval.preview(ImagePreview.model_validate(request.params))
+                return approval.review(ImageReview.model_validate(request.params))
+            except (ValueError, OSError, Image.DecompressionBombError) as error:
+                return ipc.Error(type='error', message=str(error))
         if command in {'title', 'slate'}:
             if self.overlays is None:
                 return ipc.Error(

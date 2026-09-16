@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .config import Streamo
 from .images import ImageFrameProducer, ImageScheduler, load_image
+from .moderation import ImageApproval
 
 
 class TitleVisibility(enum.StrEnum):
@@ -57,12 +58,14 @@ class LiveOverlays:
         self.revision = 1
         self.applied: dict[str, object] | None = None
         self.frame_index = 0
+        self.approval = ImageApproval(config.image_dir, config.image_approval_required)
         self.photos = (
             ImageFrameProducer(
                 ImageScheduler(
                     config.image_dir,
                     initial_paths=initial_paths,
                     session_weight=config.current_session_image_weight,
+                    approval=self.approval,
                 ),
                 width=self.working_size[0],
                 height=self.working_size[1],

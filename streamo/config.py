@@ -48,6 +48,7 @@ class Streamo(Reccy, frozen=True):
     recover_publish: bool = False
     health_warnings: HealthWarnings = Field(default_factory=HealthWarnings)
     image_dir: Path = Path('images')
+    image_approval_required: bool = False
     image_feed: ImageFeed | None = None
     current_session_image_weight: int = 3
     image_interval: float = 0.0

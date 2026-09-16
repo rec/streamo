@@ -114,6 +114,7 @@ be finite, and working dimensions must be positive.
 | `title_fade` | `2.0` | Fade-in and fade-out duration, in seconds |
 | `local_display` | `true` | Show the composed program on local HDMI |
 | `image_dir` | `"images"` | Participant-image directory |
+| `image_approval_required` | `false` | Hold unreviewed participant images for approval |
 | `image_interval` | `0.0` | Seconds between participant images; zero disables them |
 | `image_duration` | `8.0` | Seconds each participant image is visible |
 | `image_fade` | `2.0` | Participant-image fade duration, in seconds |
@@ -389,6 +390,34 @@ once before pre-existing images repeat. Afterwards,
 `current_session_image_weight = 3` means three current-session images for each
 older image. Set it to `0` to show older images whenever no new image remains.
 Invalid files are logged and skipped; deleted paths leave the cycle.
+
+Set `image_approval_required = true` before startup to require approval of both
+existing and newly received images. Keep `live_overlays = true` and a positive
+`image_interval` to display approved images. Automatic acceptance remains the
+default, but explicitly rejected images stay excluded even with approval disabled.
+
+The controller uses these RPCs (operator UI remains in showCo):
+
+| Command | Parameters | Result |
+| --- | --- | --- |
+| `image_queue` | Optional `after` filename and `limit` (default 50, maximum 100) | `approval_required`, `images` with `id` and `state`, and `next_after` |
+| `image_preview` | `id` filename | `id` and a `data_url` containing a 320×180 PNG thumbnail |
+| `image_review` | `id` filename and `decision`: `approved` or `rejected` | Saved `id` and `state` |
+
+The queue lists all images in filename order with states `pending`, `approved`,
+or `rejected`. Pass `next_after` as `after` for the next page; null means the end.
+Refresh from the beginning to discover new filenames earlier in the order.
+Approvals enter the normal rotation at a subsequent image interval. Rejection
+suppresses a cached photo starting with the next generated frame; already buffered
+frames cannot be withdrawn from the encoder or destination. Files are retained.
+
+Decisions are saved atomically in `image_dir/.streamo-image-approval.json` and
+survive restarts. A failed save returns an error without applying the decision;
+an unreadable or malformed saved file prevents startup rather than bypassing
+moderation. Filenames are the IDs: renaming creates a new identity, and replacing
+a file at the same name inherits its previous decision. Use one streamO session
+per image folder. The existing remote-feed cursor is unchanged, so rejecting a
+downloaded image does not download it again. These RPCs require live overlays.
 
 An optional feed downloads uploaded images into the same directory:
 
