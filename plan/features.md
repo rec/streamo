@@ -144,6 +144,38 @@ change. Repeated polls do not create duplicate incidents.
 
 ## 4. Live titles and an intermission slate
 
+**Next step: composition design approval.** Proposed implementation:
+
+- Replace the startup-only title loop and separate participant-image overlay
+  with one session-owned live compositor feeding a persistent RGBA input to
+  FFmpeg. Video streams keep this input attached even when it is transparent,
+  so a cue changes frame content without restarting or rebuilding the encoder.
+- Compose a full output-sized canvas at `video_frame_rate`. Prepare title/photo
+  assets using the existing working resolution, preserving their centering,
+  aspect ratio, and displayed size. The visual bed retains its encoded resolution
+  and frame rate. A slate fills the whole canvas with an opaque background.
+- Keep configured `title_card` images and their automatic schedule. Add a `title`
+  RPC with optional replacement plain text and a required visibility of `auto`,
+  `show`, or `hide`. `show` holds the title until another cue; `auto` returns it
+  to its configured schedule. Text rendering happens before accepting the cue;
+  a failed update leaves the current title intact.
+- Add a `slate` RPC with required `visible` and optional replacement plain text.
+  The initial text is “Intermission.” A visible slate covers the base video,
+  pauses photo rotation and automatic title timing, and hides those overlays.
+  Hiding it resumes them. Neither title nor slate commands change audio mute.
+- Track requested and applied visual revisions in status. Applied means that
+  a complete frame containing the change reached the encoder pipe, not that a
+  remote viewer has seen it. During recovery, retain the latest requested cue
+  and apply it to the new encoder. Reject visual commands for audio-only streams.
+- Keep cue timing and operator UI in showCo. This implementation adds streamO
+  rendering and RPC controls only, with no changes to sibling repositories.
+- The full-sized RGBA pipe costs more bandwidth than today's small photo plane.
+  Keep frame production bounded, verify layout with small image/video fixtures,
+  and measure target-machine performance before claiming Pi show readiness.
+
+This replaces the composition mechanism rather than adding a second title path.
+No live-compositor implementation has been made yet.
+
 **Problem:** the current title card and visual bed are configured before startup.
 Changing a performer name or putting up an intermission message requires more
 than an ordinary control command.
