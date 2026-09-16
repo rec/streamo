@@ -8,9 +8,10 @@ from reccy.protocol import rpc
 
 from streamo import streamer
 from streamo.config import Streamo
-from streamo.control import ControlController, RuntimeState
+from streamo.control import ControlController
 from streamo.provider_config import CustomService
 from streamo.providers import GenericServiceAdapter
+from streamo.runtime import RuntimeState
 
 
 class Clock:

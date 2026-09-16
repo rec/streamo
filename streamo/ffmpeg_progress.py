@@ -1,7 +1,7 @@
-from .control import RuntimeState
+from .runtime import RuntimeState
 
 
-def update_bitrate(state: RuntimeState, line: str) -> None:
+def update_progress(state: RuntimeState, line: str) -> None:
     if line.startswith('out_time_us='):
         value = line.removeprefix('out_time_us=').strip()
         if value.isdecimal():

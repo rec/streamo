@@ -292,6 +292,46 @@ are not replayed. Temporary encoder-launch resource errors retry; missing or
 inaccessible executables fail. The service manager supervises the application,
 while streamO owns these encoder retries.
 
+### Incident history and warnings
+
+The `incidents` RPC returns the latest 100 incident/recovery events from the
+current process. Request events after the last sequence number you received:
+
+```json
+{"type": "request", "command": "incidents", "params": {"after": 12}}
+```
+
+The response contains `events`, `oldest_sequence`, `latest_sequence`, and
+`history_lost`. Each event includes a sequence, Unix timestamp, component,
+`incident` or `recovery` state, explanation, and cumulative dropped-audio count.
+Repeated polling does not create events. `history_lost` reports an expired cursor
+or one beyond the current sequence. History is in memory; after an application
+restart, clients should reset their cursor to zero. This is not a persistent
+show log.
+
+Status includes active `warnings` and the latest `incident_sequence`. Audio
+errors, drops, encoder failures, and provider-query failures produce transitions.
+Provider health becomes stale after 90 seconds without a completed query;
+freshness and query success are reported separately.
+
+Configure sustained-signal warnings with this optional TOML section:
+
+```toml
+[health_warnings]
+silence_seconds = 0.0
+silence_level_db = -60.0
+clipping_seconds = 2.0
+output_stall_seconds = 10.0
+```
+
+These are the defaults. Zero disables the corresponding duration-based warning.
+Silence is disabled by default and suppressed while muted. It requires both
+channels at or below the threshold; clipping uses the captured peak indication.
+Stale audio does not count as sustained silence or clipping. Output-stall
+warnings require FFmpeg's media timestamp to advance, not merely a running
+process or repeated progress messages. A warning reports a condition; it does
+not automatically mute or restart the encoder.
+
 Capabilities describe available provider commands and health queries. Lifecycle
 steps and the always-available local `stop` command are not provider capabilities.
 Status and failure diagnostics

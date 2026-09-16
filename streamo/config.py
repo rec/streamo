@@ -12,6 +12,7 @@ from reccy.services.spec import load
 from .images import ImageFeed, ImageFeedPoller, image_paths
 from .provider_config import StreamingServiceConfiguration
 from .providers import GenericServiceAdapter, adapter_for
+from .runtime import HealthWarnings, RuntimeState
 
 STREAMO_SERVICE = load(Path(__file__).with_name('service.toml'))
 
@@ -41,6 +42,7 @@ class Streamo(Reccy, frozen=True):
     title_fade: float = 2.0
     local_display: bool = True
     recover_publish: bool = False
+    health_warnings: HealthWarnings = Field(default_factory=HealthWarnings)
     image_dir: Path = Path('images')
     image_feed: ImageFeed | None = None
     current_session_image_weight: int = 3
@@ -59,7 +61,7 @@ class Streamo(Reccy, frozen=True):
             else adapter_for(self.streaming_service)
         )
         controller = control.ControlController(
-            state=control.RuntimeState(),
+            state=RuntimeState(self.health_warnings),
             image_dir=self.image_dir,
             service=None if preview else service_adapter,
         )

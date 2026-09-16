@@ -8,11 +8,7 @@ from reccy.protocol import ipc, rpc
 
 import streamo.control
 from streamo.config import Streamo
-from streamo.control import (
-    ControlController,
-    HealthPoller,
-    RuntimeState,
-)
+from streamo.control import ControlController, HealthPoller
 from streamo.provider_config import (
     AudioEncoding,
     CustomService,
@@ -20,6 +16,7 @@ from streamo.provider_config import (
     RtmpIngest,
 )
 from streamo.providers import adapter_for
+from streamo.runtime import RuntimeState
 
 
 def test_status_request_returns_runtime_snapshot() -> None:

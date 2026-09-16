@@ -12,7 +12,7 @@ from streamo.composition import (
     video_size,
 )
 from streamo.config import Streamo
-from streamo.control import ControlController, RuntimeState
+from streamo.control import ControlController
 from streamo.provider_config import (
     AudioEncoding,
     EncodingProfile,
@@ -23,6 +23,7 @@ from streamo.provider_config import (
     VideoEncoding,
 )
 from streamo.providers import ingest_output
+from streamo.runtime import RuntimeState
 from streamo.streamer import (
     LocalDisplayController,
     drm_connected,

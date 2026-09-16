@@ -21,7 +21,7 @@ from .composition import (
 )
 from .config import Streamo
 from .control import ControlController, HealthPoller
-from .ffmpeg_progress import update_bitrate
+from .ffmpeg_progress import update_progress
 from .images import ImageFrameProducer, ImageScheduler, write_image_frames
 from .provider_config import StreamingServiceConfiguration
 from .providers import FfmpegOutput, StreamingServiceAdapter, tee_escape
@@ -188,12 +188,14 @@ def stream(
                     if should_stop(controller):
                         return 0
                     audio.update()
+                    state.evaluate_warnings()
                     time.sleep(min(0.01, max(0, deadline - time.monotonic())))
             return 0
     except KeyboardInterrupt:
         return 0
     finally:
         state.set_publish_requested(False)
+        state.evaluate_warnings()
         if state.snapshot()['state'] != 'failed':
             state.set_state('stopped')
 
@@ -277,6 +279,7 @@ def run_attempt(
                 state.set_state('stopping')
                 return 0, True
             audio.update()
+            state.evaluate_warnings()
             if local_display is not None and time.monotonic() >= next_display_poll:
                 local_display.update()
                 next_display_poll = time.monotonic() + DISPLAY_POLL_INTERVAL
@@ -304,7 +307,7 @@ def read_encoder_output(
     for line in ffmpeg.stderr:
         text = line.decode(errors='replace')
         tail.append(text)
-        update_bitrate(controller.state, text)
+        update_progress(controller.state, text)
 
 
 def close_encoder(

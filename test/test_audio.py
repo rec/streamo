@@ -7,7 +7,7 @@ from unittest import mock
 import numpy as np
 
 from streamo.audio import AudioCapture
-from streamo.control import RuntimeState
+from streamo.runtime import RuntimeState
 
 
 def test_stalled_output_drops_old_audio_and_recovers(tmp_path: Path) -> None:

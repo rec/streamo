@@ -2,7 +2,6 @@ import io
 import queue
 import tempfile
 import threading
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.error import URLError
@@ -18,195 +17,10 @@ from .providers import (
     COMMAND_CAPABILITIES,
     StreamingServiceAdapter,
     UnsupportedServiceOperation,
-    endpoint_host,
 )
+from .runtime import RuntimeState
 from .twitch_api import TwitchApiError
 from .youtube_api import YouTubeApiError
-
-
-class RuntimeState:
-    def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self.state = 'starting'
-        self.muted = False
-        self.ffmpeg_alive = False
-        self.ffmpeg_returncode: int | None = None
-        self.audio_frames = 0
-        self.audio_seconds = 0.0
-        self.last_audio_at: float | None = None
-        self.left_level_db: float | None = None
-        self.right_level_db: float | None = None
-        self.clipping = False
-        self.output_bitrate_kbps: float | None = None
-        self.last_error: str | None = None
-        self.service: str | None = None
-        self.endpoint_host: str | None = None
-        self.capabilities: list[str] = []
-        self.remote_health: dict[str, object] | None = None
-        self.remote_health_error: str | None = None
-        self.remote_health_updated_at: float | None = None
-        self.audio_error: str | None = None
-        self.audio_dropped_frames = 0
-        self.audio_error_count = 0
-        self.audio_last_error: str | None = None
-        self.publish_requested = False
-        self.encoder_attempts = 0
-        self.next_retry_at: float | None = None
-        self.publish_error: str | None = None
-        self.last_publish_error: str | None = None
-        self.last_output_progress_at: float | None = None
-        self.progress_started: float | None = None
-        self.progress_updated: float | None = None
-        self.output_time_us = 0
-
-    def snapshot(self) -> dict[str, object]:
-        with self._lock:
-            return {
-                'state': self.state,
-                'muted': self.muted,
-                'ffmpeg_alive': self.ffmpeg_alive,
-                'ffmpeg_returncode': self.ffmpeg_returncode,
-                'audio_frames': self.audio_frames,
-                'audio_seconds': self.audio_seconds,
-                'last_audio_at': self.last_audio_at,
-                'left_level_db': self.left_level_db,
-                'right_level_db': self.right_level_db,
-                'clipping': self.clipping,
-                'output_bitrate_kbps': self.output_bitrate_kbps,
-                'last_error': self.last_error,
-                'publish_requested': self.publish_requested,
-                'encoder_attempts': self.encoder_attempts,
-                'next_retry_at': self.next_retry_at,
-                'publish_error': self.publish_error,
-                'last_publish_error': self.last_publish_error,
-                'last_output_progress_at': self.last_output_progress_at,
-                'audio_error': self.audio_error,
-                'audio_last_error': self.audio_last_error,
-                'audio_error_count': self.audio_error_count,
-                'audio_dropped_frames': self.audio_dropped_frames,
-                'service': self.service,
-                'endpoint_host': self.endpoint_host,
-                'capabilities': list(self.capabilities),
-                'remote_health_error': self.remote_health_error,
-                'remote_health_updated_at': self.remote_health_updated_at,
-                'remote_health': (
-                    None if self.remote_health is None else dict(self.remote_health)
-                ),
-            }
-
-    def configure_service(self, adapter: StreamingServiceAdapter) -> None:
-        with self._lock:
-            self.service = adapter.service.service
-            self.endpoint_host = endpoint_host(adapter.service)
-            self.capabilities = [c.value for c in adapter.capabilities]
-
-    def set_audio_health(self, error: str | None, dropped_frames: int) -> None:
-        with self._lock:
-            if error and error != self.audio_error:
-                self.audio_error_count += 1
-                self.audio_last_error = error
-            self.audio_error = error
-            self.audio_dropped_frames = dropped_frames
-
-    def set_remote_health(
-        self, health: dict[str, object] | None, error: str | None = None
-    ) -> None:
-        with self._lock:
-            self.remote_health = health
-            self.remote_health_error = error
-            self.remote_health_updated_at = time.time()
-
-    def set_state(self, state: str) -> None:
-        with self._lock:
-            self.state = state
-
-    def set_error(self, message: str) -> None:
-        with self._lock:
-            self.state = 'failed'
-            self.last_error = message
-
-    def set_ffmpeg(self, *, alive: bool, returncode: int | None = None) -> None:
-        with self._lock:
-            self.ffmpeg_alive = alive
-            self.ffmpeg_returncode = returncode
-
-    def begin_encoder_attempt(self) -> None:
-        with self._lock:
-            self.encoder_attempts += 1
-            self.next_retry_at = None
-            self.output_bitrate_kbps = None
-            self.last_output_progress_at = None
-            self.progress_started = self.progress_updated = None
-            self.output_time_us = 0
-            self.state = 'starting'
-
-    def set_publish_requested(self, requested: bool) -> None:
-        with self._lock:
-            self.publish_requested = requested
-            if not requested:
-                self.next_retry_at = None
-
-    def publish_failed(self, message: str, retry_delay: float | None) -> None:
-        with self._lock:
-            self.publish_error = self.last_publish_error = self.last_error = message
-            self.next_retry_at = (
-                None if retry_delay is None else time.time() + retry_delay
-            )
-            self.state = 'failed' if retry_delay is None else 'recovering'
-            self.output_bitrate_kbps = None
-
-    def record_output_progress(self, output_time_us: int) -> None:
-        with self._lock:
-            if output_time_us <= self.output_time_us:
-                return
-            now = time.monotonic()
-            if self.progress_updated is None or now - self.progress_updated > 10:
-                self.progress_started = now
-            self.output_time_us = output_time_us
-            self.progress_updated = now
-            self.last_output_progress_at = time.time()
-            self.publish_error = None
-            self.state = 'muted' if self.muted else 'streaming'
-
-    def output_is_stable(self) -> bool:
-        with self._lock:
-            return (
-                self.progress_started is not None
-                and self.progress_updated is not None
-                and self.progress_updated - self.progress_started >= 60
-                and time.monotonic() - self.progress_updated <= 10
-            )
-
-    def set_muted(self, muted: bool) -> None:
-        with self._lock:
-            self.muted = muted
-            if self.state in {'streaming', 'muted'}:
-                self.state = 'muted' if muted else 'streaming'
-
-    def is_muted(self) -> bool:
-        with self._lock:
-            return self.muted
-
-    def record_audio(
-        self,
-        *,
-        frames: int,
-        sample_rate: int,
-        left_level_db: float,
-        right_level_db: float,
-        clipping: bool,
-    ) -> None:
-        with self._lock:
-            self.audio_frames += frames
-            self.audio_seconds = self.audio_frames / sample_rate
-            self.last_audio_at = time.time()
-            self.left_level_db = left_level_db
-            self.right_level_db = right_level_db
-            self.clipping = clipping
-
-    def set_output_bitrate(self, bitrate_kbps: float | None) -> None:
-        with self._lock:
-            self.output_bitrate_kbps = bitrate_kbps
 
 
 @dataclass
@@ -228,6 +42,13 @@ class ControlController:
             return 'pong'
         if command == 'status':
             return self.state.snapshot()
+        if command == 'incidents':
+            after = request.params.get('after', 0)
+            if type(after) is not int or after < 0:
+                return ipc.Error(
+                    type='error', message='after must be a nonnegative integer'
+                )
+            return self.state.events_since(after)
         if command == 'mute':
             self.state.set_muted(True)
             return 'ok'

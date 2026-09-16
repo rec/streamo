@@ -6,7 +6,7 @@ from typing import IO
 import numpy as np
 import sounddevice
 
-from .control import RuntimeState
+from .runtime import RuntimeState
 
 
 class AudioCapture:

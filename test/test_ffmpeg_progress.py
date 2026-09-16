@@ -5,8 +5,8 @@ import sys
 import pytest
 from reccy.runtime.process import run_silent
 
-from streamo.control import RuntimeState
-from streamo.ffmpeg_progress import parse_bitrate, update_bitrate
+from streamo.ffmpeg_progress import parse_bitrate, update_progress
+from streamo.runtime import RuntimeState
 
 
 def test_run_silent_hides_successful_output(capsys: pytest.CaptureFixture[str]) -> None:
@@ -55,9 +55,9 @@ def test_parse_bitrate(value: str, expected: float | None) -> None:
     assert parse_bitrate(value) == expected
 
 
-def test_update_bitrate_stores_ffmpeg_progress_value() -> None:
+def test_update_progress_stores_ffmpeg_progress_value() -> None:
     state = RuntimeState()
 
-    update_bitrate(state, 'bitrate= 250.5kbits/s\n')
+    update_progress(state, 'bitrate= 250.5kbits/s\n')
 
     assert state.snapshot()['output_bitrate_kbps'] == 250.5

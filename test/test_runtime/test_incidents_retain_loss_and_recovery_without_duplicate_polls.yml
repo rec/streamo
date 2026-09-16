@@ -1,0 +1,28 @@
+events:
+- audio_dropped_frames: 48000
+  component: audio_capture
+  detail: Audio unavailable
+  sequence: 1
+  state: incident
+  timestamp: 1100.0
+- audio_dropped_frames: 48000
+  component: audio_loss
+  detail: Audio frames are being discarded
+  sequence: 2
+  state: incident
+  timestamp: 1100.0
+- audio_dropped_frames: 96000
+  component: audio_capture
+  detail: Audio capture recovered
+  sequence: 3
+  state: recovery
+  timestamp: 1102.0
+- audio_dropped_frames: 96000
+  component: audio_loss
+  detail: Audio delivery recovered; see cumulative dropped-frame count
+  sequence: 4
+  state: recovery
+  timestamp: 1102.0
+history_lost: false
+latest_sequence: 4
+oldest_sequence: 1

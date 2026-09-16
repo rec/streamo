@@ -117,6 +117,12 @@ stop while waiting prevents any subsequent restart.
 
 ## 3. Actionable health and incident history
 
+**Implemented:** the `incidents` RPC provides a bounded, sequenced history with
+explicit cursor-expiry reporting. Status exposes active warnings. Configurable
+silence, clipping, and output-stall warnings run alongside provider-health
+freshness checks. Tests cover warning/recovery transitions, mute suppression,
+expired history, and repeated polls. History is process-local, not persistent.
+
 **Problem:** current status exposes counters and recent errors, but an operator
 cannot easily distinguish an old incident from an ongoing failure or reconstruct
 what happened between status polls.
