@@ -107,6 +107,7 @@ be finite, and working dimensions must be positive.
 | `video` | none | Looping visual-bed file |
 | `video_resolution` | `"640x360"` | Overlay working resolution |
 | `video_frame_rate` | `10` | Overlay working frame rate |
+| `live_overlays` | `true` | Enable titles, participant images and slate; startup-only |
 | `title_card` | none | Title-card image |
 | `title_interval` | `180.0` | Seconds between title-card appearances |
 | `title_duration` | `8.0` | Seconds the title card remains visible |
@@ -347,6 +348,35 @@ OAuth credentials. Its categories are numeric IDs.
 YouTube supports `update_stream_info` with OAuth credentials.
 
 ## Overlays and participant images
+
+Live overlays are enabled by default for video streams. Set `live_overlays = false`
+before starting to omit their RGBA pipe, disable all overlay display and skip
+remote image-feed polling. Changing this switch requires restarting streamO;
+there is no runtime command to enable it. Audio-only streams have no overlay pipe.
+Disabled overlays do not require the configured title file to exist.
+
+The compositor sends a full output-resolution RGBA frame at `video_frame_rate`,
+even when transparent. At 1920×1080 and 10 fps that is approximately 83 MB/s
+through the local pipe, plus rendering/copying/compositing work, not extra network
+upload bandwidth. Target-machine performance has not been measured. Title and
+photo assets retain their centered `video_resolution` working size.
+
+The `title` RPC requires `visibility`: `auto`, `show`, or `hide`. Optional `text`
+replaces the configured image with plain text (maximum 500 characters, wrapped
+to fit). `show` holds the title; `hide` hides it; `auto` restores the automatic
+schedule. Invalid or oversized replacement text leaves the previous title intact.
+
+The `slate` RPC requires Boolean `visible` and accepts optional replacement
+`text`. Its initial text is “Intermission.” A visible slate covers the entire
+video with an opaque background and pauses photo rotation and automatic title
+timing. Hiding it resumes them. Neither RPC changes audio mute.
+
+Status includes `overlays.enabled`, `overlays.requested`, and `overlays.applied`.
+Requested state contains a revision, title visibility/text, slate visibility/text.
+Applied state is null until a complete frame has been written to the current
+encoder pipe, then identifies the applied revision and cue state. This does not
+prove viewer delivery. Recovery retains requested cues and reapplies them to the
+new encoder. Audio-only streams and disabled overlays reject both visual RPCs.
 
 Set `title_card` for a video stream to show a title image at startup and every
 `title_interval` seconds. A title card requires a positive interval and

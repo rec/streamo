@@ -198,3 +198,27 @@ def test_configuration_errors_do_not_expose_service_secrets() -> None:
         Streamo.model_validate(data)
 
     assert 'must-not-leak' not in str(raised.value)
+
+
+def test_disabling_overlays_skips_title_and_remote_feed(tmp_path: Path) -> None:
+    video = tmp_path / 'bed.mp4'
+    video.touch()
+    config = Streamo(
+        device_name='unused',
+        channel=1,
+        video=video,
+        streaming_service=_service(),
+        live_overlays=False,
+        title_card=tmp_path / 'missing.png',
+        image_interval=20,
+        image_feed=ImageFeed(url='https://example.test/photos.php', token='a' * 20),
+    )
+    with (
+        mock.patch.object(Streamo, 'start'),
+        mock.patch.object(Streamo, 'close'),
+        mock.patch('streamo.streamer.stream', return_value=0),
+        mock.patch(
+            'streamo.config.ImageFeedPoller', side_effect=AssertionError('feed started')
+        ),
+    ):
+        assert config.run(preview=True) == 0

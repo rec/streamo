@@ -17,12 +17,11 @@ from .composition import (
     LOCAL_DISPLAY_URL,
     ffmpeg_command,
     local_display_output,
-    video_size,
 )
 from .config import Streamo
 from .control import ControlController, HealthPoller
 from .ffmpeg_progress import update_progress
-from .images import ImageFrameProducer, ImageScheduler, write_image_frames
+from .overlays import LiveOverlays, write_overlay_frames
 from .provider_config import StreamingServiceConfiguration
 from .providers import FfmpegOutput, StreamingServiceAdapter, tee_escape
 
@@ -106,11 +105,12 @@ def stream(
     try:
         with ExitStack() as resources:
             producer = (
-                image_frame_producer(config, initial_image_paths)
+                LiveOverlays(config, initial_image_paths)
                 if config.streaming_service.encoding.video is not None
-                and config.image_interval > 0
+                and config.live_overlays
                 else None
             )
+            controller.overlays = producer
             prepared = None
             output = None
             if not preview:
@@ -209,7 +209,7 @@ def run_attempt(
     controller: ControlController,
     service: StreamingServiceAdapter,
     audio: AudioCapture,
-    producer: ImageFrameProducer | None,
+    producer: LiveOverlays | None,
     output: FfmpegOutput | None,
     preview_process: subprocess.Popen[bytes] | None,
     local_display: LocalDisplayController | None,
@@ -222,7 +222,8 @@ def run_attempt(
         if producer is not None:
             read_fd, write_fd = os.pipe()
             image_input = resources.enter_context(os.fdopen(read_fd, 'rb'))
-            image_stream = os.fdopen(write_fd, 'wb')
+            image_stream = os.fdopen(write_fd, 'wb', buffering=0)
+            producer.begin_attempt()
             resources.callback(image_stream.close)
         command = ffmpeg_command(
             config,
@@ -248,7 +249,7 @@ def run_attempt(
         resources.callback(audio.attach_output, None)
         if image_stream is not None and producer is not None:
             image_thread = threading.Thread(
-                target=write_image_frames,
+                target=write_overlay_frames,
                 args=(image_stream, producer),
                 name='streamOImageFrames',
                 daemon=True,
@@ -324,6 +325,8 @@ def close_encoder(
             if pipe is not None:
                 pipe.close()
         controller.state.set_ffmpeg(alive=False, returncode=ffmpeg.returncode)
+        if controller.overlays is not None:
+            controller.overlays.begin_attempt()
 
 
 def should_stop(controller: ControlController) -> bool:
@@ -400,25 +403,6 @@ def redacted_ffmpeg_stderr(
     for value in sorted(variants, key=len, reverse=True):
         text = text.replace(value, '[REDACTED]')
     return text
-
-
-def image_frame_producer(
-    config: Streamo, initial_image_paths: set[Path]
-) -> ImageFrameProducer:
-    width, height = video_size(config)
-    return ImageFrameProducer(
-        ImageScheduler(
-            config.image_dir,
-            initial_paths=initial_image_paths,
-            session_weight=config.current_session_image_weight,
-        ),
-        width=width,
-        height=height,
-        frame_rate=config.video_frame_rate,
-        interval=config.image_interval,
-        duration=config.image_duration,
-        fade=config.image_fade,
-    )
 
 
 RETRY_DELAYS = (1, 2, 5, 10, 30)

@@ -241,7 +241,11 @@ def check_media(config: Streamo) -> list[Check]:
                     detail=f'Could not probe visual bed ({type(error).__name__})',
                 )
             )
-    if config.title_card is None:
+    if not config.live_overlays or config.streaming_service.encoding.video is None:
+        checks.append(
+            Check(name='title_card', status='skipped', detail='Overlays disabled')
+        )
+    elif config.title_card is None:
         checks.append(
             Check(
                 name='title_card', status='skipped', detail='No title card configured'
@@ -296,7 +300,7 @@ def check_encoders(config: Streamo) -> Check:
 
 
 def check_storage(config: Streamo) -> Check:
-    if config.image_interval == 0:
+    if config.image_interval == 0 or not config.live_overlays:
         return Check(
             name='image_storage', status='skipped', detail='Participant images disabled'
         )

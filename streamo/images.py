@@ -7,7 +7,6 @@ import threading
 from collections.abc import Iterator
 from itertools import pairwise
 from pathlib import Path
-from typing import BinaryIO
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit, urlunsplit
 from urllib.request import urlopen
@@ -218,19 +217,6 @@ class ImageFrameProducer:
             0.0,
             min(1.0, elapsed / self.fade, (self.duration - elapsed) / self.fade),
         )
-
-
-def write_image_frames(stream: BinaryIO, producer: ImageFrameProducer) -> None:
-    try:
-        for frame in producer.frames():
-            stream.write(frame)
-    except BrokenPipeError:
-        pass
-    finally:
-        try:
-            stream.close()
-        except BrokenPipeError:
-            pass
 
 
 def image_paths(image_dir: Path) -> list[Path]:

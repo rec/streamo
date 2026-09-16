@@ -8,8 +8,6 @@ from streamo import composition, provider_config, providers, streamer
 from streamo.composition import (
     LOCAL_DISPLAY_URL,
     ffmpeg_command,
-    title_filter,
-    video_size,
 )
 from streamo.config import Streamo
 from streamo.control import ControlController
@@ -35,6 +33,7 @@ from streamo.streamer import (
 
 def _config() -> Streamo:
     return Streamo(
+        live_overlays=False,
         device_name='X18',
         channel=2,
         video=Path('visual-bed.mp4'),
@@ -112,7 +111,7 @@ def test_overlay_preserves_encoded_base_resolution_and_frame_rate() -> None:
         }
     )
     config = config.model_copy(update={'streaming_service': service})
-    graph = composition.overlay_filter(config, [], image_input=2)
+    graph = composition.overlay_filter(config)
     assert '[1:v]scale=1920:1080,fps=30' in graph
 
 
@@ -122,63 +121,26 @@ def test_ffmpeg_command_can_disable_local_display() -> None:
     assert command[-3:] == ['-f', 'flv', 'rtmps://live.twitch.tv/app/key']
 
 
-def test_ffmpeg_command_overlays_title_card(tmp_path: Path) -> None:
-    title = tmp_path / 'title.png'
-    title.touch()
-    config = _config().model_copy(update={'title_card': title})
-
-    command = ffmpeg_command(config)
-    graph = command[command.index('-filter_complex') + 1]
-
-    assert title.as_posix() in command
-    assert 'color=c=black@0.0:s=640x360:r=10:d=172.000000' in command
-    assert command[command.index('-map') + 1] == '[video]'
-    assert '[base][title_loop]overlay=(W-w)/2:(H-h)/2' in graph
-    assert 'fade=t=in:st=0:d=2.000000:alpha=1' in graph
-    assert 'fade=t=out:st=6.000000:d=2.000000:alpha=1' in graph
-    assert 'loop=loop=-1:size=1800:start=0' in graph
-
-
-def test_ffmpeg_command_overlays_live_image_pipe() -> None:
+def test_live_overlay_input_uses_output_resolution() -> None:
     config = _config().model_copy(
-        update={
-            'image_interval': 60,
-            'image_duration': 10,
-            'image_fade': 3,
-            'video_frame_rate': 24,
-            'video_resolution': '1280x720',
-        }
+        update={'live_overlays': True, 'video_resolution': '1280x720'}
     )
-
     command = ffmpeg_command(config, image_pipe=7)
-    graph = command[command.index('-filter_complex') + 1]
-
-    assert command[command.index('rawvideo') - 1 :][0:10] == [
-        '-f',
-        'rawvideo',
-        '-pixel_format',
-        'rgba',
-        '-video_size',
-        '1280x720',
-        '-framerate',
-        '24',
-        '-i',
-        'pipe:7',
-    ]
-    assert '[2:v]setpts=PTS-STARTPTS[image_live]' in graph
-    assert '[base][image_live]overlay=(W-w)/2:(H-h)/2' in graph
+    assert command[command.index('-video_size') + 1] == '640x360'
+    assert 'pipe:7' in command
+    assert '[base][live]overlay=0:0' in command[command.index('-filter_complex') + 1]
+    with pytest.raises(ValueError, match='overlay pipe'):
+        ffmpeg_command(config)
 
 
-def test_ffmpeg_command_places_live_images_after_title(tmp_path: Path) -> None:
-    title = tmp_path / 'title.png'
-    title.touch()
-    config = _config().model_copy(update={'title_card': title, 'image_interval': 60})
-
-    command = ffmpeg_command(config, image_pipe=8)
-    graph = command[command.index('-filter_complex') + 1]
-
-    assert '[base][title_loop]overlay=(W-w)/2:(H-h)/2:eof_action=repeat[base1]' in graph
-    assert '[base1][image_live]overlay=(W-w)/2:(H-h)/2' in graph
+def test_disabled_overlays_omit_title_and_photo_inputs(tmp_path: Path) -> None:
+    config = _config().model_copy(
+        update={'title_card': tmp_path / 'title.png', 'image_interval': 60}
+    )
+    command = ffmpeg_command(config)
+    assert '-filter_complex' not in command
+    assert 'rawvideo' not in command
+    assert str(config.title_card) not in command
 
 
 def test_ffmpeg_command_previews_nut_on_stdout() -> None:
@@ -458,32 +420,6 @@ def test_local_display_ignores_player_launch_failure(
     display.update()
 
     assert launches == 2
-
-
-def test_video_size_parses_resolution() -> None:
-    assert video_size(_config()) == (640, 360)
-
-
-def test_title_filter_uses_configured_timing(tmp_path: Path) -> None:
-    title = tmp_path / 'title.png'
-    title.touch()
-    config = _config().model_copy(
-        update={
-            'title_card': title,
-            'title_interval': 60,
-            'title_duration': 10,
-            'title_fade': 3,
-            'video_frame_rate': 24,
-            'video_resolution': '1280x720',
-        }
-    )
-
-    graph = title_filter(config)
-
-    assert 'scale=1280:720' in graph
-    assert 'fps=24' in graph
-    assert 'fade=t=out:st=7.000000:d=3.000000:alpha=1' in graph
-    assert 'loop=loop=-1:size=1440:start=0' in graph
 
 
 class FakePlayer:

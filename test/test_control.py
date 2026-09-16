@@ -27,7 +27,7 @@ def test_status_request_returns_runtime_snapshot() -> None:
 
     response = controller.handle_request(rpc.Request(command='status'))
 
-    assert response == state.snapshot()
+    assert response == {**state.snapshot(), 'overlays': {'enabled': False}}
 
 
 def test_status_never_waits_for_provider_and_reports_health_failure() -> None:

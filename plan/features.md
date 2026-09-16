@@ -144,11 +144,15 @@ change. Repeated polls do not create duplicate incidents.
 
 ## 4. Live titles and an intermission slate
 
-**Next step: composition design approval.** Proposed implementation:
+**Implemented following approval**, including a startup-only `live_overlays`
+switch defaulting to `true`. Setting it to `false` omits the overlay input,
+disables title/photo/slate display and feed polling, and rejects visual RPCs.
+Tests cover layout, timing, rejected cues, partial writes, and recovery revisions.
+Approved implementation:
 
 - Replace the startup-only title loop and separate participant-image overlay
   with one session-owned live compositor feeding a persistent RGBA input to
-  FFmpeg. Video streams keep this input attached even when it is transparent,
+  FFmpeg. Enabled video streams keep this input attached even when transparent,
   so a cue changes frame content without restarting or rebuilding the encoder.
 - Compose a full output-sized canvas at `video_frame_rate`. Prepare title/photo
   assets using the existing working resolution, preserving their centering,
@@ -174,7 +178,7 @@ change. Repeated polls do not create duplicate incidents.
   and measure target-machine performance before claiming Pi show readiness.
 
 This replaces the composition mechanism rather than adding a second title path.
-No live-compositor implementation has been made yet.
+The legacy FFmpeg title loop and its redundant graph tests have been removed.
 
 **Problem:** the current title card and visual bed are configured before startup.
 Changing a performer name or putting up an intermission message requires more
@@ -195,6 +199,15 @@ streamO owns applying the visual change.
 introduction, then hides it without restarting the encoder or interrupting audio.
 
 ## 5. Participant-image moderation and control
+
+**Awaiting design approval:** use filenames as stable IDs and persist approval
+and rejection decisions in a JSON file in `image_dir`. Automatic acceptance
+remains the default. With moderation enabled, both existing and new images wait
+for approval. Skip ends only the current appearance; rejection immediately hides
+the image and excludes it across restarts without deleting its file. Existing
+feed cursors prevent rejected entries from being downloaded again. Also expose
+pause/resume and selection of an approved image to show next. Renaming a file
+creates a new identity. Only one streamO session may manage a given image folder.
 
 **Problem:** new images automatically enter rotation, and removing the newest
 file does not necessarily remove the image currently on screen.

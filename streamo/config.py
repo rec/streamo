@@ -41,6 +41,10 @@ class Streamo(Reccy, frozen=True):
     title_duration: float = 8.0
     title_fade: float = 2.0
     local_display: bool = True
+    live_overlays: bool = Field(
+        default=True,
+        description='Enable titles, photos and slate. Requires a restart to change.',
+    )
     recover_publish: bool = False
     health_warnings: HealthWarnings = Field(default_factory=HealthWarnings)
     image_dir: Path = Path('images')
@@ -72,6 +76,8 @@ class Streamo(Reccy, frozen=True):
         image_feed_poller = (
             None
             if self.image_feed is None
+            or not self.live_overlays
+            or self.streaming_service.encoding.video is None
             else ImageFeedPoller(self.image_feed, self.image_dir)
         )
         initial_image_paths = set(image_paths(self.image_dir))
@@ -100,7 +106,7 @@ class Streamo(Reccy, frozen=True):
                 raise ValueError(f'Video file is unavailable: {self.video}')
             with self.video.open('rb'):
                 pass
-        if self.title_card is not None:
+        if self.live_overlays and self.title_card is not None:
             with Image.open(self.title_card) as image:
                 image.load()
 
@@ -160,9 +166,9 @@ class Streamo(Reccy, frozen=True):
 
     @model_validator(mode='after')
     def validate_title_card(self) -> Self:
-        if self.title_card is None:
+        if not self.live_overlays:
             return self
-        if not self.title_card.is_file():
+        if self.title_card is not None and not self.title_card.is_file():
             raise ValueError(f'{self.title_card} does not exist')
         if self.title_interval <= 0:
             raise ValueError('title_interval must be positive')

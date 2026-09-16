@@ -13,6 +13,7 @@ from reccy.protocol import ipc, rpc
 
 from .images import IMAGE_SUFFIXES, MAX_IMAGE_BYTES, MAX_IMAGE_SIDE, publish_file
 from .kick_api import KickApiError
+from .overlays import LiveOverlays, SlateCue, TitleCue
 from .providers import (
     COMMAND_CAPABILITIES,
     StreamingServiceAdapter,
@@ -34,6 +35,7 @@ class ControlController:
     state: RuntimeState
     image_dir: Path = Path('images')
     service: StreamingServiceAdapter | None = None
+    overlays: LiveOverlays | None = None
     commands: queue.Queue[ControlCommand] = field(default_factory=queue.Queue)
 
     def handle_request(self, request: rpc.Request) -> rpc.Result:
@@ -41,7 +43,29 @@ class ControlController:
         if command == 'ping':
             return 'pong'
         if command == 'status':
-            return self.state.snapshot()
+            return {
+                **self.state.snapshot(),
+                'overlays': self.overlays.snapshot()
+                if self.overlays
+                else {'enabled': False},
+            }
+        if command in {'title', 'slate'}:
+            if self.overlays is None:
+                return ipc.Error(
+                    type='error',
+                    message=(
+                        'Live overlays unavailable; restart a video stream '
+                        'with live_overlays=true'
+                    ),
+                )
+            try:
+                if command == 'title':
+                    return self.overlays.set_title(
+                        TitleCue.model_validate(request.params)
+                    )
+                return self.overlays.set_slate(SlateCue.model_validate(request.params))
+            except ValueError as error:
+                return ipc.Error(type='error', message=str(error))
         if command == 'incidents':
             after = request.params.get('after', 0)
             if type(after) is not int or after < 0:
