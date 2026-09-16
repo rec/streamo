@@ -51,17 +51,42 @@ def test_stalled_output_drops_old_audio_and_recovers(tmp_path: Path) -> None:
 
 
 def test_capture_failure_is_reported_and_retried(tmp_path: Path) -> None:
-    with (tmp_path / 'output').open('wb') as output:
+    with (
+        (tmp_path / 'output').open('wb') as output,
+        mock.patch('streamo.audio.time.monotonic', return_value=100.0) as clock,
+    ):
         state = RuntimeState()
         audio = AudioCapture('missing', 1, 48000, output, state)
-        with mock.patch('streamo.audio.sounddevice.InputStream', side_effect=OSError):
+        first = mock.Mock(active=True)
+        second = mock.Mock(active=True)
+        with mock.patch(
+            'streamo.audio.sounddevice.InputStream',
+            side_effect=[OSError, first, OSError, second],
+        ) as capture:
             audio.update()
-        assert 'unavailable' in str(state.snapshot()['audio_error'])
-        assert audio.retry_at > time.monotonic()
-        audio.retry_at = 0
-        with mock.patch('streamo.audio.sounddevice.InputStream') as capture:
+            assert 'unavailable' in str(state.snapshot()['audio_error'])
+            clock.return_value = 104.99
             audio.update()
-            capture.return_value.start.assert_called_once()
+            assert capture.call_count == 1
+            clock.return_value = 105.0
+            audio.update()
+            first.start.assert_called_once()
+            first.active = False
+            clock.return_value = 105.25
+            audio.update()
+            first.close.assert_called_once()
+            clock.return_value = 106.24
+            audio.update()
+            assert capture.call_count == 2
+            clock.return_value = 106.25
+            audio.update()
+            assert capture.call_count == 3
+            clock.return_value = 111.24
+            audio.update()
+            assert capture.call_count == 3
+            clock.return_value = 111.25
+            audio.update()
+            second.start.assert_called_once()
 
 
 def test_partial_writes_preserve_sample_alignment(tmp_path: Path) -> None:

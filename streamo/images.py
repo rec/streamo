@@ -2,7 +2,6 @@ import hashlib
 import io
 import json
 import random
-import tempfile
 import threading
 from itertools import pairwise
 from pathlib import Path
@@ -21,6 +20,7 @@ from pydantic import (
     ValidationError,
     field_validator,
 )
+from reccy.runtime.files import atomic_output
 from reccy.runtime.logging import get_logger
 
 LOGGER = get_logger(__name__)
@@ -108,7 +108,8 @@ class ImageFeedPoller:
                 LOGGER.error('Skipping image feed item %s: %s', item.id, error)
             else:
                 target = self.image_dir / f'remote-{self.feed_id}-{item.id:08}.jpg'
-                publish_file(target, contents)
+                with atomic_output(target) as temporary:
+                    temporary.write_bytes(contents)
                 stored.append(target)
             write_feed_cursor(self.cursor_path, item.id)
             cursor = item.id
@@ -285,7 +286,9 @@ def image_paths(image_dir: Path) -> list[Path]:
     return sorted(
         p
         for p in image_dir.iterdir()
-        if p.is_file() and p.suffix.lower() in IMAGE_SUFFIXES
+        if not p.name.startswith('.')
+        and p.is_file()
+        and p.suffix.lower() in IMAGE_SUFFIXES
     )
 
 
@@ -388,22 +391,8 @@ def read_feed_cursor(path: Path) -> int:
 
 
 def write_feed_cursor(path: Path, cursor: int) -> None:
-    publish_file(path, f'{cursor}\n'.encode())
-
-
-def publish_file(target: Path, contents: bytes) -> None:
-    temporary: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            dir=target.parent, prefix=f'.{target.name}.', suffix='.part', delete=False
-        ) as output:
-            temporary = Path(output.name)
-            output.write(contents)
-        temporary.replace(target)
-    except OSError:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
-        raise
+    with atomic_output(path) as temporary:
+        temporary.write_text(f'{cursor}\n')
 
 
 IMAGE_SUFFIXES = {'.gif', '.jpeg', '.jpg', '.png', '.webp'}

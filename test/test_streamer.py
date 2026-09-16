@@ -380,6 +380,8 @@ def test_local_display_restarts_after_delay_without_connector_transition(
     status.parent.mkdir()
     status.write_text('connected\n')
     players: list[FakePlayer] = []
+    now = 100.0
+    monkeypatch.setattr(streamer.time, 'monotonic', lambda: now)
     monkeypatch.setattr(
         streamer.subprocess,
         'Popen',
@@ -391,7 +393,10 @@ def test_local_display_restarts_after_delay_without_connector_transition(
     players[0].returncode = 1
     display.update()
     assert len(players) == 1
-    display.retry_at = 0
+    now = 104.99
+    display.update()
+    assert len(players) == 1
+    now = 105.0
     display.update()
 
     assert len(players) == 2

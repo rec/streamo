@@ -328,3 +328,24 @@ def test_next_selection_is_validated_and_rechecked_before_display(
     producer.frame()
     producer.frame()
     assert producer.visible_id == 'a.png'
+
+
+def test_atomic_image_is_invisible_to_rotation_and_removal_until_published(
+    tmp_path: Path,
+) -> None:
+    from reccy.runtime.files import atomic_output
+
+    from streamo.control import remove_last_image
+    from streamo.images import image_paths
+
+    path = tmp_path / 'photo.png'
+    scheduler = ImageScheduler(tmp_path)
+    with atomic_output(path) as temporary:
+        Image.new('RGBA', (1, 1), 'red').save(temporary)
+        assert temporary.suffix == '.png'
+        assert image_paths(tmp_path) == []
+        assert scheduler.next_image() is None
+        assert remove_last_image(tmp_path) is None
+        assert temporary.exists()
+    assert image_paths(tmp_path) == [path]
+    assert scheduler.next_image() == path

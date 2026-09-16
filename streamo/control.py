@@ -10,8 +10,9 @@ from urllib.request import url2pathname, urlopen
 
 from PIL import Image
 from reccy.protocol import ipc, rpc
+from reccy.runtime.files import atomic_output
 
-from .images import IMAGE_SUFFIXES, MAX_IMAGE_BYTES, MAX_IMAGE_SIDE, publish_file
+from .images import IMAGE_SUFFIXES, MAX_IMAGE_BYTES, MAX_IMAGE_SIDE, image_paths
 from .kick_api import KickApiError
 from .moderation import ImagePreview, ImageQueue, ImageReview
 from .overlays import LiveOverlays, SlateCue, TitleCue
@@ -241,17 +242,14 @@ def publish_image(target: Path, contents: bytes) -> None:
             image.load()
     except (OSError, Image.DecompressionBombError) as error:
         raise ImageStoreError('invalid image') from error
-    publish_file(target, contents)
+    with atomic_output(target) as temporary:
+        temporary.write_bytes(contents)
 
 
 def remove_last_image(image_dir: Path) -> Path | None:
     if not image_dir.exists():
         return None
-    images = [
-        p
-        for p in image_dir.iterdir()
-        if p.is_file() and p.suffix.lower() in IMAGE_SUFFIXES
-    ]
+    images = image_paths(image_dir)
     if not images:
         return None
     latest = max(images, key=lambda p: (p.stat().st_mtime_ns, p.name))

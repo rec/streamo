@@ -6,8 +6,9 @@ from pathlib import Path
 
 from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field
+from reccy.runtime.files import atomic_output
 
-from .images import image_paths, load_image, publish_file
+from .images import image_paths, load_image
 
 
 class ImageDecision(enum.StrEnum):
@@ -84,7 +85,8 @@ class ImageApproval:
             records = ImageDecisions(
                 decisions={**self.records.decisions, request.id: request.decision}
             )
-            publish_file(self.path, records.model_dump_json(indent=2).encode())
+            with atomic_output(self.path) as temporary:
+                temporary.write_text(records.model_dump_json(indent=2))
             self.records = records
         return {'id': request.id, 'state': request.decision.value}
 

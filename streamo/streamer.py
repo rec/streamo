@@ -11,6 +11,7 @@ from urllib.parse import quote, quote_plus, unquote, unquote_plus
 from pydantic import SecretStr
 from reccy.runtime import process
 from reccy.runtime.logging import get_logger
+from reccy.runtime.retry import RetryPolicy, RetrySchedule
 
 from .audio import AudioCapture
 from .composition import (
@@ -36,7 +37,7 @@ class LocalDisplayController:
         self.status_root = status_root
         self.connected = False
         self.player: subprocess.Popen[bytes] | None = None
-        self.retry_at = 0.0
+        self.retry = RetrySchedule(RetryPolicy(delay=5), clock=time.monotonic)
         self.player_output: process.OutputTail | None = None
 
     def update(self) -> None:
@@ -46,12 +47,12 @@ class LocalDisplayController:
                 self.player_output.text() if self.player_output else '',
             )
             self.player = None
-            self.retry_at = time.monotonic() + 5
+            self.retry.failed()
         connected = drm_connected(self.status_root)
         if connected != self.connected:
-            self.retry_at = 0
+            self.retry.reset()
         self.connected = connected
-        if connected and time.monotonic() >= self.retry_at:
+        if connected:
             self.start_player()
         elif not connected:
             self.stop_player()
@@ -59,9 +60,10 @@ class LocalDisplayController:
     def close(self) -> None:
         self.connected = False
         self.stop_player()
+        self.retry.cancel()
 
     def start_player(self) -> None:
-        if self.player is not None:
+        if self.player is not None or not self.retry.begin_attempt():
             return
         try:
             self.player = subprocess.Popen(
@@ -74,7 +76,7 @@ class LocalDisplayController:
             self.player_output = process.capture_stderr(self.player)
         except OSError as error:
             LOGGER.error('Could not start local display player: %s', error)
-            self.retry_at = time.monotonic() + 5
+            self.retry.failed()
 
     def stop_player(self) -> None:
         if self.player is None:
@@ -101,6 +103,7 @@ def stream(
 ) -> int:
     state = controller.state
     recover = config.recover_publish and not preview
+    retry: RetrySchedule | None = None
     state.set_publish_requested(not preview)
     try:
         with ExitStack() as resources:
@@ -151,6 +154,15 @@ def stream(
 
             failures = 0
             while not should_stop(controller):
+                # The irregular delay sequence is streamO policy, not exponential
+                # backoff. Each attempt gets a schedule for its failure's wait.
+                retry = RetrySchedule(
+                    RetryPolicy(
+                        delay=RETRY_DELAYS[min(failures, len(RETRY_DELAYS) - 1)]
+                    ),
+                    clock=time.monotonic,
+                )
+                retry.begin_attempt()
                 state.begin_encoder_attempt()
                 try:
                     returncode, stopped = run_attempt(
@@ -180,20 +192,28 @@ def stream(
                         return returncode
                 if state.output_is_stable():
                     failures = 0
-                delay = RETRY_DELAYS[min(failures, len(RETRY_DELAYS) - 1)]
+                    # Stable output completes the old recovery cycle. Treat its
+                    # eventual failure as the first failure of a fresh cycle.
+                    retry.reset()
+                    retry = RetrySchedule(RetryPolicy(delay=1), clock=time.monotonic)
+                    retry.begin_attempt()
+                retry.failed()
                 failures += 1
-                state.publish_failed(message, delay)
-                deadline = time.monotonic() + delay
-                while time.monotonic() < deadline:
+                state.publish_failed(message, retry.seconds_until_attempt())
+                while (
+                    delay := retry.seconds_until_attempt()
+                ) is not None and delay > 0:
                     if should_stop(controller):
                         return 0
                     audio.update()
                     state.evaluate_warnings()
-                    time.sleep(min(0.01, max(0, deadline - time.monotonic())))
+                    time.sleep(min(0.01, delay))
             return 0
     except KeyboardInterrupt:
         return 0
     finally:
+        if retry is not None:
+            retry.cancel()
         state.set_publish_requested(False)
         state.evaluate_warnings()
         if state.snapshot()['state'] != 'failed':

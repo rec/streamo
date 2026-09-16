@@ -223,3 +223,39 @@ def test_output_must_advance_for_sixty_seconds_before_backoff_resets(
     assert not state.output_is_stable()
     state.begin_encoder_attempt()
     assert state.snapshot()['last_output_progress_at'] is None
+
+
+def test_publishing_keeps_irregular_delays_and_resets_after_stable_output(
+    config: Streamo,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    controller = ControlController(RuntimeState())
+    clock = Clock()
+    monkeypatch.setattr(streamer.time, 'monotonic', clock.monotonic)
+    monkeypatch.setattr(streamer.time, 'sleep', clock.sleep)
+    starts: list[float] = []
+
+    def attempt(*args: object, **kwargs: object) -> tuple[int, bool]:
+        starts.append(clock.now)
+        if len(starts) == 8:
+            return 0, True
+        if len(starts) == 7:
+            for _ in range(61):
+                controller.state.record_output_progress(int(clock.now * 1000000))
+                clock.now += 1
+        return 1, False
+
+    with (
+        mock.patch.object(streamer, 'run_attempt', side_effect=attempt),
+        mock.patch.object(streamer, 'AudioCapture'),
+    ):
+        assert (
+            streamer.stream(
+                config,
+                controller,
+                GenericServiceAdapter(config.streaming_service),
+                initial_image_paths=set(),
+            )
+            == 0
+        )
+    assert starts == [100, 101, 103, 108, 118, 148, 178, 240]

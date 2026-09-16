@@ -5,6 +5,7 @@ from typing import IO
 
 import numpy as np
 import sounddevice
+from reccy.runtime.retry import RetryPolicy, RetrySchedule
 
 from .runtime import RuntimeState
 
@@ -33,7 +34,8 @@ class AudioCapture:
         self.overflow_frames = 0
         self.last_capture = time.monotonic()
         self.last_write = self.last_capture
-        self.retry_at = 0.0
+        self.open_retry = RetrySchedule(RetryPolicy(delay=5), clock=time.monotonic)
+        self.capture_retry = RetrySchedule(RetryPolicy(delay=1), clock=time.monotonic)
         self.capture: sounddevice.InputStream | None = None
         self.error: str | None = None
         if output is not None:
@@ -77,8 +79,12 @@ class AudioCapture:
         ):
             self.error = 'Audio capture stopped; retrying'
             self.close_capture()
-            self.retry_at = now + 1
-        if self.capture is None and now >= self.retry_at:
+            self.capture_retry.failed()
+        if (
+            self.capture is None
+            and self.capture_retry.seconds_until_attempt() == 0
+            and self.open_retry.begin_attempt()
+        ):
             try:
                 self.capture = sounddevice.InputStream(
                     device=self.device,
@@ -90,10 +96,13 @@ class AudioCapture:
                 )
                 self.capture.start()
                 self.last_capture = now
+                self.open_retry.reset()
+                self.capture_retry.reset()
+                self.capture_retry.begin_attempt()
             except (sounddevice.PortAudioError, OSError, ValueError):
                 self.error = 'Audio device unavailable; retrying'
                 self.close_capture()
-                self.retry_at = now + 5
+                self.open_retry.failed()
         if not self.pending:
             try:
                 block, status = self.blocks.get_nowait()

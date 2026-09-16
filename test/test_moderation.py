@@ -118,7 +118,7 @@ def test_failed_persistence_does_not_approve_an_image(tmp_path: Path) -> None:
     path.touch()
     approval = ImageApproval(tmp_path, required=True)
     with mock.patch(
-        'streamo.moderation.publish_file', side_effect=OSError('disk full')
+        'streamo.moderation.atomic_output', side_effect=OSError('disk full')
     ):
         with pytest.raises(OSError, match='disk full'):
             approval.review(ImageReview(id=path.name, decision='approved'))
