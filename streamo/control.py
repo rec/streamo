@@ -64,7 +64,7 @@ class ControlController:
                 return approval.review(ImageReview.model_validate(request.params))
             except (ValueError, OSError, Image.DecompressionBombError) as error:
                 return ipc.Error(type='error', message=str(error))
-        if command in {'title', 'slate'}:
+        if command in {'title', 'slate', 'image_skip', 'image_pause', 'image_next'}:
             if self.overlays is None:
                 return ipc.Error(
                     type='error',
@@ -74,12 +74,14 @@ class ControlController:
                     ),
                 )
             try:
+                if command.startswith('image_'):
+                    return self.overlays.control_images(command, request.params)
                 if command == 'title':
                     return self.overlays.set_title(
                         TitleCue.model_validate(request.params)
                     )
                 return self.overlays.set_slate(SlateCue.model_validate(request.params))
-            except ValueError as error:
+            except (ValueError, OSError, Image.DecompressionBombError) as error:
                 return ipc.Error(type='error', message=str(error))
         if command == 'incidents':
             after = request.params.get('after', 0)

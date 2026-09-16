@@ -32,6 +32,18 @@ class SlateCue(BaseModel, frozen=True):
     model_config = ConfigDict(extra='forbid', strict=True)
 
 
+class ImagePause(BaseModel, frozen=True):
+    paused: bool
+
+    model_config = ConfigDict(extra='forbid', strict=True)
+
+
+class ImageNext(BaseModel, frozen=True):
+    id: str
+
+    model_config = ConfigDict(extra='forbid', strict=True)
+
+
 class LiveOverlays:
     def __init__(self, config: Streamo, initial_paths: set[Path]) -> None:
         encoding = config.streaming_service.encoding.video
@@ -73,7 +85,7 @@ class LiveOverlays:
                 interval=config.image_interval,
                 duration=config.image_duration,
                 fade=config.image_fade,
-            ).frames()
+            )
             if config.image_interval > 0
             else None
         )
@@ -111,7 +123,28 @@ class LiveOverlays:
                 'enabled': True,
                 'requested': self.requested(),
                 'applied': None if self.applied is None else dict(self.applied),
+                'images': self.photos.snapshot() if self.photos is not None else None,
             }
+
+    def control_images(
+        self, command: str, payload: dict[str, object]
+    ) -> dict[str, object]:
+        with self.lock:
+            if self.photos is None:
+                raise ValueError('Image controls require a positive image_interval')
+            if command == 'image_pause':
+                self.photos.paused = ImagePause.model_validate(payload).paused
+            elif command == 'image_next':
+                cue = ImageNext.model_validate(payload)
+                self.photos.select_next(self.approval.image_path(cue.id))
+            elif command == 'image_skip':
+                if payload:
+                    raise ValueError('image_skip accepts no parameters')
+                self.photos.skip()
+            else:
+                raise ValueError('Unknown image control')
+            self.revision += 1
+            return self.photos.snapshot()
 
     def requested(self) -> dict[str, object]:
         # Caller holds the lock, so a revision and its contents stay together.
@@ -155,11 +188,16 @@ class LiveOverlays:
                     canvas.alpha_composite(title, position)
                 if self.photos is not None:
                     photo = Image.frombytes(
-                        'RGBA', self.working_size, next(self.photos)
+                        'RGBA', self.working_size, self.photos.frame()
                     )
                     canvas.alpha_composite(photo, position)
                 self.frame_index += 1
-            return canvas.tobytes(), self.requested()
+            return canvas.tobytes(), {
+                **self.requested(),
+                'image_id': self.photos.visible_id
+                if self.photos is not None and not self.slate_visible
+                else None,
+            }
 
     def mark_applied(self, visual: dict[str, object]) -> None:
         with self.lock:

@@ -124,7 +124,7 @@ def test_frame_producer_scales_and_centers_image(tmp_path: Path) -> None:
         fade=0,
     )
 
-    frame = np.frombuffer(next(producer.frames()), dtype=np.uint8).reshape((2, 4, 4))
+    frame = np.frombuffer(producer.frame(), dtype=np.uint8).reshape((2, 4, 4))
 
     assert frame[:, :, 3].tolist() == [[0, 255, 0, 0], [0, 255, 0, 0]]
 
@@ -140,9 +140,8 @@ def test_frame_producer_fades_and_then_emits_transparency(tmp_path: Path) -> Non
         duration=2,
         fade=1,
     )
-    frames = producer.frames()
 
-    alpha = [next(frames)[3] for _ in range(12)]
+    alpha = [producer.frame()[3] for _ in range(12)]
 
     assert alpha == [0, 64, 128, 191, 255, 191, 128, 64, 0, 0, 0, 0]
 
@@ -160,7 +159,7 @@ def test_frame_producer_skips_invalid_images(tmp_path: Path) -> None:
         fade=0,
     )
 
-    assert next(producer.frames()) == bytes((0, 0, 255, 255))
+    assert producer.frame() == bytes((0, 0, 255, 255))
 
 
 def test_image_feed_poller_downloads_new_jpegs_and_records_cursor(
@@ -261,3 +260,71 @@ class FakeHttpResponse:
 
     def read(self, limit: int) -> bytes:
         return self.contents[:limit]
+
+
+def test_paused_fade_and_skip_preserve_next_selection(tmp_path: Path) -> None:
+    for name, color in (('a.png', 'red'), ('b.png', 'blue')):
+        Image.new('RGBA', (1, 1), color).save(tmp_path / name)
+    producer = ImageFrameProducer(
+        ImageScheduler(tmp_path, NoShuffleRandom()),
+        width=1,
+        height=1,
+        frame_rate=4,
+        interval=3,
+        duration=2,
+        fade=1,
+    )
+    producer.frame()
+    held = producer.frame()
+    assert held == bytes((255, 0, 0, 64))
+    assert producer.snapshot()['next_id'] == 'b.png'
+    producer.paused = True
+    for _ in range(20):
+        assert producer.frame() == held
+    producer.skip()
+    assert producer.frame() == bytes(4)
+    assert producer.snapshot()['next_id'] == 'b.png'
+    producer.paused = False
+    for _ in range(10):
+        assert producer.frame() == bytes(4)
+    producer.frame()  # Next interval starts at zero opacity.
+    assert producer.frame() == bytes((0, 0, 255, 64))
+    assert (tmp_path / 'a.png').exists()
+
+
+def test_next_selection_is_validated_and_rechecked_before_display(
+    tmp_path: Path,
+) -> None:
+    from streamo.moderation import ImageApproval, ImageReview
+
+    for name in ('a.png', 'b.png', 'c.png'):
+        Image.new('RGBA', (1, 1), 'red').save(tmp_path / name)
+    (tmp_path / 'invalid.png').write_text('not an image')
+    approval = ImageApproval(tmp_path, required=False)
+    producer = ImageFrameProducer(
+        ImageScheduler(tmp_path, NoShuffleRandom(), approval=approval),
+        width=1,
+        height=1,
+        frame_rate=1,
+        interval=2,
+        duration=1,
+        fade=0,
+    )
+    producer.frame()
+    producer.select_next(tmp_path / 'c.png')
+    with pytest.raises(OSError):
+        producer.select_next(tmp_path / 'invalid.png')
+    assert producer.snapshot()['next_id'] == 'c.png'
+    approval.review(ImageReview(id='c.png', decision='rejected'))
+    assert producer.snapshot()['next_id'] is None
+    with pytest.raises(ValueError, match='approved'):
+        producer.select_next(tmp_path / 'c.png')
+    producer.frame()
+    producer.frame()
+    assert producer.visible_id != 'c.png'
+    producer.select_next(tmp_path / 'b.png')
+    (tmp_path / 'b.png').unlink()
+    assert producer.snapshot()['next_id'] is None
+    producer.frame()
+    producer.frame()
+    assert producer.visible_id == 'a.png'

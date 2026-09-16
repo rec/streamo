@@ -8,22 +8,9 @@ still require review. Effort is a rough estimate, not a delivery promise.
 
 | Priority | Feature | Operator benefit | Effort |
 | --- | --- | --- | --- |
-| 5 | Participant-image controls | Decide what appears and when | Medium |
 | 6 | Audio/video alignment | Correct a measured timing offset | Medium |
 | 7 | Repeatable rehearsal | Test a show without its venue equipment | Medium |
 | 8 | Visual-bed planning preview | Review selection and timing before a long render | Medium |
-
-## 5. Participant-image controls
-
-**Remaining work:** add controls to skip the visible photo, temporarily pause
-rotation, and choose a specific approved photo to show next. Report the visible
-image and upcoming selection so the controller can present accurate controls.
-
-Skip should end only the current appearance, without changing the image's saved
-approval decision. Use the existing filename IDs and approval state.
-
-**Completion example:** an operator skips a photo for now and chooses a specific
-approved photo for the next appearance without changing future eligibility.
 
 ## 6. Audio/video alignment
 

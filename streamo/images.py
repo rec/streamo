@@ -4,7 +4,6 @@ import json
 import random
 import tempfile
 import threading
-from collections.abc import Iterator
 from itertools import pairwise
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -193,26 +192,69 @@ class ImageFrameProducer:
         self.interval_frames = max(1, round(interval * frame_rate))
         self.transparent = bytes(width * height * 4)
         self.current_path: Path | None = None
+        self.current_image: np.ndarray | None = None
+        self.next_path: Path | None = None
+        self.paused = False
+        self.frame_index = -1
+        self.visible_id: str | None = None
 
-    def frames(self) -> Iterator[bytes]:
-        while True:
-            image = self.next_frame_image()
-            for index in range(self.interval_frames):
-                opacity = self.opacity(index)
-                allowed = (
-                    self.scheduler.approval is None
-                    or self.current_path is not None
-                    and self.scheduler.approval.allows(self.current_path)
-                )
-                if image is None or opacity <= 0 or not allowed:
-                    yield self.transparent
-                else:
-                    yield faded_frame(image, opacity)
+    def frame(self) -> bytes:
+        if not self.paused:
+            self.frame_index = (self.frame_index + 1) % self.interval_frames
+            if self.frame_index == 0:
+                self.current_image = self.next_frame_image()
+                self.next_path = self.scheduler.next_image()
+        opacity = self.opacity(self.frame_index)
+        if (
+            self.current_image is None
+            or opacity <= 0
+            or not self.eligible(self.current_path)
+        ):
+            self.visible_id = None
+            return self.transparent
+        assert self.current_path is not None
+        self.visible_id = self.current_path.name
+        return faded_frame(self.current_image, opacity)
+
+    def skip(self) -> None:
+        self.current_image = None
+        self.current_path = None
+        self.visible_id = None
+
+    def select_next(self, path: Path) -> None:
+        if not self.eligible(path):
+            raise ValueError('Next image must exist and be approved')
+        # Decode before replacing a pending choice; invalid files preserve it.
+        load_image(path, self.width, self.height)
+        self.next_path = path
+
+    def snapshot(self) -> dict[str, object]:
+        return {
+            'paused': self.paused,
+            'next_id': self.next_path.name
+            if self.eligible(self.next_path) and self.next_path
+            else None,
+        }
+
+    def eligible(self, path: Path | None) -> bool:
+        return (
+            path is not None
+            and path.is_file()
+            and (
+                self.scheduler.approval is None or self.scheduler.approval.allows(path)
+            )
+        )
 
     def next_frame_image(self) -> np.ndarray | None:
         self.current_path = None
         attempted: set[Path] = set()
-        while (path := self.scheduler.next_image()) is not None:
+        path = (
+            self.next_path
+            if self.eligible(self.next_path)
+            else self.scheduler.next_image()
+        )
+        self.next_path = None
+        while path is not None:
             if path in attempted:
                 return None
             attempted.add(path)
@@ -222,6 +264,7 @@ class ImageFrameProducer:
                 return image
             except (OSError, UnidentifiedImageError) as error:
                 LOGGER.error('Could not load image %s: %s', path, error)
+            path = self.scheduler.next_image()
         return None
 
     def opacity(self, frame: int) -> float:

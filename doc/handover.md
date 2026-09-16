@@ -11,7 +11,8 @@ slate are implemented. `live_overlays` defaults to true and is startup-only;
 false disables the compositor and feed polling. The optional image approval queue
 is implemented with thumbnail previews, approve/reject RPCs, and saved decisions
 in `image_dir/.streamo-image-approval.json`. `image_approval_required` defaults to
-false. Skip, pause, and show-next controls remain unfinished in the feature plan.
+false. Skip, pause/resume, show-next controls, and current/upcoming image status
+are implemented. Audio/video alignment is next in the feature plan.
 
 All 22 findings from the completed issue review are addressed in source.
 The resolved issue list has been removed; its history remains in Git.
@@ -22,7 +23,8 @@ Issue 1 was committed as `7cf183f` and audio recovery/lifecycle fixes as
 The remaining fixes, tests, module moves, and documentation were committed in
 `402d0d6`. All implementation commits were pushed.
 
-Verification: 244 tests pass, including image approval, overlay layout/cues, incidents, recovery,
+Verification: 251 tests pass, including image playback/approval, overlay layout/cues,
+incidents, recovery,
 preflight, and a small
 rendered-video regression. Ruff, type checks, pyupgrade, and diff checks pass.
 PHP syntax and feed pagination were checked with 10,000 manifest records.

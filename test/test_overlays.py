@@ -136,10 +136,12 @@ class PartialWriter(io.BytesIO):
 
     def write(self, data: bytes) -> int:
         if self.tell() == self.expected:
-            self.complete = (
-                self.overlays.snapshot()['applied']
-                == self.overlays.snapshot()['requested']
-            )
+            requested = self.overlays.snapshot()['requested']
+            assert isinstance(requested, dict)
+            self.complete = self.overlays.snapshot()['applied'] == {
+                **requested,
+                'image_id': None,
+            }
             raise BrokenPipeError
         assert self.overlays.snapshot()['applied'] is None
         return super().write(data[:1031])
@@ -162,3 +164,75 @@ def test_applied_revision_requires_complete_write_and_resets_on_recovery(
     with mock.patch('streamo.overlays.time.sleep'):
         write_overlay_frames(writer, overlays)
     assert writer.complete
+
+
+def test_image_controls_report_applied_photo_and_survive_recovery(
+    config: Streamo,
+) -> None:
+    path = config.image_dir / 'photo.png'
+    Image.new('RGBA', (160, 90), 'red').save(path)
+    overlays = LiveOverlays(
+        config.model_copy(
+            update={'image_interval': 3, 'image_duration': 2, 'image_fade': 0}
+        ),
+        set(),
+    )
+    controller = ControlController(RuntimeState(), overlays=overlays)
+    controller.state.set_muted(True)
+    for command, params in (
+        ('image_next', {'id': path.name}),
+        ('image_pause', {'paused': True}),
+    ):
+        assert not isinstance(
+            controller.handle_request(rpc.Request(command=command, params=params)),
+            ipc.Error,
+        )
+    assert overlays.snapshot()['images'] == {'paused': True, 'next_id': path.name}
+    overlays.begin_attempt()
+    assert overlays.snapshot()['images'] == {'paused': True, 'next_id': path.name}
+    controller.handle_request(
+        rpc.Request(command='image_pause', params={'paused': False})
+    )
+    _, visual = overlays.frame()
+    assert visual['image_id'] == path.name
+    assert overlays.snapshot()['applied'] is None
+    overlays.mark_applied(visual)
+    assert overlays.snapshot()['applied']['image_id'] == path.name
+    overlays.set_slate(SlateCue(visible=True))
+    _, visual = overlays.frame()
+    assert visual['image_id'] is None
+    overlays.set_slate(SlateCue(visible=False))
+    controller.handle_request(rpc.Request(command='image_skip'))
+    frame, visual = overlays.frame()
+    assert visual['image_id'] is None
+    assert not any(frame)
+    assert controller.state.snapshot()['muted'] is True
+    assert overlays.approval.allows(path)
+
+
+@pytest.mark.parametrize(
+    'command,params',
+    [
+        ('image_pause', {'paused': 'yes'}),
+        ('image_next', {'id': '../outside.png'}),
+        ('image_skip', {'id': 'photo.png'}),
+    ],
+)
+def test_invalid_image_controls_leave_state_unchanged(
+    config: Streamo, command: str, params: dict[str, object]
+) -> None:
+    overlays = LiveOverlays(config.model_copy(update={'image_interval': 20}), set())
+    controller = ControlController(RuntimeState(), overlays=overlays)
+    before = overlays.snapshot()
+    assert isinstance(
+        controller.handle_request(rpc.Request(command=command, params=params)),
+        ipc.Error,
+    )
+    assert overlays.snapshot() == before
+
+
+def test_image_controls_require_enabled_rotation(config: Streamo) -> None:
+    controller = ControlController(RuntimeState(), overlays=LiveOverlays(config, set()))
+    assert isinstance(
+        controller.handle_request(rpc.Request(command='image_skip')), ipc.Error
+    )

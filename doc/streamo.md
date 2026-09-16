@@ -385,8 +385,10 @@ duration; its duration must be shorter than its interval, and both fades must
 fit within its duration.
 
 Set `image_interval` to a positive value to enable participant images. streamO
-rescans `image_dir` before every interval. Images added after startup are shown
-once before pre-existing images repeat. Afterwards,
+rescans `image_dir` as it selects the next interval. It reserves one upcoming
+photo so the controller can report that choice. After the reserved choice,
+images added since startup take priority and appear once before older images
+repeat. Afterwards,
 `current_session_image_weight = 3` means three current-session images for each
 older image. Set it to `0` to show older images whenever no new image remains.
 Invalid files are logged and skipped; deleted paths leave the cycle.
@@ -418,6 +420,29 @@ moderation. Filenames are the IDs: renaming creates a new identity, and replacin
 a file at the same name inherits its previous decision. Use one streamO session
 per image folder. The existing remote-feed cursor is unchanged, so rejecting a
 downloaded image does not download it again. These RPCs require live overlays.
+
+Image playback controls also require a positive `image_interval`:
+
+| Command | Parameters | Effect |
+| --- | --- | --- |
+| `image_skip` | None | Hide the current photo for the rest of its interval without changing approval |
+| `image_pause` | Boolean `paused` | Hold or resume the photo and its timing, including fades and gaps |
+| `image_next` | Approved image `id` | Replace the reserved choice for the next interval |
+
+Skipping while paused leaves the photo hidden until rotation resumes and reaches
+the next interval. Choosing a photo does not interrupt the current interval or
+resume a paused rotation. Invalid or unapproved choices return an error and keep
+the existing reservation. Deleted or subsequently rejected choices are skipped
+when the interval begins. A skipped photo remains eligible for later selection.
+
+Status reports `overlays.images.paused` and `overlays.images.next_id` (null when
+there is no eligible reservation). `overlays.applied.image_id` identifies the
+photo in the last complete frame written to the encoder, or null during a gap,
+slate, or skipped appearance. `overlays.applied` itself is null while no frame
+has reached the current encoder. These values describe local output, not viewer
+delivery. Playback controls preserve state across encoder recovery but reset on
+a streamO restart. The slate additionally freezes photo timing; hiding it respects
+the operator's pause setting. No image command changes audio mute.
 
 An optional feed downloads uploaded images into the same directory:
 
