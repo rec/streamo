@@ -20,3 +20,7 @@ preview or local display. Live operation uses the same configuration:
 `uv run streamo --config ~/.config/streamo/config.toml`.
 
 Contributor context: [handover](doc/handover.md).
+
+Run `uv run pytest` for parallel unit tests. It uses four workers and keeps
+each test file in one worker. Run `uv run pytest -n 0` to reproduce a failure
+serially.

@@ -32,6 +32,9 @@ dev = [
     "ty>=0.0.78",
 ]
 
+[tool.pytest.ini_options]
+addopts = "-n 4 --dist=loadfile"
+
 [tool.uv]
 exclude-newer = "1 week"
 
