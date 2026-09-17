@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import tyro
-from PIL import Image
+from PIL import Image, ImageFont
 
 from scripts import render
 from scripts.render import (
@@ -495,7 +495,12 @@ def test_cli_accepts_plan_input_without_output() -> None:
     assert config.output is None
 
 
-def test_render_visual_bed_regression(tmp_path: Path) -> None:
+def test_render_visual_bed_regression(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Pin BASIC layout: optional RAQM availability changes glyph spacing and
+    # must not change the reference for this composition regression.
+    monkeypatch.setattr(ImageFont.core, 'HAVE_RAQM', False)
     fixtures = Path(__file__).parent / 'fixtures' / 'render'
     output = tmp_path / 'visual-bed.mp4'
     expected = Path(__file__).parent / 'test_render' / 'test_render_visual_bed.mp4'
