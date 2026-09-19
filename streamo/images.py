@@ -136,7 +136,7 @@ class ImageScheduler:
             else set(initial_paths)
         )
         self.session_paths: set[Path] = set()
-        self.unseen_session: list[Path] = []
+        self.unseen_session: dict[Path, list[Path]] = {}
         self.session_pending: dict[Path, list[Path]] = {}
         self.archive_pending: dict[Path, list[Path]] = {}
         self.session_weight = session_weight
@@ -158,15 +158,18 @@ class ImageScheduler:
         new_session = sorted(current - self.known)
         self.known = current
         self.session_paths.intersection_update(current)
-        self.unseen_session = [p for p in self.unseen_session if p in current]
+        self.unseen_session = self.pending_paths(self.unseen_session, current)
         self.session_pending = self.pending_paths(self.session_pending, current)
         self.archive_pending = self.pending_paths(self.archive_pending, current)
         if new_session:
             self.randomizer.shuffle(new_session)
             self.session_paths.update(new_session)
-            self.unseen_session = new_session + self.unseen_session
-        if self.unseen_session:
-            return self.unseen_session.pop(0)
+            for directory in self.image_dirs:
+                paths = [p for p in new_session if p.parent == directory]
+                if paths:
+                    self.unseen_session.setdefault(directory, []).extend(paths)
+        if unseen := {p for paths in self.unseen_session.values() for p in paths}:
+            return self.next_from(unseen, self.unseen_session)
         if not current:
             return None
         session = self.session_paths & current

@@ -25,7 +25,7 @@ def controller(tmp_path: Path) -> ControlController:
         channel=1,
         video=tmp_path / 'bed.mp4',
         streaming_service=_service(),
-        image_dirs=[tmp_path],
+        image_dir=[tmp_path],
         image_approval_required=True,
         image_interval=20,
         image_duration=10,

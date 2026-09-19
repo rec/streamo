@@ -114,6 +114,51 @@ def test_example_configs_parse() -> None:
     assert services == ['custom', 'icecast', 'twitch']
 
 
+def test_image_directories_resolve_from_config_file(tmp_path: Path) -> None:
+    path = tmp_path / 'config.toml'
+    path.write_text(
+        """
+device_name = "X18"
+channel = 1
+video = "visual-bed.mp4"
+image_dir = ["images/live", "images/archive"]
+image_dir_weights = "3,1"
+
+[streaming_service]
+service = "custom"
+
+[streaming_service.ingest]
+protocol = "rtmps"
+server_url = "rtmps://ingest.example.test/live"
+stream_key = "unused"
+
+[streaming_service.encoding]
+container = "flv"
+
+[streaming_service.encoding.audio]
+codec = "aac"
+bitrate = "160k"
+sample_rate = 48000
+channels = 2
+
+[streaming_service.encoding.video]
+codec = "h264"
+bitrate = "150k"
+resolution = "640x360"
+frame_rate = 10
+keyframe_interval = 2
+"""
+    )
+
+    config = daemon.load_config(path)
+
+    assert config.image_dir == [
+        tmp_path / 'images/live',
+        tmp_path / 'images/archive',
+    ]
+    assert config.resolved_image_dir_weights == [3, 1]
+
+
 def test_json_configuration_is_not_accepted(tmp_path: Path) -> None:
     config = tmp_path / 'config.json'
     config.write_text('{"device_name": "X18"}')
