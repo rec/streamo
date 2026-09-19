@@ -70,14 +70,17 @@ class LiveOverlays:
         self.revision = 1
         self.applied: dict[str, object] | None = None
         self.frame_index = 0
-        self.approval = ImageApproval(config.image_dir, config.image_approval_required)
+        self.approval = ImageApproval(
+            config.primary_image_dir, config.image_approval_required
+        )
         self.photos = (
             ImageFrameProducer(
                 ImageScheduler(
-                    config.image_dir,
+                    config.image_dirs,
                     initial_paths=initial_paths,
                     session_weight=config.current_session_image_weight,
                     approval=self.approval,
+                    directory_weights=config.resolved_image_dir_weights,
                 ),
                 width=self.working_size[0],
                 height=self.working_size[1],

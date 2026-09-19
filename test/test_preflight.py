@@ -18,7 +18,7 @@ def config(tmp_path: Path) -> Streamo:
     return Streamo(
         device_name='Mixer',
         channel=17,
-        image_dir=tmp_path,
+        image_dirs=[tmp_path],
         streaming_service=CustomService.model_validate(
             {
                 'service': 'custom',
@@ -162,7 +162,7 @@ def test_missing_image_directory_warns_without_creating_it(
 ) -> None:
     directory = tmp_path / 'not-created' / 'images'
     result = preflight.check_storage(
-        config.model_copy(update={'image_dir': directory, 'image_interval': 20})
+        config.model_copy(update={'image_dirs': [directory], 'image_interval': 20})
     )
     assert result.status == 'warning'
     assert not directory.parent.exists()

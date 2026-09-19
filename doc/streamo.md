@@ -113,7 +113,8 @@ be finite, and working dimensions must be positive.
 | `title_duration` | `8.0` | Seconds the title card remains visible |
 | `title_fade` | `2.0` | Fade-in and fade-out duration, in seconds |
 | `local_display` | `true` | Show the composed program on local HDMI |
-| `image_dir` | `"images"` | Participant-image directory |
+| `image_dirs` | `["images"]` | Image directories, in selection order |
+| `image_dir_weights` | descending to `1` | Relative selection weights for image directories |
 | `image_approval_required` | `false` | Hold unreviewed participant images for approval |
 | `image_interval` | `0.0` | Seconds between participant images; zero disables them |
 | `image_duration` | `8.0` | Seconds each participant image is visible |
@@ -256,7 +257,7 @@ Then send requests in this form:
 ```
 
 The server returns a raw JSON result or an error object. `image` accepts one or
-more `file:`, HTTP, or HTTPS URLs and publishes valid images into `image_dir`
+more `file:`, HTTP, or HTTPS URLs and publishes valid images into the first `image_dirs` entry
 with atomic publication of each file after the entire batch validates. A failed
 validation publishes nothing; a publication error rolls back files from that batch.
 Each image is limited to 8 MiB and 2048 pixels per side. Supported formats are
@@ -385,7 +386,7 @@ duration; its duration must be shorter than its interval, and both fades must
 fit within its duration.
 
 Set `image_interval` to a positive value to enable participant images. streamO
-rescans `image_dir` as it selects the next interval. It reserves one upcoming
+rescans each `image_dirs` entry as it selects the next interval. It reserves one upcoming
 photo so the controller can report that choice. After the reserved choice,
 images added since startup take priority and appear once before older images
 repeat. Afterwards,
@@ -413,7 +414,7 @@ Approvals enter the normal rotation at a subsequent image interval. Rejection
 suppresses a cached photo starting with the next generated frame; already buffered
 frames cannot be withdrawn from the encoder or destination. Files are retained.
 
-Decisions are saved atomically in `image_dir/.streamo-image-approval.json` and
+Decisions are saved atomically in the first image directory at `.streamo-image-approval.json` and
 survive restarts. A failed save returns an error without applying the decision;
 an unreadable or malformed saved file prevents startup rather than bypassing
 moderation. Filenames are the IDs: renaming creates a new identity, and replacing
@@ -444,10 +445,19 @@ delivery. Playback controls preserve state across encoder recovery but reset on
 a streamO restart. The slate additionally freezes photo timing; hiding it respects
 the operator's pause setting. No image command changes audio mute.
 
-An optional feed downloads uploaded images into the same directory:
+
+
+Configure several directories with one weight per directory when the default descending weights do not suit the show. streamO chooses a directory for each next image according to these relative weights, then chooses an image from that directory. Empty directories are skipped.
 
 ```toml
-image_dir = "images"
+image_dirs = ["images/live", "images/archive", "images/favourites"]
+image_dir_weights = [6, 2, 1]
+```
+
+An optional feed downloads uploaded images into the first configured directory. The first directory also receives operator uploads and stores image-approval decisions. Other directories are selected as read-only image sources.
+
+```toml
+image_dirs = ["images"]
 image_interval = 20.0
 image_duration = 8.0
 image_fade = 2.0
@@ -464,7 +474,7 @@ The upload application in `web/foto.php` lets participants submit
 photos without joining the showCo network. Their browser prepares each photo as
 a JPEG no larger than 2048 pixels on either side, then sends it to `ax.to`.
 streamO polls the server over outbound HTTPS and stores each new JPEG in
-`image_dir`.
+the first image directory.
 
 The page uses French when the browser's primary language begins with `fr` and
 English for every other browser. Current Safari can prepare HEIC photos without
@@ -490,7 +500,7 @@ If the PHP file is available at `https://ax.to/show/foto.php`, put this URL in
 streamO's TOML configuration using the same token:
 
 ```toml
-image_dir = "images"
+image_dirs = ["images"]
 current_session_image_weight = 3
 image_interval = 20.0
 image_duration = 8.0
@@ -509,7 +519,7 @@ https://ax.to/show/foto.php?token=replace-with-the-room-token
 ```
 
 Treat the URL as a capability: anyone who receives it can submit images. streamO
-keeps a per-feed cursor inside `image_dir`, so restarting streamO or removing a
+keeps a per-feed cursor inside the first image directory, so restarting streamO or removing a
 local image does not download it again. After the show, remove the uploaded JPEGs
 and `images.jsonl` from `STREAMO_IMAGE_DATA_DIR`. Use an empty data directory and
 a new token for the next show.

@@ -24,7 +24,7 @@ def config(tmp_path: Path) -> Streamo:
         video=tmp_path / 'bed.mp4',
         streaming_service=_service(),
         video_resolution='160x90',
-        image_dir=tmp_path,
+        image_dirs=[tmp_path],
         title_interval=3,
         title_duration=2,
         title_fade=1,
@@ -72,7 +72,7 @@ def test_title_layout_and_opaque_full_size_slate(
 
 
 def test_slate_pauses_title_and_photo_timing(config: Streamo) -> None:
-    Image.new('RGBA', (160, 90), 'red').save(config.image_dir / 'photo.png')
+    Image.new('RGBA', (160, 90), 'red').save(config.primary_image_dir / 'photo.png')
     config = config.model_copy(
         update={'image_interval': 3, 'image_duration': 2, 'image_fade': 1}
     )
@@ -169,7 +169,7 @@ def test_applied_revision_requires_complete_write_and_resets_on_recovery(
 def test_image_controls_report_applied_photo_and_survive_recovery(
     config: Streamo,
 ) -> None:
-    path = config.image_dir / 'photo.png'
+    path = config.primary_image_dir / 'photo.png'
     Image.new('RGBA', (160, 90), 'red').save(path)
     overlays = LiveOverlays(
         config.model_copy(

@@ -349,3 +349,28 @@ def test_atomic_image_is_invisible_to_rotation_and_removal_until_published(
         assert temporary.exists()
     assert image_paths(tmp_path) == [path]
     assert scheduler.next_image() == path
+
+
+def test_scheduler_selects_directories_by_weight(tmp_path: Path) -> None:
+    first = tmp_path / 'first'
+    second = tmp_path / 'second'
+    first.mkdir()
+    second.mkdir()
+    (first / 'one.png').touch()
+    (second / 'two.png').touch()
+
+    class DirectoryRandom(NoShuffleRandom):
+        def __init__(self) -> None:
+            super().__init__()
+            self.selections = iter([0, 3])
+
+        def randrange(self, stop: int) -> int:
+            assert stop == 4
+            return next(self.selections)
+
+    scheduler = ImageScheduler(
+        [first, second], DirectoryRandom(), directory_weights=[3, 1]
+    )
+
+    assert scheduler.next_image() == first / 'one.png'
+    assert scheduler.next_image() == second / 'two.png'

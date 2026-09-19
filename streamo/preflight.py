@@ -304,7 +304,7 @@ def check_storage(config: Streamo) -> Check:
         return Check(
             name='image_storage', status='skipped', detail='Participant images disabled'
         )
-    directory = config.image_dir
+    directory = config.primary_image_dir
     while not directory.exists() and directory != directory.parent:
         directory = directory.parent
     try:
@@ -316,12 +316,13 @@ def check_storage(config: Streamo) -> Check:
             status='fail',
             detail=f'Cannot write image storage ({type(error).__name__})',
         )
-    if directory != config.image_dir:
+    if directory != config.primary_image_dir:
         return Check(
             name='image_storage',
             status='warning',
             detail=(
-                f'{config.image_dir} does not exist; ancestor {directory} is writable'
+                f'{config.primary_image_dir} does not exist; '
+                f'ancestor {directory} is writable'
             ),
         )
     return Check(name='image_storage', status='pass', detail=f'{directory} is writable')

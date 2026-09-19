@@ -119,36 +119,48 @@ class ImageFeedPoller:
 class ImageScheduler:
     def __init__(
         self,
-        image_dir: Path,
+        image_dirs: list[Path] | Path,
         randomizer: random.Random | None = None,
         *,
         initial_paths: set[Path] | None = None,
         session_weight: int = 3,
         approval: 'ImageApproval | None' = None,
+        directory_weights: list[int] | None = None,
     ) -> None:
-        self.image_dir = image_dir
+        self.image_dirs = [image_dirs] if isinstance(image_dirs, Path) else image_dirs
         self.approval = approval
         self.randomizer = randomizer or random.Random()
         self.known = (
-            set(image_paths(image_dir)) if initial_paths is None else set(initial_paths)
+            {p for d in self.image_dirs for p in image_paths(d)}
+            if initial_paths is None
+            else set(initial_paths)
         )
         self.session_paths: set[Path] = set()
         self.unseen_session: list[Path] = []
-        self.session_pending: list[Path] = []
-        self.archive_pending: list[Path] = []
+        self.session_pending: dict[Path, list[Path]] = {}
+        self.archive_pending: dict[Path, list[Path]] = {}
         self.session_weight = session_weight
         self.session_remaining = session_weight
+        self.directory_weights = (
+            directory_weights
+            if directory_weights is not None
+            else list(range(len(self.image_dirs), 0, -1))
+        )
 
     def next_image(self) -> Path | None:
-        current = set(image_paths(self.image_dir))
+        current = {p for d in self.image_dirs for p in image_paths(d)}
         if self.approval is not None:
-            current = {p for p in current if self.approval.allows(p)}
+            current = {
+                p
+                for p in current
+                if p.parent != self.image_dirs[0] or self.approval.allows(p)
+            }
         new_session = sorted(current - self.known)
         self.known = current
         self.session_paths.intersection_update(current)
         self.unseen_session = [p for p in self.unseen_session if p in current]
-        self.session_pending = [p for p in self.session_pending if p in current]
-        self.archive_pending = [p for p in self.archive_pending if p in current]
+        self.session_pending = self.pending_paths(self.session_pending, current)
+        self.archive_pending = self.pending_paths(self.archive_pending, current)
         if new_session:
             self.randomizer.shuffle(new_session)
             self.session_paths.update(new_session)
@@ -165,11 +177,35 @@ class ImageScheduler:
         self.session_remaining = self.session_weight
         return self.next_from(archive, self.archive_pending)
 
-    def next_from(self, paths: set[Path], pending: list[Path]) -> Path:
-        if not pending:
-            pending.extend(sorted(paths))
-            self.randomizer.shuffle(pending)
-        return pending.pop(0)
+    def next_from(self, paths: set[Path], pending: dict[Path, list[Path]]) -> Path:
+        directories = [d for d in self.image_dirs if any(p.parent == d for p in paths)]
+        weights = [
+            self.directory_weights[self.image_dirs.index(d)] for d in directories
+        ]
+        directory = self.choose_directory(directories, weights)
+        directory_paths = {p for p in paths if p.parent == directory}
+        directory_pending = pending.setdefault(directory, [])
+        if not directory_pending:
+            directory_pending.extend(sorted(directory_paths))
+            self.randomizer.shuffle(directory_pending)
+        return directory_pending.pop(0)
+
+    def choose_directory(self, directories: list[Path], weights: list[int]) -> Path:
+        selection = self.randomizer.randrange(sum(weights))
+        for directory, weight in zip(directories, weights, strict=True):
+            if selection < weight:
+                return directory
+            selection -= weight
+        raise AssertionError('directory selection exceeded configured weights')
+
+    @staticmethod
+    def pending_paths(
+        pending: dict[Path, list[Path]], current: set[Path]
+    ) -> dict[Path, list[Path]]:
+        return {
+            directory: [p for p in paths if p in current]
+            for directory, paths in pending.items()
+        }
 
 
 class ImageFrameProducer:

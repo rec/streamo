@@ -47,7 +47,8 @@ class Streamo(Reccy, frozen=True):
     )
     recover_publish: bool = False
     health_warnings: HealthWarnings = Field(default_factory=HealthWarnings)
-    image_dir: Path = Path('images')
+    image_dirs: list[Path] = Field(default_factory=lambda: [Path('images')])
+    image_dir_weights: list[int] | None = None
     image_approval_required: bool = False
     image_feed: ImageFeed | None = None
     current_session_image_weight: int = 3
@@ -67,7 +68,7 @@ class Streamo(Reccy, frozen=True):
         )
         controller = control.ControlController(
             state=RuntimeState(self.health_warnings),
-            image_dir=self.image_dir,
+            image_dir=self.primary_image_dir,
             service=None if preview else service_adapter,
         )
         controller.state.configure_service(service_adapter)
@@ -79,9 +80,9 @@ class Streamo(Reccy, frozen=True):
             if self.image_feed is None
             or not self.live_overlays
             or self.streaming_service.encoding.video is None
-            else ImageFeedPoller(self.image_feed, self.image_dir)
+            else ImageFeedPoller(self.image_feed, self.primary_image_dir)
         )
-        initial_image_paths = set(image_paths(self.image_dir))
+        initial_image_paths = {p for d in self.image_dirs for p in image_paths(d)}
         self.start()
         try:
             if image_feed_poller is not None:
@@ -150,6 +151,29 @@ class Streamo(Reccy, frozen=True):
         if not isfinite(value) or value < 0:
             raise ValueError('must not be negative')
         return value
+
+    @model_validator(mode='after')
+    def validate_image_dirs(self) -> Self:
+        if not self.image_dirs:
+            raise ValueError('image_dirs must contain at least one directory')
+        if self.image_dir_weights is not None:
+            if len(self.image_dir_weights) != len(self.image_dirs):
+                raise ValueError('image_dir_weights must match image_dirs')
+            if any(w <= 0 for w in self.image_dir_weights):
+                raise ValueError('image_dir_weights must be positive')
+        return self
+
+    @property
+    def primary_image_dir(self) -> Path:
+        return self.image_dirs[0]
+
+    @property
+    def resolved_image_dir_weights(self) -> list[int]:
+        return (
+            self.image_dir_weights
+            if self.image_dir_weights is not None
+            else list(range(len(self.image_dirs), 0, -1))
+        )
 
     @field_validator(
         'title_interval',

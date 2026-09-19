@@ -68,10 +68,12 @@ def run(options: DaemonOptions) -> int:
 def load_config(path: Path) -> Streamo:
     path = path.expanduser().resolve()
     values = tomllib.loads(path.read_text())
-    for name in ('video', 'title_card', 'image_dir'):
-        value = values.get(name, 'images' if name == 'image_dir' else None)
-        if isinstance(value, str):
+    for name in ('video', 'title_card'):
+        if (value := values.get(name)) is not None and isinstance(value, str):
             values[name] = resolve_path(path.parent, value)
+    image_dirs = values.get('image_dirs', ['images'])
+    if isinstance(image_dirs, list) and all(isinstance(d, str) for d in image_dirs):
+        values['image_dirs'] = [resolve_path(path.parent, d) for d in image_dirs]
     service = values.get('streaming_service')
     if isinstance(service, dict) and isinstance(service.get('credentials'), str):
         service['credentials'] = resolve_path(path.parent, service['credentials'])
