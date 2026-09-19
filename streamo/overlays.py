@@ -76,7 +76,7 @@ class LiveOverlays:
         self.photos = (
             ImageFrameProducer(
                 ImageScheduler(
-                    config.image_dirs,
+                    config.image_dir,
                     initial_paths=initial_paths,
                     session_weight=config.current_session_image_weight,
                     approval=self.approval,

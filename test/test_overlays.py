@@ -24,7 +24,7 @@ def config(tmp_path: Path) -> Streamo:
         video=tmp_path / 'bed.mp4',
         streaming_service=_service(),
         video_resolution='160x90',
-        image_dirs=[tmp_path],
+        image_dir=[tmp_path],
         title_interval=3,
         title_duration=2,
         title_fade=1,

@@ -365,12 +365,41 @@ def test_scheduler_selects_directories_by_weight(tmp_path: Path) -> None:
             self.selections = iter([0, 3])
 
         def randrange(self, stop: int) -> int:
+            if stop == 1:
+                return 0
             assert stop == 4
             return next(self.selections)
 
     scheduler = ImageScheduler(
         [first, second], DirectoryRandom(), directory_weights=[3, 1]
     )
+
+    assert scheduler.next_image() == first / 'one.png'
+    assert scheduler.next_image() == second / 'two.png'
+
+
+def test_scheduler_applies_directory_weights_to_new_images(tmp_path: Path) -> None:
+    first = tmp_path / 'first'
+    second = tmp_path / 'second'
+    first.mkdir()
+    second.mkdir()
+
+    class DirectoryRandom(NoShuffleRandom):
+        def __init__(self) -> None:
+            super().__init__()
+            self.selections = iter([0, 3])
+
+        def randrange(self, stop: int) -> int:
+            if stop == 1:
+                return 0
+            assert stop == 4
+            return next(self.selections)
+
+    scheduler = ImageScheduler(
+        [first, second], DirectoryRandom(), directory_weights=[3, 1]
+    )
+    (first / 'one.png').touch()
+    (second / 'two.png').touch()
 
     assert scheduler.next_image() == first / 'one.png'
     assert scheduler.next_image() == second / 'two.png'

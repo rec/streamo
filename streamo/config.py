@@ -47,8 +47,8 @@ class Streamo(Reccy, frozen=True):
     )
     recover_publish: bool = False
     health_warnings: HealthWarnings = Field(default_factory=HealthWarnings)
-    image_dirs: list[Path] = Field(default_factory=lambda: [Path('images')])
-    image_dir_weights: list[int] | None = None
+    image_dir: list[Path] = Field(default_factory=lambda: [Path('images')])
+    image_dir_weights: str | None = None
     image_approval_required: bool = False
     image_feed: ImageFeed | None = None
     current_session_image_weight: int = 3
@@ -82,7 +82,7 @@ class Streamo(Reccy, frozen=True):
             or self.streaming_service.encoding.video is None
             else ImageFeedPoller(self.image_feed, self.primary_image_dir)
         )
-        initial_image_paths = {p for d in self.image_dirs for p in image_paths(d)}
+        initial_image_paths = {p for d in self.image_dir for p in image_paths(d)}
         self.start()
         try:
             if image_feed_poller is not None:
@@ -154,25 +154,28 @@ class Streamo(Reccy, frozen=True):
 
     @model_validator(mode='after')
     def validate_image_dirs(self) -> Self:
-        if not self.image_dirs:
-            raise ValueError('image_dirs must contain at least one directory')
+        if not self.image_dir:
+            raise ValueError('image_dir must contain at least one directory')
+        if len(set(self.image_dir)) != len(self.image_dir):
+            raise ValueError('image_dir entries must be distinct')
         if self.image_dir_weights is not None:
-            if len(self.image_dir_weights) != len(self.image_dirs):
-                raise ValueError('image_dir_weights must match image_dirs')
-            if any(w <= 0 for w in self.image_dir_weights):
+            weights = parse_image_dir_weights(self.image_dir_weights)
+            if len(weights) != len(self.image_dir):
+                raise ValueError('image_dir_weights must match image_dir')
+            if any(w <= 0 for w in weights):
                 raise ValueError('image_dir_weights must be positive')
         return self
 
     @property
     def primary_image_dir(self) -> Path:
-        return self.image_dirs[0]
+        return self.image_dir[0]
 
     @property
     def resolved_image_dir_weights(self) -> list[int]:
         return (
-            self.image_dir_weights
+            parse_image_dir_weights(self.image_dir_weights)
             if self.image_dir_weights is not None
-            else list(range(len(self.image_dirs), 0, -1))
+            else list(range(len(self.image_dir), 0, -1))
         )
 
     @field_validator(
@@ -230,3 +233,15 @@ class Streamo(Reccy, frozen=True):
         return self.channel + 1
 
     model_config = ConfigDict(hide_input_in_errors=True)
+
+
+def parse_image_dir_weights(value: str) -> list[int]:
+    try:
+        weights = [int(part.strip()) for part in value.split(',')]
+    except ValueError as error:
+        raise ValueError(
+            'image_dir_weights must be comma-separated integers'
+        ) from error
+    if not weights or any(not part.strip() for part in value.split(',')):
+        raise ValueError('image_dir_weights must be comma-separated integers')
+    return weights

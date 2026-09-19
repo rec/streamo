@@ -71,9 +71,9 @@ def load_config(path: Path) -> Streamo:
     for name in ('video', 'title_card'):
         if (value := values.get(name)) is not None and isinstance(value, str):
             values[name] = resolve_path(path.parent, value)
-    image_dirs = values.get('image_dirs', ['images'])
-    if isinstance(image_dirs, list) and all(isinstance(d, str) for d in image_dirs):
-        values['image_dirs'] = [resolve_path(path.parent, d) for d in image_dirs]
+    image_dir = values.get('image_dir', ['images'])
+    if isinstance(image_dir, list) and all(isinstance(d, str) for d in image_dir):
+        values['image_dir'] = [resolve_path(path.parent, d) for d in image_dir]
     service = values.get('streaming_service')
     if isinstance(service, dict) and isinstance(service.get('credentials'), str):
         service['credentials'] = resolve_path(path.parent, service['credentials'])

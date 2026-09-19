@@ -113,8 +113,8 @@ be finite, and working dimensions must be positive.
 | `title_duration` | `8.0` | Seconds the title card remains visible |
 | `title_fade` | `2.0` | Fade-in and fade-out duration, in seconds |
 | `local_display` | `true` | Show the composed program on local HDMI |
-| `image_dirs` | `["images"]` | Image directories, in selection order |
-| `image_dir_weights` | descending to `1` | Relative selection weights for image directories |
+| `image_dir` | `["images"]` | Repeating image-directory setting, in selection order |
+| `image_dir_weights` | descending to `1` | Comma-separated relative directory weights |
 | `image_approval_required` | `false` | Hold unreviewed participant images for approval |
 | `image_interval` | `0.0` | Seconds between participant images; zero disables them |
 | `image_duration` | `8.0` | Seconds each participant image is visible |
@@ -257,7 +257,7 @@ Then send requests in this form:
 ```
 
 The server returns a raw JSON result or an error object. `image` accepts one or
-more `file:`, HTTP, or HTTPS URLs and publishes valid images into the first `image_dirs` entry
+more `file:`, HTTP, or HTTPS URLs and publishes valid images into the first `image_dir` entry
 with atomic publication of each file after the entire batch validates. A failed
 validation publishes nothing; a publication error rolls back files from that batch.
 Each image is limited to 8 MiB and 2048 pixels per side. Supported formats are
@@ -386,7 +386,7 @@ duration; its duration must be shorter than its interval, and both fades must
 fit within its duration.
 
 Set `image_interval` to a positive value to enable participant images. streamO
-rescans each `image_dirs` entry as it selects the next interval. It reserves one upcoming
+rescans each `image_dir` entry as it selects the next interval. It reserves one upcoming
 photo so the controller can report that choice. After the reserved choice,
 images added since startup take priority and appear once before older images
 repeat. Afterwards,
@@ -447,17 +447,22 @@ the operator's pause setting. No image command changes audio mute.
 
 
 
-Configure several directories with one weight per directory when the default descending weights do not suit the show. streamO chooses a directory for each next image according to these relative weights, then chooses an image from that directory. Empty directories are skipped.
+`image_dir` is a repeating setting. In TOML, list its values in one array in
+selection order. streamO gives the directories descending default weights: four
+directories receive weights `4,3,2,1`. Set `image_dir_weights` to a
+comma-separated list when another balance suits the show. streamO chooses a
+directory for every image, including new images, according to these relative
+weights, then chooses an image from that directory. Empty directories are skipped.
 
 ```toml
-image_dirs = ["images/live", "images/archive", "images/favourites"]
-image_dir_weights = [6, 2, 1]
+image_dir = ["images/live", "images/archive", "images/favourites"]
+image_dir_weights = "6,2,1"
 ```
 
 An optional feed downloads uploaded images into the first configured directory. The first directory also receives operator uploads and stores image-approval decisions. Other directories are selected as read-only image sources.
 
 ```toml
-image_dirs = ["images"]
+image_dir = ["images"]
 image_interval = 20.0
 image_duration = 8.0
 image_fade = 2.0
@@ -500,7 +505,7 @@ If the PHP file is available at `https://ax.to/show/foto.php`, put this URL in
 streamO's TOML configuration using the same token:
 
 ```toml
-image_dirs = ["images"]
+image_dir = ["images"]
 current_session_image_weight = 3
 image_interval = 20.0
 image_duration = 8.0

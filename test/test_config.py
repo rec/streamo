@@ -91,7 +91,7 @@ def test_streamo_requires_stereo_pair_start_channel() -> None:
     assert config.required_channels == 18
     assert config.streaming_service.service == 'twitch'
     assert config.local_display
-    assert config.image_dirs == [Path('images')]
+    assert config.image_dir == [Path('images')]
     assert config.resolved_image_dir_weights == [1]
     assert config.current_session_image_weight == 3
     assert isinstance(config, Reccy)
@@ -231,19 +231,57 @@ def test_image_directory_weights_default_to_descending_order() -> None:
         channel=1,
         video=Path('visual-bed.mp4'),
         streaming_service=_service(),
-        image_dirs=[Path('a'), Path('b'), Path('c'), Path('d')],
+        image_dir=[Path('a'), Path('b'), Path('c'), Path('d')],
     )
 
     assert config.resolved_image_dir_weights == [4, 3, 2, 1]
 
 
+def test_image_directory_weights_parse_comma_separated_values() -> None:
+    config = Streamo(
+        device_name='X18',
+        channel=1,
+        video=Path('visual-bed.mp4'),
+        streaming_service=_service(),
+        image_dir=[Path('a'), Path('b'), Path('c')],
+        image_dir_weights='6, 2, 1',
+    )
+
+    assert config.resolved_image_dir_weights == [6, 2, 1]
+
+
 def test_image_directory_weights_must_match_directories() -> None:
-    with pytest.raises(ValidationError, match='must match image_dirs'):
+    with pytest.raises(ValidationError, match='must match image_dir'):
         Streamo(
             device_name='X18',
             channel=1,
             video=Path('visual-bed.mp4'),
             streaming_service=_service(),
-            image_dirs=[Path('a'), Path('b')],
-            image_dir_weights=[1],
+            image_dir=[Path('a'), Path('b')],
+            image_dir_weights='1',
+        )
+
+
+@pytest.mark.parametrize('weights', ['', '1,,2', '1,two'])
+def test_image_directory_weights_must_contain_comma_separated_integers(
+    weights: str,
+) -> None:
+    with pytest.raises(ValidationError, match='comma-separated integers'):
+        Streamo(
+            device_name='X18',
+            channel=1,
+            video=Path('visual-bed.mp4'),
+            streaming_service=_service(),
+            image_dir_weights=weights,
+        )
+
+
+def test_image_directories_must_be_distinct() -> None:
+    with pytest.raises(ValidationError, match='entries must be distinct'):
+        Streamo(
+            device_name='X18',
+            channel=1,
+            video=Path('visual-bed.mp4'),
+            streaming_service=_service(),
+            image_dir=[Path('images'), Path('images')],
         )
