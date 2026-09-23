@@ -160,8 +160,10 @@ class Streamo(Reccy, frozen=True):
             raise ValueError('image_dir entries must be distinct')
         if self.image_dir_weights is not None:
             weights = parse_image_dir_weights(self.image_dir_weights)
-            if len(weights) != len(self.image_dir):
-                raise ValueError('image_dir_weights must match image_dir')
+            if not weights:
+                raise ValueError('image_dir_weights must contain at least one weight')
+            if len(weights) > len(self.image_dir):
+                raise ValueError('image_dir_weights must not exceed image_dir')
             if any(w <= 0 for w in weights):
                 raise ValueError('image_dir_weights must be positive')
         return self
@@ -172,11 +174,10 @@ class Streamo(Reccy, frozen=True):
 
     @property
     def resolved_image_dir_weights(self) -> list[int]:
-        return (
-            parse_image_dir_weights(self.image_dir_weights)
-            if self.image_dir_weights is not None
-            else list(range(len(self.image_dir), 0, -1))
-        )
+        if self.image_dir_weights is None:
+            return list(range(len(self.image_dir), 0, -1))
+        weights = parse_image_dir_weights(self.image_dir_weights)
+        return weights + [weights[-1]] * (len(self.image_dir) - len(weights))
 
     @field_validator(
         'title_interval',

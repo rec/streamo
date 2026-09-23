@@ -263,15 +263,42 @@ def test_image_directory_weights_accept_integer_list() -> None:
     assert config.resolved_image_dir_weights == [6, 2, 1]
 
 
-def test_image_directory_weights_must_match_directories() -> None:
-    with pytest.raises(ValidationError, match='must match image_dir'):
+@pytest.mark.parametrize('weights', ['1', [1]])
+def test_image_directory_weights_repeat_the_final_value(
+    weights: str | list[int],
+) -> None:
+    config = Streamo(
+        device_name='X18',
+        channel=1,
+        video=Path('visual-bed.mp4'),
+        streaming_service=_service(),
+        image_dir=[Path('a'), Path('b'), Path('c'), Path('d')],
+        image_dir_weights=weights,
+    )
+
+    assert config.resolved_image_dir_weights == [1, 1, 1, 1]
+
+
+def test_image_directory_weights_must_not_exceed_directories() -> None:
+    with pytest.raises(ValidationError, match='must not exceed image_dir'):
         Streamo(
             device_name='X18',
             channel=1,
             video=Path('visual-bed.mp4'),
             streaming_service=_service(),
             image_dir=[Path('a'), Path('b')],
-            image_dir_weights='1',
+            image_dir_weights='1,2,3',
+        )
+
+
+def test_image_directory_weights_must_not_be_empty() -> None:
+    with pytest.raises(ValidationError, match='must contain at least one weight'):
+        Streamo(
+            device_name='X18',
+            channel=1,
+            video=Path('visual-bed.mp4'),
+            streaming_service=_service(),
+            image_dir_weights=[],
         )
 
 

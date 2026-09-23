@@ -114,7 +114,7 @@ be finite, and working dimensions must be positive.
 | `title_fade` | `2.0` | Fade-in and fade-out duration, in seconds |
 | `local_display` | `true` | Show the composed program on local HDMI |
 | `image_dir` | `["images"]` | Repeating image-directory setting, in selection order |
-| `image_dir_weights` | descending to `1` | Comma-separated or integer-list directory weights |
+| `image_dir_weights` | descending to `1` | Comma-separated or integer-list directory weights; repeats the final weight |
 | `image_approval_required` | `false` | Hold unreviewed participant images for approval |
 | `image_interval` | `0.0` | Seconds between participant images; zero disables them |
 | `image_duration` | `8.0` | Seconds each participant image is visible |
@@ -453,7 +453,8 @@ directories receive weights `4,3,2,1`. Set `image_dir_weights` to a
 comma-separated or integer list when another balance suits the show. streamO
 chooses a directory for every image, including new images, according to these
 relative weights, then chooses an image from that directory. Empty directories
-are skipped.
+are skipped. When there are fewer weights than directories, the final weight
+applies to every remaining directory.
 
 ```toml
 image_dir = ["images/live", "images/archive", "images/favourites"]
