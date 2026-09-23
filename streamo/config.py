@@ -48,7 +48,7 @@ class Streamo(Reccy, frozen=True):
     recover_publish: bool = False
     health_warnings: HealthWarnings = Field(default_factory=HealthWarnings)
     image_dir: list[Path] = Field(default_factory=lambda: [Path('images')])
-    image_dir_weights: str | None = None
+    image_dir_weights: str | list[int] | None = None
     image_approval_required: bool = False
     image_feed: ImageFeed | None = None
     current_session_image_weight: int = 3
@@ -235,7 +235,9 @@ class Streamo(Reccy, frozen=True):
     model_config = ConfigDict(hide_input_in_errors=True)
 
 
-def parse_image_dir_weights(value: str) -> list[int]:
+def parse_image_dir_weights(value: str | list[int]) -> list[int]:
+    if isinstance(value, list):
+        return value
     try:
         weights = [int(part.strip()) for part in value.split(',')]
     except ValueError as error:

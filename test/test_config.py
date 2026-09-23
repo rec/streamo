@@ -250,6 +250,19 @@ def test_image_directory_weights_parse_comma_separated_values() -> None:
     assert config.resolved_image_dir_weights == [6, 2, 1]
 
 
+def test_image_directory_weights_accept_integer_list() -> None:
+    config = Streamo(
+        device_name='X18',
+        channel=1,
+        video=Path('visual-bed.mp4'),
+        streaming_service=_service(),
+        image_dir=[Path('a'), Path('b'), Path('c')],
+        image_dir_weights=[6, 2, 1],
+    )
+
+    assert config.resolved_image_dir_weights == [6, 2, 1]
+
+
 def test_image_directory_weights_must_match_directories() -> None:
     with pytest.raises(ValidationError, match='must match image_dir'):
         Streamo(

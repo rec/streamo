@@ -13,7 +13,8 @@ is implemented with thumbnail previews, approve/reject RPCs, and saved decisions
 in `image_dir/.streamo-image-approval.json`. `image_approval_required` defaults to
 false. Skip, pause/resume, show-next controls, and current/upcoming image status
 are implemented. `image_dir` accepts multiple directories and `image_dir_weights`
-selects them with comma-separated relative weights or descending defaults.
+selects them with comma-separated or integer-list relative weights, or descending
+defaults.
 Audio/video alignment is next in the feature plan.
 
 streamO has adopted reccy's shared atomic output for participant images, feed
