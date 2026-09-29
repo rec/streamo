@@ -6,12 +6,36 @@ if [[ ${EUID} -ne 0 ]]; then
     echo "Error: run this script as root" >&2
     exit 1
 fi
-if [[ $# -ne 1 || ${#1} -lt 20 ]]; then
-    echo "Usage: $0 STREAMO_IMAGE_TOKEN" >&2
+TOKEN=''
+if [[ $# -eq 0 ]]; then
+    if [[ ! -r /dev/tty ]]; then
+        echo "Error: an interactive terminal or --token-file is required" >&2
+        exit 1
+    fi
+    read -r -s -p 'Room token: ' TOKEN </dev/tty
+    printf '\n' >/dev/tty
+elif [[ $# -eq 2 && $1 == --token-file ]]; then
+    if [[ ! -f $2 || ! -r $2 ]]; then
+        echo "Error: token file must be a readable regular file" >&2
+        exit 1
+    fi
+    mode=$(stat -c '%a' -- "$2")
+    if (( (8#$mode & 077) != 0 )); then
+        echo "Error: token file must not be accessible to group or others" >&2
+        exit 1
+    fi
+    IFS= read -r TOKEN <"$2" || [[ -n $TOKEN ]]
+else
+    echo "Usage: $0 [--token-file PRIVATE_FILE]" >&2
     exit 1
 fi
 
-readonly TOKEN="$1"
+if [[ ${#TOKEN} -lt 20 ]]; then
+    echo "Error: room token must be at least 20 characters" >&2
+    exit 1
+fi
+
+readonly TOKEN
 readonly DATA_DIRECTORY="/home/ax/streamo-image-data"
 mapfile -t POOLS < <(
     grep -rlE '^[[:space:]]*user[[:space:]]*=[[:space:]]*ax[[:space:]]*$' \

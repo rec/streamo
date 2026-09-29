@@ -24,12 +24,12 @@ def config(tmp_path: Path) -> Streamo:
         channel=1,
         video=tmp_path / 'bed.mp4',
         streaming_service=_service(),
-        video_resolution='160x90',
+        overlay_resolution='160x90',
         image_dir=[tmp_path],
         title_interval=3,
         title_duration=2,
         title_fade=1,
-        video_frame_rate=4,
+        overlay_frame_rate=4,
     )
 
 
@@ -181,24 +181,30 @@ def test_image_controls_report_applied_photo_and_survive_recovery(
     controller = ControlController(RuntimeState(), overlays=overlays)
     controller.state.set_muted(True)
     for command, params in (
-        ('image_next', {'id': path.name}),
+        ('image_next', {'id': f'trusted/1/{path.name}'}),
         ('image_pause', {'paused': True}),
     ):
         assert not isinstance(
             controller.handle_request(rpc.Request(command=command, params=params)),
             ipc.Error,
         )
-    assert overlays.snapshot()['images'] == {'paused': True, 'next_id': path.name}
+    assert overlays.snapshot()['images'] == {
+        'paused': True,
+        'next_id': f'trusted/1/{path.name}',
+    }
     overlays.begin_attempt()
-    assert overlays.snapshot()['images'] == {'paused': True, 'next_id': path.name}
+    assert overlays.snapshot()['images'] == {
+        'paused': True,
+        'next_id': f'trusted/1/{path.name}',
+    }
     controller.handle_request(
         rpc.Request(command='image_pause', params={'paused': False})
     )
     _, visual = overlays.frame()
-    assert visual['image_id'] == path.name
+    assert visual['image_id'] == f'trusted/1/{path.name}'
     assert overlays.snapshot()['applied'] is None
     overlays.mark_applied(visual)
-    assert overlays.snapshot()['applied']['image_id'] == path.name
+    assert overlays.snapshot()['applied']['image_id'] == f'trusted/1/{path.name}'
     overlays.set_slate(SlateCue(visible=True))
     _, visual = overlays.frame()
     assert visual['image_id'] is None
@@ -274,9 +280,9 @@ def test_controls_respond_while_image_read_is_delayed(config: Streamo) -> None:
 
 def test_missing_next_image_reports_error_after_frame(config: Streamo) -> None:
     overlays = LiveOverlays(config.model_copy(update={'image_interval': 20}), set())
-    assert overlays.control_images('image_next', {'id': 'missing.png'}) == {
+    assert overlays.control_images('image_next', {'id': 'incoming/missing.png'}) == {
         'paused': False,
-        'next_id': 'missing.png',
+        'next_id': 'incoming/missing.png',
     }
     overlays.frame()
     images = overlays.snapshot()['images']

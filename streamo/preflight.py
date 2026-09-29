@@ -323,9 +323,20 @@ def check_storage(config: Streamo) -> Check:
         try:
             with os.scandir(directory) as entries:
                 next(entries, None)
-            if index == 0:
-                with tempfile.TemporaryFile(dir=directory):
-                    pass
+        except OSError as error:
+            failures.append(f'{directory}: {type(error).__name__}')
+    inbox = config.incoming_image_dir
+    directory = inbox
+    while not directory.exists() and directory != directory.parent:
+        directory = directory.parent
+    if not directory.is_dir():
+        failures.append(f'{directory} is not a directory')
+    else:
+        if directory != inbox:
+            warnings.append(f'{inbox} does not exist; checking {directory}')
+        try:
+            with tempfile.TemporaryFile(dir=directory):
+                pass
         except OSError as error:
             failures.append(f'{directory}: {type(error).__name__}')
     if failures:

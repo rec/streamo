@@ -6,7 +6,7 @@ from pydantic import ValidationError
 from reccy.reccy import Reccy
 
 from streamo.config import Streamo
-from streamo.images import ImageFeed
+from streamo.image_feed import ImageFeed
 from streamo.provider_config import (
     AudioEncoding,
     EncodingProfile,
@@ -101,8 +101,8 @@ def test_unknown_operator_config_keys_are_rejected() -> None:
     ('field', 'value'),
     [
         ('sample_rate', 192_001),
-        ('video_frame_rate', 61),
-        ('video_resolution', '3840x2160'),
+        ('overlay_frame_rate', 61),
+        ('overlay_resolution', '3840x2160'),
     ],
 )
 def test_capture_and_overlay_resources_are_bounded(field: str, value: object) -> None:
@@ -372,4 +372,14 @@ def test_image_directories_must_be_distinct() -> None:
             video=Path('visual-bed.mp4'),
             streaming_service=_service(),
             image_dir=[Path('images'), Path('images')],
+        )
+
+
+def test_incoming_inbox_cannot_be_configured_as_trusted_image_dir() -> None:
+    with pytest.raises(ValidationError, match='incoming image inbox'):
+        Streamo(
+            device_name='X18',
+            channel=1,
+            streaming_service=_service(),
+            image_dir=[Path('images'), Path('images/incoming')],
         )

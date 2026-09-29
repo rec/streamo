@@ -10,8 +10,10 @@ Incident history and actionable health warnings, live titles and the intermissio
 slate are implemented. `live_overlays` defaults to true and is startup-only;
 false disables the compositor and feed polling. The optional image approval queue
 is implemented with thumbnail previews, approve/reject RPCs, and saved decisions
-in `image_dir/.streamo-image-approval.json`. `image_approval_required` defaults to
-false. Skip, pause/resume, show-next controls, and current/upcoming image status
+in the first image directory's `incoming/.streamo-image-approval.json`.
+Configured image directories are trusted; only internet uploads and feed images
+enter that incoming inbox. `image_approval_required` defaults to false. Skip,
+pause/resume, show-next controls, and current/upcoming image status
 are implemented. `image_dir` accepts multiple directories and `image_dir_weights`
 selects them with comma-separated or integer-list relative weights, or descending
 defaults. A final explicit weight applies to all remaining directories.
@@ -26,6 +28,8 @@ files are excluded from discovery and removal. The dependency is pinned to reccy
 
 All 22 findings from the completed issue review are addressed in source.
 The resolved issue list has been removed; its history remains in Git.
+The later review and remaining deferred findings are in
+[plan/issues.md](../plan/issues.md).
 The operator guide is [streamo.md](streamo.md); README only links into it.
 
 Issue 1 was committed as `7cf183f` and audio recovery/lifecycle fixes as

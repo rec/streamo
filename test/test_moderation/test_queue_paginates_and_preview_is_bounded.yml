@@ -1,14 +1,14 @@
 first:
   approval_required: true
   images:
-  - id: a.png
+  - id: incoming/a.png
     state: pending
-  - id: b.png
+  - id: incoming/b.png
     state: pending
-  next_after: b.png
+  next_after: incoming/b.png
 second:
   approval_required: true
   images:
-  - id: c.png
+  - id: incoming/c.png
     state: pending
   next_after: null

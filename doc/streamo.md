@@ -27,8 +27,8 @@ device_name = "X18"
 channel = 17
 video = "visual-bed.mp4"
 sample_rate = 48000
-video_resolution = "1280x720"
-video_frame_rate = 30
+overlay_resolution = "1280x720"
+overlay_frame_rate = 30
 
 [streaming_service]
 service = "twitch"
@@ -105,17 +105,17 @@ be finite, and working dimensions must be positive.
 | --- | --- | --- |
 | `sample_rate` | `48000` | Audio capture sample rate, up to 192000 Hz |
 | `video` | none | Looping visual-bed file |
-| `video_resolution` | `"640x360"` | Overlay working resolution, up to 1920x1080 |
-| `video_frame_rate` | `10` | Overlay working frame rate, up to 60 fps |
+| `overlay_resolution` | `"640x360"` | Overlay working resolution, up to 1920x1080 |
+| `overlay_frame_rate` | `10` | Overlay working frame rate, up to 60 fps |
 | `live_overlays` | `true` | Enable titles, participant images and slate; startup-only |
 | `title_card` | none | Title-card image |
 | `title_interval` | `180.0` | Seconds between title-card appearances |
 | `title_duration` | `8.0` | Seconds the title card remains visible |
 | `title_fade` | `2.0` | Fade-in and fade-out duration, in seconds |
 | `local_display` | `true` | Show the composed program on local HDMI |
-| `image_dir` | `["images"]` | Repeating image-directory setting, in selection order |
+| `image_dir` | `["images"]` | Trusted image directories, in selection order |
 | `image_dir_weights` | descending to `1` | Comma-separated or integer-list directory weights; repeats the final weight |
-| `image_approval_required` | `false` | Hold unreviewed participant images for approval |
+| `image_approval_required` | `false` | Hold unreviewed internet images for approval |
 | `image_interval` | `0.0` | Seconds between participant images; zero disables them |
 | `image_duration` | `8.0` | Seconds each participant image is visible |
 | `image_fade` | `2.0` | Participant-image fade duration, in seconds |
@@ -163,8 +163,8 @@ Use one of AAC/ADTS, MP3/MP3, Opus/Ogg, or Vorbis/Ogg.
 
 For Twitch, provider API operations need `client_id`, `access_token`, and
 `broadcaster_id`. `sender_id` and `moderator_id` default to the broadcaster ID.
-Facebook, Vimeo, and LinkedIn accept their provider-specific identifiers and
-credentials in `streaming_service`; publishing still uses the configured ingest.
+Facebook, Vimeo, LinkedIn, and Icecast publish through the configured ingest
+only. Their service models have no provider API credentials or control fields.
 
 YouTube can use direct ingest, or OAuth credentials plus an existing
 `stream_id` and `broadcast_id`. With OAuth, streamO updates metadata, binds the
@@ -260,7 +260,7 @@ Then send requests in this form:
 ```
 
 The server returns a raw JSON result or an error object. `image` accepts one or
-more `file:`, HTTP, or HTTPS URLs and publishes valid images into the first `image_dir` entry
+more `file:`, HTTP, or HTTPS URLs and publishes valid images into the incoming inbox
 with atomic publication of each file after the entire batch validates. A failed
 validation publishes nothing; a publication error rolls back files from that batch.
 Each image is limited to 8 MiB and 2048 pixels per side. Supported formats are
@@ -361,11 +361,11 @@ remote image-feed polling. Changing this switch requires restarting streamO;
 there is no runtime command to enable it. Audio-only streams have no overlay pipe.
 Disabled overlays do not require the configured title file to exist.
 
-The compositor sends a full output-resolution RGBA frame at `video_frame_rate`,
+The compositor sends a full output-resolution RGBA frame at `overlay_frame_rate`,
 even when transparent. At 1920×1080 and 10 fps that is approximately 83 MB/s
 through the local pipe, plus rendering/copying/compositing work, not extra network
 upload bandwidth. Target-machine performance has not been measured. Title and
-photo assets retain their centered `video_resolution` working size.
+photo assets retain their centered `overlay_resolution` working size.
 
 The `title` RPC requires `visibility`: `auto`, `show`, or `hide`. Optional `text`
 replaces the configured image with plain text (maximum 500 characters, wrapped
@@ -398,8 +398,9 @@ repeat. Afterwards,
 older image. Set it to `0` to show older images whenever no new image remains.
 Invalid files are logged and skipped; deleted paths leave the cycle.
 
-Set `image_approval_required = true` before startup to require approval of both
-existing and newly received images. Keep `live_overlays = true` and a positive
+Set `image_approval_required = true` before startup to require approval of
+images received from the internet. Every configured `image_dir` is trusted and
+never needs moderation. Keep `live_overlays = true` and a positive
 `image_interval` to display approved images. Automatic acceptance remains the
 default, but explicitly rejected images stay excluded even with approval disabled.
 
@@ -407,23 +408,28 @@ The controller uses these RPCs (operator UI remains in showCo):
 
 | Command | Parameters | Result |
 | --- | --- | --- |
-| `image_queue` | Optional `after` filename and `limit` (default 50, maximum 100) | `approval_required`, `images` with `id` and `state`, and `next_after` |
-| `image_preview` | `id` filename | `id` and a `data_url` containing a 320×180 PNG thumbnail |
-| `image_review` | `id` filename and `decision`: `approved` or `rejected` | Saved `id` and `state` |
+| `image_queue` | Optional `after` image ID and `limit` (default 50, maximum 100) | `approval_required`, `images` with `id` and `state`, and `next_after` |
+| `image_preview` | Incoming image `id` | `id` and a `data_url` containing a 320×180 PNG thumbnail |
+| `image_review` | Incoming image `id` and `decision`: `approved` or `rejected` | Saved `id` and `state` |
 
-The queue lists all images in filename order with states `pending`, `approved`,
+The queue lists incoming images in filename order with states `pending`, `approved`,
 or `rejected`. Pass `next_after` as `after` for the next page; null means the end.
 Refresh from the beginning to discover new filenames earlier in the order.
 Approvals enter the normal rotation at a subsequent image interval. Rejection
 suppresses a cached photo starting with the next generated frame; already buffered
 frames cannot be withdrawn from the encoder or destination. Files are retained.
 
-Decisions are saved atomically in the first image directory at `.streamo-image-approval.json` and
+Internet uploads and feed images go into `incoming/` under the first trusted
+directory. That subdirectory must not also be configured as a trusted `image_dir`.
+Decisions are saved atomically there at `.streamo-image-approval.json` and
 survive restarts. A failed save returns an error without applying the decision;
 an unreadable or malformed saved file prevents startup rather than bypassing
-moderation. Filenames are the IDs: renaming creates a new identity, and replacing
-a file at the same name inherits its previous decision. Use one streamO session
-per image folder. The existing remote-feed cursor is unchanged, so rejecting a
+moderation. Incoming IDs use `incoming/filename`; trusted IDs use
+`trusted/N/filename`, where N is the configured directory's one-based position.
+Two directories can therefore contain the same filename without sharing an ID
+or decision. Renaming an incoming file creates a new identity, and replacing
+one at the same name inherits its previous decision. Use one streamO session
+per incoming folder. The remote-feed cursor lives in that folder, so rejecting a
 downloaded image does not download it again. These RPCs require live overlays.
 
 Image playback controls also require a positive `image_interval`:
@@ -432,7 +438,7 @@ Image playback controls also require a positive `image_interval`:
 | --- | --- | --- |
 | `image_skip` | None | Hide the current photo for the rest of its interval without changing approval |
 | `image_pause` | Boolean `paused` | Hold or resume the photo and its timing, including fades and gaps |
-| `image_next` | Approved image `id` | Replace the reserved choice for the next interval |
+| `image_next` | Trusted or approved incoming image `id` | Replace the reserved choice for the next interval |
 
 Skipping while paused leaves the photo hidden until rotation resumes and reaches
 the next interval. Choosing a photo does not interrupt the current interval or
@@ -454,14 +460,15 @@ the operator's pause setting. No image command changes audio mute.
 
 
 
-`image_dir` is a repeating setting. In TOML, list its values in one array in
-selection order. streamO gives the directories descending default weights: four
+`image_dir` is a repeating trusted-source setting. In TOML, list its values in
+one array in selection order. streamO gives these directories descending
+default weights: four
 directories receive weights `4,3,2,1`. Set `image_dir_weights` to a
 comma-separated or integer list when another balance suits the show. streamO
 chooses a directory for every image, including new images, according to these
 relative weights, then chooses an image from that directory. Empty directories
 are skipped. When there are fewer weights than directories, the final weight
-applies to every remaining directory.
+applies to every remaining trusted directory. The incoming inbox has weight 1.
 
 ```toml
 image_dir = ["images/live", "images/archive", "images/favourites"]
@@ -470,7 +477,8 @@ image_dir_weights = "6,2,1"
 
 The equivalent integer-list form is `image_dir_weights = [6, 2, 1]`.
 
-An optional feed downloads uploaded images into the first configured directory. The first directory also receives operator uploads and stores image-approval decisions. Other directories are selected as read-only image sources.
+An optional feed downloads uploaded images into the incoming inbox. Operator
+uploads use the same inbox. All configured directories are trusted image sources.
 
 ```toml
 image_dir = ["images"]
@@ -490,7 +498,7 @@ The upload application in `web/foto.php` lets participants submit
 photos without joining the showCo network. Their browser prepares each photo as
 a JPEG no larger than 2048 pixels on either side, then sends it to `ax.to`.
 streamO polls the server over outbound HTTPS and stores each new JPEG in
-the first image directory.
+the incoming inbox.
 
 The page uses French when the browser's primary language begins with `fr` and
 English for every other browser. Current Safari can prepare HEIC photos without
@@ -511,6 +519,14 @@ The data directory must remain outside the document root. The PHP installation
 needs the normally enabled `fileinfo` extension and must allow uploads of at
 least 8 MiB. The application accepts only JPEG files whose dimensions and size
 fit the same limits enforced by the browser.
+
+From the repository, run
+`scripts/copy-server.sh --dry-run USER@HOST:DESTINATION` to inspect the upload,
+then omit `--dry-run` to copy it.
+The target is required and displayed before transfer. On the server, run
+`scripts/set-secret.sh` as root to enter the room token at a private prompt,
+or use `scripts/set-secret.sh --token-file PRIVATE_FILE` with a file readable
+only by its owner. The token no longer appears in the command line.
 
 If the PHP file is available at `https://ax.to/show/foto.php`, put this URL in
 streamO's TOML configuration using the same token:
@@ -535,7 +551,7 @@ https://ax.to/show/foto.php?token=replace-with-the-room-token
 ```
 
 Treat the URL as a capability: anyone who receives it can submit images. streamO
-keeps a per-feed cursor inside the first image directory, so restarting streamO or removing a
+keeps a per-feed cursor inside the incoming inbox, so restarting streamO or removing a
 local image does not download it again. After the show, remove the uploaded JPEGs
 and `images.jsonl` from `STREAMO_IMAGE_DATA_DIR`. Use an empty data directory and
 a new token for the next show.

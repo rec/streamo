@@ -124,7 +124,7 @@ def test_ffmpeg_command_can_disable_local_display() -> None:
 
 def test_live_overlay_input_uses_output_resolution() -> None:
     config = _config().model_copy(
-        update={'live_overlays': True, 'video_resolution': '1280x720'}
+        update={'live_overlays': True, 'overlay_resolution': '1280x720'}
     )
     command = ffmpeg_command(config, image_pipe=7)
     assert command[command.index('-video_size') + 1] == '640x360'

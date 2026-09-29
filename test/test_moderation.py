@@ -31,8 +31,11 @@ def controller(tmp_path: Path) -> ControlController:
         image_duration=10,
         image_fade=0,
     )
+    config.incoming_image_dir.mkdir()
     return ControlController(
-        RuntimeState(), image_dir=tmp_path, overlays=LiveOverlays(config, set())
+        RuntimeState(),
+        image_dir=config.incoming_image_dir,
+        overlays=LiveOverlays(config, set()),
     )
 
 
@@ -47,7 +50,8 @@ def test_unreviewed_images_wait_and_rejection_hides_cached_photo(
     assert not any(frame)
     reply = controller.handle_request(
         rpc.Request(
-            command='image_review', params={'id': path.name, 'decision': 'approved'}
+            command='image_review',
+            params={'id': f'incoming/{path.name}', 'decision': 'approved'},
         )
     )
     assert not isinstance(reply, ipc.Error)
@@ -57,7 +61,8 @@ def test_unreviewed_images_wait_and_rejection_hides_cached_photo(
     assert frame[:4] == bytes((255, 0, 0, 255))
     reply = controller.handle_request(
         rpc.Request(
-            command='image_review', params={'id': path.name, 'decision': 'rejected'}
+            command='image_review',
+            params={'id': f'incoming/{path.name}', 'decision': 'rejected'},
         )
     )
     assert not isinstance(reply, ipc.Error)
@@ -77,8 +82,8 @@ def test_existing_and_new_images_require_approval_and_decisions_survive_restart(
     new = tmp_path / 'new.png'
     new.touch()
     assert scheduler.next_image() is None
-    approval.review(ImageReview(id=old.name, decision='approved'))
-    approval.review(ImageReview(id=new.name, decision='rejected'))
+    approval.review(ImageReview(id=f'incoming/{old.name}', decision='approved'))
+    approval.review(ImageReview(id=f'incoming/{new.name}', decision='rejected'))
     assert scheduler.next_image() == old
     restored = ImageApproval(tmp_path, required=True)
     assert restored.allows(old)
@@ -90,6 +95,56 @@ def test_existing_and_new_images_require_approval_and_decisions_survive_restart(
     assert not trusted.allows(new)
 
 
+def test_trusted_directories_ignore_incoming_decisions_for_duplicate_names(
+    tmp_path: Path,
+) -> None:
+    trusted_dirs = [tmp_path / 'one', tmp_path / 'two']
+    inbox = trusted_dirs[0] / 'incoming'
+    for directory in [*trusted_dirs, inbox]:
+        directory.mkdir(parents=True)
+        (directory / 'photo.png').touch()
+    approval = ImageApproval(inbox, required=True)
+    scheduler = ImageScheduler([*trusted_dirs, inbox], approval=approval)
+    trusted = [d / 'photo.png' for d in trusted_dirs]
+    incoming = inbox / 'photo.png'
+
+    assert approval.queue(ImageQueue())['images'] == [
+        {'id': 'incoming/photo.png', 'state': 'pending'}
+    ]
+    assert all(approval.allows(p) for p in trusted)
+    assert not approval.allows(incoming)
+    assert [scheduler.id_for(p) for p in trusted] == [
+        'trusted/1/photo.png',
+        'trusted/2/photo.png',
+    ]
+    assert scheduler.path_for_id('trusted/2/photo.png') == trusted[1]
+    assert scheduler.next_image() in trusted
+
+    approval.review(ImageReview(id='incoming/photo.png', decision='approved'))
+    assert scheduler.next_image() == incoming
+    approval.review(ImageReview(id='incoming/photo.png', decision='rejected'))
+    assert all(approval.allows(p) for p in trusted)
+    assert not approval.allows(incoming)
+
+
+def test_trusted_photo_displays_while_same_named_incoming_photo_waits(
+    controller: ControlController,
+) -> None:
+    overlays = controller.overlays
+    assert overlays is not None
+    trusted = controller.image_dir.parent / 'photo.png'
+    incoming = controller.image_dir / 'photo.png'
+    Image.new('RGBA', (640, 360), 'blue').save(trusted)
+    Image.new('RGBA', (640, 360), 'red').save(incoming)
+
+    frame, visual = overlays.frame()
+    assert frame[:4] == bytes((0, 0, 255, 255))
+    assert visual['image_id'] == 'trusted/1/photo.png'
+    assert overlays.approval.queue(ImageQueue())['images'] == [
+        {'id': 'incoming/photo.png', 'state': 'pending'}
+    ]
+
+
 def test_queue_paginates_and_preview_is_bounded(
     controller: ControlController, data_regression: DataRegressionFixture
 ) -> None:
@@ -99,11 +154,13 @@ def test_queue_paginates_and_preview_is_bounded(
         rpc.Request(command='image_queue', params={'limit': 2})
     )
     second = controller.handle_request(
-        rpc.Request(command='image_queue', params={'after': 'b.png', 'limit': 2})
+        rpc.Request(
+            command='image_queue', params={'after': 'incoming/b.png', 'limit': 2}
+        )
     )
     data_regression.check({'first': first, 'second': second})
     preview = controller.handle_request(
-        rpc.Request(command='image_preview', params={'id': 'a.png'})
+        rpc.Request(command='image_preview', params={'id': 'incoming/a.png'})
     )
     assert isinstance(preview, dict)
     data_url = preview['data_url']
@@ -121,7 +178,9 @@ def test_failed_persistence_does_not_approve_an_image(tmp_path: Path) -> None:
         'streamo.moderation.atomic_output', side_effect=OSError('disk full')
     ):
         with pytest.raises(OSError, match='disk full'):
-            approval.review(ImageReview(id=path.name, decision='approved'))
+            approval.review(
+                ImageReview(id=f'incoming/{path.name}', decision='approved')
+            )
     assert not approval.allows(path)
     assert not ImageApproval(tmp_path, required=True).allows(path)
 
@@ -139,7 +198,7 @@ def test_invalid_saved_decisions_fail_instead_of_accepting_images(
     [
         ('image_review', {'id': '../outside.png', 'decision': 'approved'}),
         ('image_review', {'id': 'missing.png', 'decision': 'approved'}),
-        ('image_review', {'id': 'photo.png', 'decision': 'unknown'}),
+        ('image_review', {'id': 'incoming/photo.png', 'decision': 'unknown'}),
         ('image_preview', {'id': '../outside.png'}),
         ('image_queue', {'limit': 0}),
         ('image_queue', {'limit': 101}),

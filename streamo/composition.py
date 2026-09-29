@@ -52,7 +52,7 @@ def ffmpeg_command(
                 '-video_size',
                 encoding.video.resolution,
                 '-framerate',
-                str(config.video_frame_rate),
+                str(config.overlay_frame_rate),
                 '-i',
                 f'pipe:{image_pipe}',
                 '-filter_complex',

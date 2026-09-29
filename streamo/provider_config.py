@@ -281,9 +281,6 @@ class YouTubeService(StreamingService, frozen=True):
 class FacebookService(StreamingService, frozen=True):
     service: Literal['facebook']
     name: str = 'Facebook'
-    access_token: SecretStr | None = None
-    destination_id: str | None = None
-    live_video_id: str | None = None
 
 
 class KickService(StreamingService, frozen=True):
@@ -310,23 +307,16 @@ class KickService(StreamingService, frozen=True):
 class VimeoService(StreamingService, frozen=True):
     service: Literal['vimeo']
     name: str = 'Vimeo'
-    access_token: SecretStr | None = None
-    event_id: str | None = None
 
 
 class LinkedInService(StreamingService, frozen=True):
     service: Literal['linkedin']
     name: str = 'LinkedIn'
-    event_id: str | None = None
-    operator_go_live: bool = True
 
 
 class IcecastService(StreamingService, frozen=True):
     service: Literal['icecast']
     name: str = 'Icecast'
-    admin_url: str | None = None
-    admin_username: str | None = None
-    admin_password: SecretStr | None = None
 
 
 class CustomService(StreamingService, frozen=True):

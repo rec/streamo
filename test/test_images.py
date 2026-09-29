@@ -9,13 +9,10 @@ import numpy as np
 import pytest
 from PIL import Image
 
+import streamo.image_feed
 import streamo.images
-from streamo.images import (
-    ImageFeed,
-    ImageFeedPoller,
-    ImageFrameProducer,
-    ImageScheduler,
-)
+from streamo.image_feed import ImageFeed, ImageFeedPoller
+from streamo.images import ImageFrameProducer, ImageScheduler
 
 
 class NoShuffleRandom(random.Random):
@@ -232,7 +229,7 @@ def test_image_feed_poller_downloads_new_jpegs_and_records_cursor(
             return FakeHttpResponse(b'{"id":1}\n{"id":2}\n')
         return FakeHttpResponse(jpeg.getvalue())
 
-    monkeypatch.setattr(streamo.images, 'urlopen', urlopen)
+    monkeypatch.setattr(streamo.image_feed, 'urlopen', urlopen)
     poller = ImageFeedPoller(
         ImageFeed(
             url='https://ax.to/show/photos.php',
@@ -271,7 +268,7 @@ def test_image_feed_poller_requests_only_items_after_saved_cursor(
         assert parse_qs(urlsplit(url).query)['after'] == ['12']
         return FakeHttpResponse(b'')
 
-    monkeypatch.setattr(streamo.images, 'urlopen', urlopen)
+    monkeypatch.setattr(streamo.image_feed, 'urlopen', urlopen)
 
     assert poller.poll() == []
 
@@ -288,7 +285,7 @@ def test_invalid_feed_image_does_not_block_later_images(
             return FakeHttpResponse(b'{"id":1}\n{"id":2}\n')
         return FakeHttpResponse(b'bad' if query['id'] == ['1'] else jpeg.getvalue())
 
-    monkeypatch.setattr(streamo.images, 'urlopen', urlopen)
+    monkeypatch.setattr(streamo.image_feed, 'urlopen', urlopen)
     poller = ImageFeedPoller(
         ImageFeed(
             url='https://example.test/photos',
@@ -331,13 +328,13 @@ def test_paused_fade_and_skip_preserve_next_selection(tmp_path: Path) -> None:
     producer.frame()
     held = producer.frame()
     assert held == bytes((255, 0, 0, 64))
-    assert producer.snapshot()['next_id'] == 'b.png'
+    assert producer.snapshot()['next_id'] == 'trusted/1/b.png'
     producer.paused = True
     for _ in range(20):
         assert producer.frame() == held
     producer.skip()
     assert producer.frame() == bytes(4)
-    assert producer.snapshot()['next_id'] == 'b.png'
+    assert producer.snapshot()['next_id'] == 'trusted/1/b.png'
     producer.paused = False
     for _ in range(10):
         assert producer.frame() == bytes(4)
@@ -368,20 +365,20 @@ def test_next_selection_is_validated_and_rechecked_before_display(
     producer.select_next(tmp_path / 'c.png')
     with pytest.raises(OSError):
         producer.select_next(tmp_path / 'invalid.png')
-    assert producer.snapshot()['next_id'] == 'c.png'
-    approval.review(ImageReview(id='c.png', decision='rejected'))
+    assert producer.snapshot()['next_id'] == 'incoming/c.png'
+    approval.review(ImageReview(id='incoming/c.png', decision='rejected'))
     assert producer.snapshot()['next_id'] is None
     with pytest.raises(ValueError, match='approved'):
         producer.select_next(tmp_path / 'c.png')
     producer.frame()
     producer.frame()
-    assert producer.visible_id != 'c.png'
+    assert producer.visible_id != 'incoming/c.png'
     producer.select_next(tmp_path / 'b.png')
     (tmp_path / 'b.png').unlink()
     assert producer.snapshot()['next_id'] is None
     producer.frame()
     producer.frame()
-    assert producer.visible_id == 'a.png'
+    assert producer.visible_id == 'incoming/a.png'
 
 
 def test_atomic_image_is_invisible_to_rotation_and_removal_until_published(

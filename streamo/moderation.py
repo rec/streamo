@@ -55,6 +55,8 @@ class ImageApproval:
         )
 
     def allows(self, path: Path) -> bool:
+        if path.parent != self.image_dir:
+            return True
         with self.lock:
             decision = self.records.decisions.get(path.name)
             return decision == ImageDecision.approved or (
@@ -62,28 +64,31 @@ class ImageApproval:
             )
 
     def queue(self, request: ImageQueue) -> dict[str, object]:
-        paths = [p for p in image_paths(self.image_dir) if p.name > request.after]
+        after = self.image_name(request.after) if request.after else ''
+        paths = [p for p in image_paths(self.image_dir) if p.name > after]
         selected = paths[: request.limit]
         with self.lock:
             return {
                 'approval_required': self.required,
                 'images': [
                     {
-                        'id': p.name,
+                        'id': f'incoming/{p.name}',
                         'state': self.records.decisions.get(
                             p.name, 'pending' if self.required else 'approved'
                         ),
                     }
                     for p in selected
                 ],
-                'next_after': selected[-1].name if len(paths) > len(selected) else None,
+                'next_after': f'incoming/{selected[-1].name}'
+                if len(paths) > len(selected)
+                else None,
             }
 
     def review(self, request: ImageReview) -> dict[str, object]:
-        self.image_path(request.id)
+        path = self.image_path(request.id)
         with self.lock:
             records = ImageDecisions(
-                decisions={**self.records.decisions, request.id: request.decision}
+                decisions={**self.records.decisions, path.name: request.decision}
             )
             with atomic_output(self.path) as temporary:
                 temporary.write_text(records.model_dump_json(indent=2))
@@ -102,9 +107,16 @@ class ImageApproval:
         }
 
     def image_path(self, image_id: str) -> Path:
-        if not image_id or Path(image_id).name != image_id:
-            raise ValueError('Image ID must be a filename in image_dir')
-        path = self.image_dir / image_id
+        path = self.image_dir / self.image_name(image_id)
         if path not in image_paths(self.image_dir):
-            raise ValueError('Image ID does not exist in image_dir')
+            raise ValueError('Image ID does not exist in the incoming inbox')
         return path
+
+    @staticmethod
+    def image_name(image_id: str) -> str:
+        parts = image_id.split('/')
+        if len(parts) != 2 or parts[0] != 'incoming' or parts[1] in {'', '.', '..'}:
+            raise ValueError('Image ID must identify an incoming image')
+        if Path(parts[1]).name != parts[1]:
+            raise ValueError('Image ID must contain a filename')
+        return parts[1]

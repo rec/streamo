@@ -2,8 +2,8 @@ device_name = "X18"
 channel = 17
 video = "visual-bed.mp4"
 sample_rate = 48000
-video_resolution = "1280x720"
-video_frame_rate = 30
+overlay_resolution = "1280x720"
+overlay_frame_rate = 30
 
 [streaming_service]
 service = "twitch"

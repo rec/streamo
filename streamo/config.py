@@ -9,7 +9,8 @@ from reccy.protocol import ipc, rpc
 from reccy.reccy import Reccy, ReccyStatus
 from reccy.services.spec import load
 
-from .images import ImageFeed, ImageFeedPoller, image_paths
+from .image_feed import ImageFeed, ImageFeedPoller
+from .images import image_paths
 from .provider_config import StreamingServiceConfiguration
 from .providers import GenericServiceAdapter, adapter_for
 from .runtime import HealthWarnings, RuntimeState
@@ -35,8 +36,8 @@ class Streamo(Reccy, frozen=True):
     title_card: Path | None = None
 
     sample_rate: int = 48_000
-    video_resolution: str = '640x360'
-    video_frame_rate: int = 10
+    overlay_resolution: str = '640x360'
+    overlay_frame_rate: int = 10
     title_interval: float = 180.0
     title_duration: float = 8.0
     title_fade: float = 2.0
@@ -68,7 +69,7 @@ class Streamo(Reccy, frozen=True):
         )
         controller = control.ControlController(
             state=RuntimeState(self.health_warnings),
-            image_dir=self.primary_image_dir,
+            image_dir=self.incoming_image_dir,
             service=None if preview else service_adapter,
         )
         controller.state.configure_service(service_adapter)
@@ -80,9 +81,13 @@ class Streamo(Reccy, frozen=True):
             if self.image_feed is None
             or not self.live_overlays
             or self.streaming_service.encoding.video is None
-            else ImageFeedPoller(self.image_feed, self.primary_image_dir)
+            else ImageFeedPoller(self.image_feed, self.incoming_image_dir)
         )
-        initial_image_paths = {p for d in self.image_dir for p in image_paths(d)}
+        initial_image_paths = {
+            p
+            for d in [*self.image_dir, self.incoming_image_dir]
+            for p in image_paths(d)
+        }
         self.start()
         try:
             if image_feed_poller is not None:
@@ -112,16 +117,16 @@ class Streamo(Reccy, frozen=True):
             with Image.open(self.title_card) as image:
                 image.load()
 
-    @field_validator('video_resolution')
+    @field_validator('overlay_resolution')
     @classmethod
     def validate_resolution(cls, value: str) -> str:
         if re.fullmatch(r'[1-9][0-9]*x[1-9][0-9]*', value.lower()) is None:
             raise ValueError(
-                'video_resolution must contain positive WIDTHxHEIGHT values'
+                'overlay_resolution must contain positive WIDTHxHEIGHT values'
             )
         width, height = (int(p) for p in value.lower().split('x'))
         if width > 1920 or height > 1080:
-            raise ValueError('video_resolution must not exceed 1920x1080')
+            raise ValueError('overlay_resolution must not exceed 1920x1080')
         return value.lower()
 
     def rpc_response(self, request: rpc.Request) -> rpc.Result:
@@ -141,7 +146,7 @@ class Streamo(Reccy, frozen=True):
             return ipc.Error(type='error', message='streamO is not running')
         return self._controller.handle_request(request)
 
-    @field_validator('channel', 'sample_rate', 'video_frame_rate')
+    @field_validator('channel', 'sample_rate', 'overlay_frame_rate')
     @classmethod
     def validate_positive(cls, value: int) -> int:
         if value <= 0:
@@ -152,8 +157,8 @@ class Streamo(Reccy, frozen=True):
     def validate_resource_limits(self) -> Self:
         if self.sample_rate > 192_000:
             raise ValueError('sample_rate must not exceed 192000')
-        if self.video_frame_rate > 60:
-            raise ValueError('video_frame_rate must not exceed 60')
+        if self.overlay_frame_rate > 60:
+            raise ValueError('overlay_frame_rate must not exceed 60')
         return self
 
     @field_validator('current_session_image_weight')
@@ -169,6 +174,8 @@ class Streamo(Reccy, frozen=True):
             raise ValueError('image_dir must contain at least one directory')
         if len(set(self.image_dir)) != len(self.image_dir):
             raise ValueError('image_dir entries must be distinct')
+        if self.incoming_image_dir.resolve() in {p.resolve() for p in self.image_dir}:
+            raise ValueError('image_dir must not include the incoming image inbox')
         if self.image_dir_weights is not None:
             weights = parse_image_dir_weights(self.image_dir_weights)
             if not weights:
@@ -182,6 +189,10 @@ class Streamo(Reccy, frozen=True):
     @property
     def primary_image_dir(self) -> Path:
         return self.image_dir[0]
+
+    @property
+    def incoming_image_dir(self) -> Path:
+        return self.primary_image_dir / 'incoming'
 
     @property
     def resolved_image_dir_weights(self) -> list[int]:

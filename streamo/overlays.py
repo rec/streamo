@@ -53,9 +53,9 @@ class LiveOverlays:
         assert encoding is not None
         width, height = encoding.resolution.split('x')
         self.size = (int(width), int(height))
-        width, height = config.video_resolution.split('x')
+        width, height = config.overlay_resolution.split('x')
         self.working_size = (int(width), int(height))
-        self.frame_rate = config.video_frame_rate
+        self.frame_rate = config.overlay_frame_rate
         self.title_interval = config.title_interval
         self.title_duration = config.title_duration
         self.title_fade = config.title_fade
@@ -80,20 +80,20 @@ class LiveOverlays:
         self.applied: dict[str, object] | None = None
         self.frame_index = 0
         self.approval = ImageApproval(
-            config.primary_image_dir, config.image_approval_required
+            config.incoming_image_dir, config.image_approval_required
         )
         self.photos = (
             ImageFrameProducer(
                 ImageScheduler(
-                    config.image_dir,
+                    [*config.image_dir, config.incoming_image_dir],
                     initial_paths=initial_paths,
                     session_weight=config.current_session_image_weight,
                     approval=self.approval,
-                    directory_weights=config.resolved_image_dir_weights,
+                    directory_weights=[*config.resolved_image_dir_weights, 1],
                 ),
                 width=self.working_size[0],
                 height=self.working_size[1],
-                frame_rate=config.video_frame_rate,
+                frame_rate=config.overlay_frame_rate,
                 interval=config.image_interval,
                 duration=config.image_duration,
                 fade=config.image_fade,
@@ -153,9 +153,7 @@ class LiveOverlays:
                 self.image_paused = ImagePause.model_validate(payload).paused
             elif command == 'image_next':
                 cue = ImageNext.model_validate(payload)
-                if not cue.id or Path(cue.id).name != cue.id:
-                    raise ValueError('Image ID must be a filename in image_dir')
-                self.image_next = self.approval.image_dir / cue.id
+                self.image_next = self.photos.scheduler.path_for_id(cue.id)
             elif command == 'image_skip':
                 if payload:
                     raise ValueError('image_skip accepts no parameters')
@@ -166,7 +164,7 @@ class LiveOverlays:
             assert self.image_status is not None
             self.image_status = {
                 'paused': self.image_paused,
-                'next_id': self.image_next.name
+                'next_id': self.photos.scheduler.id_for(self.image_next)
                 if self.image_next is not None
                 else self.image_status['next_id'],
             }
@@ -250,7 +248,7 @@ class LiveOverlays:
                 if photo_status is not None:
                     self.image_status = {
                         'paused': self.image_paused,
-                        'next_id': self.image_next.name
+                        'next_id': self.photos.scheduler.id_for(self.image_next)
                         if self.image_next is not None
                         else photo_status['next_id'],
                     }
