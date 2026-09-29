@@ -80,6 +80,54 @@ def test_channel_must_be_positive() -> None:
         )
 
 
+def test_unknown_operator_config_keys_are_rejected() -> None:
+    service = _service().model_dump()
+    service['recover_publsh'] = True
+    config = {
+        'device_name': 'X18',
+        'channel': 1,
+        'video': 'visual-bed.mp4',
+        'streaming_service': service,
+    }
+    with pytest.raises(ValidationError, match='recover_publsh'):
+        Streamo.model_validate(config)
+    service.pop('recover_publsh')
+    service['ingest']['backup_server_url'] = 'rtmps://backup.example.test/live'
+    with pytest.raises(ValidationError, match='backup_server_url'):
+        Streamo.model_validate(config)
+
+
+@pytest.mark.parametrize(
+    ('field', 'value'),
+    [
+        ('sample_rate', 192_001),
+        ('video_frame_rate', 61),
+        ('video_resolution', '3840x2160'),
+    ],
+)
+def test_capture_and_overlay_resources_are_bounded(field: str, value: object) -> None:
+    values: dict[str, object] = {
+        'device_name': 'X18',
+        'channel': 1,
+        'video': 'visual-bed.mp4',
+        'streaming_service': _service(),
+        field: value,
+    }
+    with pytest.raises(ValidationError, match=field):
+        Streamo.model_validate(values)
+
+
+def test_encoded_video_resources_are_bounded() -> None:
+    with pytest.raises(ValidationError, match='resolution'):
+        VideoEncoding(
+            codec='h264',
+            bitrate='2500k',
+            resolution='7680x4320',
+            frame_rate=30,
+            keyframe_interval=2,
+        )
+
+
 def test_streamo_requires_stereo_pair_start_channel() -> None:
     config = Streamo(
         device_name='X18',

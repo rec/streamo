@@ -103,7 +103,12 @@ class ControlController:
         if command == 'image':
             return self.handle_image_command(request.params)
         if command == 'remove_last_image':
-            removed = remove_last_image(self.image_dir)
+            try:
+                removed = remove_last_image(self.image_dir)
+            except OSError as error:
+                return ipc.Error(
+                    type='error', message=f'could not remove image: {error}'
+                )
             return {'removed': None if removed is None else removed.as_posix()}
         if command in SERVICE_COMMANDS:
             return self.handle_service_command(command, request.params)
@@ -159,7 +164,7 @@ class HealthPoller:
 
     def close(self) -> None:
         self.stopped.set()
-        self.thread.join(timeout=1)
+        self.thread.join()
 
     def poll(self) -> None:
         try:
@@ -189,25 +194,40 @@ class ImageStoreError(ValueError):
     pass
 
 
+IMAGE_PUBLICATION_LOCK = threading.Lock()
+
+
 def store_images(image_dir: Path, urls: list[str]) -> list[Path]:
-    image_dir.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=image_dir) as directory:
-        staged = [store_image(Path(directory), u) for u in urls]
-        published = []
-        try:
-            for source in staged:
-                target = unique_image_path(image_dir, source.name)
-                source.replace(target)
-                published.append(target)
-        except OSError as error:
+    published: list[Path] = []
+    try:
+        image_dir.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=image_dir) as directory:
+            staged = [store_image(Path(directory), u) for u in urls]
+            with IMAGE_PUBLICATION_LOCK:
+                for source in staged:
+                    target = unique_image_path(image_dir, source.name)
+                    source.replace(target)
+                    published.append(target)
+    except OSError as error:
+        rollback_error: OSError | None = None
+        with IMAGE_PUBLICATION_LOCK:
             for path in published:
-                path.unlink(missing_ok=True)
-            raise ImageStoreError('could not publish image batch') from error
+                try:
+                    path.unlink(missing_ok=True)
+                except OSError as cleanup_error:
+                    rollback_error = cleanup_error
+        detail = f'could not store image batch: {error}'
+        if rollback_error is not None:
+            detail += f'; rollback failed: {rollback_error}'
+        raise ImageStoreError(detail) from error
     return published
 
 
 def store_image(image_dir: Path, url: str) -> Path:
-    parsed = urlparse(url)
+    try:
+        parsed = urlparse(url)
+    except ValueError as error:
+        raise ImageStoreError(f'invalid image URL {url}') from error
     if parsed.scheme == 'file':
         source = Path(url2pathname(parsed.path))
         target = unique_image_path(image_dir, image_name(parsed.path))
@@ -247,14 +267,15 @@ def publish_image(target: Path, contents: bytes) -> None:
 
 
 def remove_last_image(image_dir: Path) -> Path | None:
-    if not image_dir.exists():
-        return None
-    images = image_paths(image_dir)
-    if not images:
-        return None
-    latest = max(images, key=lambda p: (p.stat().st_mtime_ns, p.name))
-    latest.unlink()
-    return latest
+    with IMAGE_PUBLICATION_LOCK:
+        if not image_dir.exists():
+            return None
+        images = image_paths(image_dir)
+        if not images:
+            return None
+        latest = max(images, key=lambda p: (p.stat().st_mtime_ns, p.name))
+        latest.unlink()
+        return latest
 
 
 def image_name(path: str) -> str:

@@ -118,6 +118,13 @@ def test_required_fields_are_validated_before_request() -> None:
     assert transport.requests == []
 
 
+def test_malformed_success_response_is_api_error() -> None:
+    api = _api(FakeTransport([]))
+    api.transport = lambda request: (200, b'{')
+    with pytest.raises(TwitchApiError, match='invalid JSON'):
+        api.request('GET', 'channels')
+
+
 class FakeTransport:
     def __init__(self, responses: list[tuple[int, dict[str, object]]]) -> None:
         self.responses = responses

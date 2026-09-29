@@ -1,4 +1,6 @@
 import io
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest import mock
 
@@ -44,6 +46,28 @@ def test_status_never_waits_for_provider_and_reports_health_failure() -> None:
     service.health.return_value = None
     poller.poll()
     assert state.snapshot()['remote_health_error'] is None
+
+
+def test_health_poller_close_waits_for_inflight_request() -> None:
+    entered = threading.Event()
+    release = threading.Event()
+    service = mock.Mock()
+
+    def health() -> None:
+        entered.set()
+        assert release.wait(5)
+
+    service.health.side_effect = health
+    poller = HealthPoller(service, RuntimeState())
+    poller.start()
+    assert entered.wait(5)
+    closed = threading.Event()
+    closer = threading.Thread(target=lambda: (poller.close(), closed.set()))
+    closer.start()
+    assert not closed.wait(0.05)
+    release.set()
+    assert closed.wait(5)
+    closer.join()
 
 
 def test_mute_and_unmute_requests_change_runtime_state() -> None:
@@ -162,6 +186,15 @@ def test_image_request_rejects_unsupported_url() -> None:
     )
 
 
+def test_image_request_rejects_malformed_url() -> None:
+    controller = ControlController(state=RuntimeState())
+    response = controller.handle_request(
+        rpc.Request(command='image', params={'urls': ['http://[broken']})
+    )
+    assert isinstance(response, ipc.Error)
+    assert 'invalid image URL' in response.message
+
+
 def test_image_batch_failure_publishes_nothing(tmp_path: Path) -> None:
     source = tmp_path / 'good.png'
     Image.new('RGB', (8, 8), 'blue').save(source)
@@ -179,6 +212,66 @@ def test_image_batch_failure_publishes_nothing(tmp_path: Path) -> None:
     )
     assert isinstance(result, ipc.Error)
     assert list(directory.iterdir()) == []
+
+
+def test_concurrent_image_uploads_keep_both_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sources = [tmp_path / str(i) / 'card.png' for i in range(2)]
+    for color, source in zip(('red', 'blue'), sources, strict=True):
+        source.parent.mkdir()
+        Image.new('RGB', (8, 8), color).save(source)
+    image_dir = tmp_path / 'images'
+    controller = ControlController(RuntimeState(), image_dir=image_dir)
+    barrier = threading.Barrier(2)
+    original = streamo.control.unique_image_path
+    calls = 0
+    lock = threading.Lock()
+
+    def concurrent_path(directory: Path, name: str) -> Path:
+        nonlocal calls
+        path = original(directory, name)
+        if directory != image_dir:
+            return path
+        with lock:
+            calls += 1
+            first_round = calls <= 2
+        if first_round:
+            try:
+                barrier.wait(timeout=0.05)
+            except threading.BrokenBarrierError:
+                pass
+        return path
+
+    monkeypatch.setattr(streamo.control, 'unique_image_path', concurrent_path)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        responses = list(
+            executor.map(
+                lambda source: controller.handle_request(
+                    rpc.Request(command='image', params={'urls': [source.as_uri()]})
+                ),
+                sources,
+            )
+        )
+    paths = [Path(response['images'][0]) for response in responses]
+    assert len(set(paths)) == 2
+    assert {p.read_bytes() for p in paths} == {p.read_bytes() for p in sources}
+
+
+def test_image_filesystem_errors_return_rpc_errors(tmp_path: Path) -> None:
+    image_dir = tmp_path / 'images'
+    image_dir.write_text('not a directory')
+    controller = ControlController(RuntimeState(), image_dir=image_dir)
+    source = tmp_path / 'source.png'
+    Image.new('RGB', (8, 8), 'red').save(source)
+    response = controller.handle_request(
+        rpc.Request(command='image', params={'urls': [source.as_uri()]})
+    )
+    assert isinstance(response, ipc.Error)
+    with mock.patch('streamo.control.remove_last_image', side_effect=OSError('denied')):
+        response = controller.handle_request(rpc.Request(command='remove_last_image'))
+    assert isinstance(response, ipc.Error)
+    assert 'denied' in response.message
 
 
 def test_remove_last_image_can_be_repeated_until_directory_is_empty(

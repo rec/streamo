@@ -42,7 +42,7 @@ class ImageFeed(BaseModel, frozen=True):
             raise ValueError('image feed URL must use HTTPS')
         return value
 
-    model_config = ConfigDict(hide_input_in_errors=True)
+    model_config = ConfigDict(hide_input_in_errors=True, extra='forbid')
 
 
 class ImageFeedItem(BaseModel, frozen=True):
@@ -80,7 +80,7 @@ class ImageFeedPoller:
     def stop(self) -> None:
         self.stop_event.set()
         if self.thread is not None:
-            self.thread.join(timeout=15)
+            self.thread.join()
 
     def run(self) -> None:
         while not self.stop_event.is_set():
@@ -302,7 +302,11 @@ class ImageFrameProducer:
                 image = load_image(path, self.width, self.height)
                 self.current_path = path
                 return image
-            except (OSError, UnidentifiedImageError) as error:
+            except (
+                OSError,
+                UnidentifiedImageError,
+                Image.DecompressionBombError,
+            ) as error:
                 LOGGER.error('Could not load image %s: %s', path, error)
             path = self.scheduler.next_image()
         return None

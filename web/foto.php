@@ -98,8 +98,11 @@ function upload_image(string $dataDirectory): void
     }
     chmod($target, 0640);
     fseek($manifest, 0, SEEK_END);
+    $appendOffset = ftell($manifest);
     $record = json_encode(['id' => $id], JSON_UNESCAPED_SLASHES) . "\n";
     if (fwrite($manifest, $record) !== strlen($record) || !fflush($manifest)) {
+        ftruncate($manifest, $appendOffset);
+        fflush($manifest);
         unlink($target);
         flock($manifest, LOCK_UN);
         fclose($manifest);

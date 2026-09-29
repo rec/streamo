@@ -94,6 +94,12 @@ def test_auto_loop_default_threshold_accepts_ten() -> None:
     assert auto_loop.DEFAULT_THRESHOLD == 10.0
 
 
+def test_only_generated_suffix_counts_as_named_loop() -> None:
+    assert auto_loop.is_named_loop(Path('movie-looped.mp4'))
+    assert not auto_loop.is_named_loop(Path('unlooped.mp4'))
+    assert not auto_loop.is_named_loop(Path('looped-movie.mp4'))
+
+
 def test_auto_loop_leaves_looped_names_in_place(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

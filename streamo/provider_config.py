@@ -34,7 +34,7 @@ class AudioEncoding(BaseModel, frozen=True):
             raise ValueError('sample_rate must be positive')
         return value
 
-    model_config = ConfigDict(hide_input_in_errors=True)
+    model_config = ConfigDict(hide_input_in_errors=True, extra='forbid')
 
 
 class VideoEncoding(BaseModel, frozen=True):
@@ -57,6 +57,8 @@ class VideoEncoding(BaseModel, frozen=True):
         match = re.fullmatch(r'([1-9][0-9]*)x([1-9][0-9]*)', value.lower())
         if match is None:
             raise ValueError('resolution must contain positive WIDTHxHEIGHT values')
+        if int(match[1]) > 3840 or int(match[2]) > 2160:
+            raise ValueError('resolution must not exceed 3840x2160')
         return value
 
     @field_validator('frame_rate')
@@ -64,6 +66,8 @@ class VideoEncoding(BaseModel, frozen=True):
     def validate_frame_rate(cls, value: int) -> int:
         if value <= 0:
             raise ValueError('frame_rate must be positive')
+        if value > 60:
+            raise ValueError('frame_rate must not exceed 60')
         return value
 
     @field_validator('keyframe_interval')
@@ -73,7 +77,7 @@ class VideoEncoding(BaseModel, frozen=True):
             raise ValueError('keyframe_interval must be positive')
         return value
 
-    model_config = ConfigDict(hide_input_in_errors=True)
+    model_config = ConfigDict(hide_input_in_errors=True, extra='forbid')
 
 
 class EncodingProfile(BaseModel, frozen=True):
@@ -99,7 +103,7 @@ class EncodingProfile(BaseModel, frozen=True):
             )
         return self
 
-    model_config = ConfigDict(hide_input_in_errors=True)
+    model_config = ConfigDict(hide_input_in_errors=True, extra='forbid')
 
 
 class RtmpIngest(BaseModel, frozen=True):
@@ -131,7 +135,7 @@ class SrtIngest(BaseModel, frozen=True):
             raise ValueError('latency_ms must be positive')
         return self
 
-    model_config = ConfigDict(hide_input_in_errors=True)
+    model_config = ConfigDict(hide_input_in_errors=True, extra='forbid')
 
 
 class HlsPushIngest(BaseModel, frozen=True):
@@ -150,7 +154,7 @@ class HlsPushIngest(BaseModel, frozen=True):
             raise ValueError('segment_duration must be positive')
         return self
 
-    model_config = ConfigDict(hide_input_in_errors=True)
+    model_config = ConfigDict(hide_input_in_errors=True, extra='forbid')
 
 
 class IcecastIngest(BaseModel, frozen=True):
@@ -171,7 +175,7 @@ class IcecastIngest(BaseModel, frozen=True):
         require_secret(self.password, 'password')
         return self
 
-    model_config = ConfigDict(hide_input_in_errors=True)
+    model_config = ConfigDict(hide_input_in_errors=True, extra='forbid')
 
 
 class StreamMetadata(BaseModel, frozen=True):
@@ -186,7 +190,7 @@ class StreamMetadata(BaseModel, frozen=True):
     privacy: Literal['public', 'unlisted', 'private'] | None = None
     scheduled_start: datetime | None = None
 
-    model_config = ConfigDict(hide_input_in_errors=True)
+    model_config = ConfigDict(hide_input_in_errors=True, extra='forbid')
 
 
 class ServiceContract(BaseModel, frozen=True):
@@ -226,7 +230,7 @@ class StreamingService(BaseModel, frozen=True):
                 raise ValueError(f'{self.service} requires video encoding')
         return self
 
-    model_config = ConfigDict(hide_input_in_errors=True)
+    model_config = ConfigDict(hide_input_in_errors=True, extra='forbid')
 
 
 class TwitchService(StreamingService, frozen=True):

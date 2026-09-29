@@ -3,7 +3,9 @@ import json
 import sys
 import tempfile
 import tomllib
+from math import isfinite
 from pathlib import Path
+from subprocess import CalledProcessError
 from typing import cast
 
 import tyro
@@ -153,22 +155,28 @@ def probe_media(path: Path, still_duration: float) -> Media:
 
 
 def probe_duration(path: Path) -> float:
-    result = run_silent(
-        [
-            'ffprobe',
-            '-v',
-            'error',
-            '-select_streams',
-            'v:0',
-            '-show_entries',
-            'format=duration',
-            '-of',
-            'default=nokey=1:noprint_wrappers=1',
-            path.as_posix(),
-        ],
-        text=True,
-    )
-    return float(cast(str, result.stdout).strip())
+    try:
+        result = run_silent(
+            [
+                'ffprobe',
+                '-v',
+                'error',
+                '-select_streams',
+                'v:0',
+                '-show_entries',
+                'format=duration',
+                '-of',
+                'default=nokey=1:noprint_wrappers=1',
+                path.as_posix(),
+            ],
+            text=True,
+        )
+        duration = float(cast(str, result.stdout).strip())
+    except (CalledProcessError, OSError, ValueError):
+        sys.exit(f'{path}: could not determine video duration')
+    if not isfinite(duration) or duration <= 0:
+        sys.exit(f'{path}: video duration must be finite and positive')
+    return duration
 
 
 def print_render_schedule(config: Render, plan: RenderPlan) -> None:

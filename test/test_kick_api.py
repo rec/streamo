@@ -4,8 +4,10 @@ import tomllib
 import urllib.parse
 from pathlib import Path
 
+import pytest
 from pydantic import SecretStr
 
+from streamo import kick_api
 from streamo.kick_api import (
     KickAccessTokenProvider,
     KickApi,
@@ -180,3 +182,46 @@ def test_refresh_persists_rotated_refresh_token(tmp_path: Path) -> None:
         'client_secret': ['client-secret'],
         'refresh_token': ['old-refresh-token'],
     }
+
+
+def test_failed_token_write_keeps_rotated_token_for_retry(
+    tmp_path: Path, monkeypatch
+) -> None:
+    path = tmp_path / 'kick-auth.toml'
+    transport = FakeTransport(
+        [
+            (
+                200,
+                {
+                    'access_token': 'new-access-token',
+                    'refresh_token': 'new-refresh-token',
+                    'expires_in': 3600,
+                },
+            )
+        ]
+    )
+    provider = KickAccessTokenProvider(
+        StoredKickCredentials(
+            client_id='client-id',
+            client_secret=SecretStr('client-secret'),
+            refresh_token=SecretStr('old-refresh-token'),
+        ),
+        path,
+        transport,
+    )
+    writer = kick_api.write_private_toml
+    attempts = 0
+
+    def write(path: Path, values: dict[str, str]) -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise OSError('disk full')
+        writer(path, values)
+
+    monkeypatch.setattr(kick_api, 'write_private_toml', write)
+    with pytest.raises(kick_api.KickApiError, match='keep streamO running'):
+        provider.access_token()
+    assert provider.access_token() == 'new-access-token'
+    assert tomllib.loads(path.read_text())['refresh_token'] == 'new-refresh-token'
+    assert len(transport.requests) == 1

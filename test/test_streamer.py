@@ -24,6 +24,7 @@ from streamo.providers import ingest_output
 from streamo.runtime import RuntimeState
 from streamo.streamer import (
     LocalDisplayController,
+    OverlayWorkerError,
     drm_connected,
     ffplay_command,
     local_ffplay_command,
@@ -197,19 +198,21 @@ def test_process_diagnostic_command_redacts_output_secret() -> None:
 
 def test_preview_is_cleaned_up_when_command_building_fails() -> None:
     player = mock.Mock()
+    controller = ControlController(RuntimeState())
     with (
         mock.patch.object(streamer.subprocess, 'Popen', return_value=player),
         mock.patch.object(streamer, 'ffmpeg_command', side_effect=ValueError('bad')),
         mock.patch.object(streamer.process, 'terminate') as terminate,
-        pytest.raises(ValueError, match='bad'),
     ):
-        streamer.stream(
+        result = streamer.stream(
             _config(),
-            ControlController(RuntimeState()),
+            controller,
             mock.Mock(),
             initial_image_paths=set(),
             preview=True,
         )
+    assert result == 1
+    assert controller.state.snapshot()['state'] == 'failed'
     terminate.assert_called_once_with(player)
     player.stdin.close.assert_called_once()
 
@@ -217,14 +220,80 @@ def test_preview_is_cleaned_up_when_command_building_fails() -> None:
 def test_service_cleanup_runs_if_preparation_fails() -> None:
     service = mock.Mock()
     service.prepare.side_effect = ValueError('bad preparation')
-    with pytest.raises(ValueError, match='bad preparation'):
-        streamer.stream(
-            _config(),
-            ControlController(RuntimeState()),
-            service,
-            initial_image_paths=set(),
-        )
+    controller = ControlController(RuntimeState())
+    result = streamer.stream(
+        _config(),
+        controller,
+        service,
+        initial_image_paths=set(),
+    )
+    assert result == 1
+    assert controller.state.snapshot()['state'] == 'failed'
+    assert controller.state.events_since(0)['events']
     service.finish.assert_called_once()
+
+
+def test_dead_overlay_worker_fails_attempt_without_waiting_for_ffmpeg(
+    tmp_path: Path,
+) -> None:
+    config = _config().model_copy(update={'live_overlays': True})
+    controller = ControlController(RuntimeState())
+    producer = streamer.LiveOverlays(config, set())
+    with (tmp_path / 'audio.pipe').open('wb') as audio_pipe:
+        ffmpeg = mock.Mock(stdin=audio_pipe, stderr=None)
+        ffmpeg.poll.return_value = None
+        dead_thread = mock.Mock()
+        dead_thread.is_alive.return_value = False
+        with (
+            mock.patch.object(streamer.subprocess, 'Popen', return_value=ffmpeg),
+            mock.patch.object(streamer.threading, 'Thread', return_value=dead_thread),
+            mock.patch.object(streamer, 'close_encoder'),
+            pytest.raises(OverlayWorkerError, match='Overlay worker stopped'),
+        ):
+            streamer.run_attempt(
+                config,
+                controller,
+                mock.Mock(),
+                mock.Mock(),
+                producer,
+                None,
+                None,
+                None,
+                lambda: None,
+            )
+
+
+def test_overlay_worker_failure_is_reported_in_status() -> None:
+    config = _config().model_copy(update={'local_display': False})
+    controller = ControlController(RuntimeState())
+    service = providers.adapter_for(config.streaming_service)
+    with mock.patch.object(
+        streamer, 'run_attempt', side_effect=OverlayWorkerError('worker died')
+    ):
+        result = streamer.stream(config, controller, service, initial_image_paths=set())
+    assert result == 1
+    assert controller.state.snapshot()['state'] == 'failed'
+    assert controller.state.snapshot()['publish_error'] == 'worker died'
+
+
+def test_non_linux_local_display_limitation_is_reported() -> None:
+    config = _config()
+    controller = ControlController(RuntimeState())
+    service = providers.adapter_for(config.streaming_service)
+    with (
+        mock.patch.object(streamer.sys, 'platform', 'darwin'),
+        mock.patch.object(
+            streamer, 'run_attempt', side_effect=OverlayWorkerError('worker died')
+        ),
+    ):
+        streamer.stream(config, controller, service, initial_image_paths=set())
+    display = controller.state.snapshot()['local_display']
+    assert display == {
+        'requested': True,
+        'connected': False,
+        'playing': False,
+        'error': 'Automatic local display requires Linux DRM',
+    }
 
 
 def test_local_ffplay_command_uses_fullscreen_silent_mpegts() -> None:
@@ -354,7 +423,8 @@ def test_local_display_follows_connector_transitions(
         return player
 
     monkeypatch.setattr(streamer.subprocess, 'Popen', popen)
-    display = LocalDisplayController(tmp_path)
+    state = RuntimeState()
+    display = LocalDisplayController(state, tmp_path)
 
     display.update()
     status.write_text('connected\n')
@@ -371,6 +441,7 @@ def test_local_display_follows_connector_transitions(
     assert players[1].terminated
     assert calls[0]['command'] == local_ffplay_command()
     assert calls[0]['env'] == {**streamer.os.environ, 'SDL_VIDEODRIVER': 'KMSDRM'}
+    assert state.snapshot()['local_display']['playing'] is False
 
 
 def test_local_display_restarts_after_delay_without_connector_transition(
@@ -387,12 +458,14 @@ def test_local_display_restarts_after_delay_without_connector_transition(
         'Popen',
         lambda *args, **kwargs: players.append(FakePlayer()) or players[-1],
     )
-    display = LocalDisplayController(tmp_path)
+    state = RuntimeState()
+    display = LocalDisplayController(state, tmp_path)
 
     display.update()
     players[0].returncode = 1
     display.update()
     assert len(players) == 1
+    assert state.snapshot()['local_display']['error'] == 'Local display player exited'
     now = 104.99
     display.update()
     assert len(players) == 1
@@ -416,9 +489,11 @@ def test_local_display_ignores_player_launch_failure(
         raise OSError('no DRM device')
 
     monkeypatch.setattr(streamer.subprocess, 'Popen', popen)
-    display = LocalDisplayController(tmp_path)
+    state = RuntimeState()
+    display = LocalDisplayController(state, tmp_path)
 
     display.update()
+    assert 'Could not start' in state.snapshot()['local_display']['error']
     status.write_text('disconnected\n')
     display.update()
     status.write_text('connected\n')

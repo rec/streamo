@@ -1,5 +1,6 @@
 import json
 
+import pytest
 from pydantic import SecretStr
 
 from streamo.provider_config import (
@@ -10,7 +11,7 @@ from streamo.provider_config import (
     VideoEncoding,
     YouTubeService,
 )
-from streamo.youtube_api import YouTubeApi, YouTubeRequest
+from streamo.youtube_api import YouTubeApi, YouTubeApiError, YouTubeRequest
 
 
 class FakeTokens:
@@ -93,6 +94,12 @@ def test_request_refreshes_once_after_unauthorized() -> None:
     assert tokens.requests == [False, True]
     assert transport.requests[0].headers['Authorization'] == 'Bearer access-token'
     assert transport.requests[1].headers['Authorization'] == 'Bearer refreshed-token'
+
+
+def test_malformed_success_response_is_api_error() -> None:
+    api = YouTubeApi(tokens=FakeTokens(), transport=lambda request: (200, b'{'))
+    with pytest.raises(YouTubeApiError, match='invalid JSON'):
+        api.request('GET', 'liveStreams')
 
 
 def test_prepare_updates_binds_and_returns_api_ingest() -> None:

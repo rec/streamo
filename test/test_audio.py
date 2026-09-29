@@ -26,7 +26,7 @@ def test_stalled_output_drops_old_audio_and_recovers(tmp_path: Path) -> None:
             except BlockingIOError:
                 break
         audio.last_write = time.monotonic() - 2
-        block = np.full((1024, 3), 0.25, dtype=np.float32)
+        block = np.full((1024, 3), -0.5, dtype=np.float32)
         for _ in range(100):
             audio.callback(block, len(block), None, '')
         audio.update()
@@ -34,6 +34,8 @@ def test_stalled_output_drops_old_audio_and_recovers(tmp_path: Path) -> None:
         assert state.snapshot()['audio_error'] is not None
         while source.read(65536):
             pass
+        block = np.full((1024, 3), 0.25, dtype=np.float32)
+        audio.callback(block, len(block), None, '')
         audio.update()
         assert state.snapshot()['audio_error'] is None
         assert state.snapshot()['audio_last_error'] is not None

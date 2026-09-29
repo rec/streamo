@@ -3,7 +3,7 @@ import time
 from collections import deque
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .providers import StreamingServiceAdapter, endpoint_host
 
@@ -13,6 +13,8 @@ class HealthWarnings(BaseModel, frozen=True):
     silence_level_db: float = Field(default=-60, ge=-120, le=0, allow_inf_nan=False)
     clipping_seconds: float = Field(default=2, ge=0, allow_inf_nan=False)
     output_stall_seconds: float = Field(default=10, ge=0, allow_inf_nan=False)
+
+    model_config = ConfigDict(extra='forbid')
 
 
 class Incident(BaseModel, frozen=True):
@@ -45,6 +47,12 @@ class RuntimeState:
         self.remote_health: dict[str, object] | None = None
         self.remote_health_error: str | None = None
         self.remote_health_updated_at: float | None = None
+        self.local_display: dict[str, object] = {
+            'requested': False,
+            'connected': False,
+            'playing': False,
+            'error': None,
+        }
         self.audio_error: str | None = None
         self.audio_dropped_frames = 0
         self.audio_error_count = 0
@@ -106,6 +114,24 @@ class RuntimeState:
                 'remote_health': (
                     None if self.remote_health is None else dict(self.remote_health)
                 ),
+                'local_display': dict(self.local_display),
+            }
+
+    def set_local_display(
+        self, *, requested: bool, connected: bool, playing: bool, error: str | None
+    ) -> None:
+        with self._lock:
+            if error != self.local_display['error']:
+                self._event(
+                    'local_display',
+                    error is not None,
+                    error or 'Local display recovered',
+                )
+            self.local_display = {
+                'requested': requested,
+                'connected': connected,
+                'playing': playing,
+                'error': error,
             }
 
     def configure_service(self, adapter: StreamingServiceAdapter) -> None:

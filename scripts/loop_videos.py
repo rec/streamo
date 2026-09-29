@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 from pathlib import Path
+from subprocess import CalledProcessError
 from typing import Annotated, cast
 
 import tyro
@@ -41,23 +42,29 @@ def looped_path(video: Path) -> Path:
 
 
 def count_frames(video: Path) -> int:
-    result = run_silent(
-        [
-            'ffprobe',
-            '-v',
-            'error',
-            '-select_streams',
-            'v:0',
-            '-count_frames',
-            '-show_entries',
-            'stream=nb_read_frames',
-            '-of',
-            'default=nokey=1:noprint_wrappers=1',
-            video.as_posix(),
-        ],
-        text=True,
-    )
-    return int(cast(str, result.stdout).strip())
+    try:
+        result = run_silent(
+            [
+                'ffprobe',
+                '-v',
+                'error',
+                '-select_streams',
+                'v:0',
+                '-count_frames',
+                '-show_entries',
+                'stream=nb_read_frames',
+                '-of',
+                'default=nokey=1:noprint_wrappers=1',
+                video.as_posix(),
+            ],
+            text=True,
+        )
+        count = int(cast(str, result.stdout).strip())
+    except (CalledProcessError, OSError, ValueError):
+        sys.exit(f'{video}: could not determine video frame count')
+    if count <= 0:
+        sys.exit(f'{video}: video frame count must be positive')
+    return count
 
 
 def ffmpeg_command(video: Path, output: Path, frame_count: int) -> list[str]:

@@ -268,7 +268,10 @@ class YouTubeApi:
                 raise YouTubeApiError(youtube_error(status, data))
             if not data:
                 return {}
-            result = json.loads(data)
+            try:
+                result = json.loads(data)
+            except (UnicodeDecodeError, json.JSONDecodeError) as error:
+                raise YouTubeApiError('YouTube API returned invalid JSON') from error
             if not isinstance(result, dict):
                 raise YouTubeApiError('YouTube API response was not an object')
             return result

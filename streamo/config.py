@@ -119,6 +119,9 @@ class Streamo(Reccy, frozen=True):
             raise ValueError(
                 'video_resolution must contain positive WIDTHxHEIGHT values'
             )
+        width, height = (int(p) for p in value.lower().split('x'))
+        if width > 1920 or height > 1080:
+            raise ValueError('video_resolution must not exceed 1920x1080')
         return value.lower()
 
     def rpc_response(self, request: rpc.Request) -> rpc.Result:
@@ -144,6 +147,14 @@ class Streamo(Reccy, frozen=True):
         if value <= 0:
             raise ValueError('must be positive')
         return value
+
+    @model_validator(mode='after')
+    def validate_resource_limits(self) -> Self:
+        if self.sample_rate > 192_000:
+            raise ValueError('sample_rate must not exceed 192000')
+        if self.video_frame_rate > 60:
+            raise ValueError('video_frame_rate must not exceed 60')
+        return self
 
     @field_validator('current_session_image_weight')
     @classmethod
@@ -233,7 +244,7 @@ class Streamo(Reccy, frozen=True):
     def required_channels(self) -> int:
         return self.channel + 1
 
-    model_config = ConfigDict(hide_input_in_errors=True)
+    model_config = ConfigDict(hide_input_in_errors=True, extra='forbid')
 
 
 def parse_image_dir_weights(value: str | list[int]) -> list[int]:

@@ -168,6 +168,24 @@ def test_missing_image_directory_warns_without_creating_it(
     assert not directory.parent.exists()
 
 
+def test_secondary_image_directory_must_be_readable_directory(
+    config: Streamo, tmp_path: Path
+) -> None:
+    primary = tmp_path / 'primary'
+    primary.mkdir()
+    secondary = tmp_path / 'secondary'
+    configured = config.model_copy(
+        update={'image_dir': [primary, secondary], 'image_interval': 20}
+    )
+    result = preflight.check_storage(configured)
+    assert result.status == 'fail'
+    assert str(secondary) in result.detail
+    secondary.write_text('not a directory')
+    result = preflight.check_storage(configured)
+    assert result.status == 'fail'
+    assert 'not a directory' in result.detail
+
+
 def test_media_without_video_stream_fails(config: Streamo, tmp_path: Path) -> None:
     encoding = config.streaming_service.encoding.model_copy(
         update={

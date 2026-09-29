@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import sys
+from math import isfinite
 from pathlib import Path
+from subprocess import CalledProcessError
 from typing import Annotated, cast
 
 import tyro
@@ -112,20 +114,26 @@ def target_bitrate_kbps(
 
 
 def duration(video: Path) -> float:
-    result = run_silent(
-        [
-            'ffprobe',
-            '-v',
-            'error',
-            '-show_entries',
-            'format=duration',
-            '-of',
-            'default=nokey=1:noprint_wrappers=1',
-            video.as_posix(),
-        ],
-        text=True,
-    )
-    return float(cast(str, result.stdout).strip())
+    try:
+        result = run_silent(
+            [
+                'ffprobe',
+                '-v',
+                'error',
+                '-show_entries',
+                'format=duration',
+                '-of',
+                'default=nokey=1:noprint_wrappers=1',
+                video.as_posix(),
+            ],
+            text=True,
+        )
+        seconds = float(cast(str, result.stdout).strip())
+    except (CalledProcessError, OSError, ValueError):
+        sys.exit(f'{video}: could not determine video duration')
+    if not isfinite(seconds) or seconds <= 0:
+        sys.exit(f'{video}: video duration must be finite and positive')
+    return seconds
 
 
 if __name__ == '__main__':

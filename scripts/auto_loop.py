@@ -2,6 +2,7 @@
 import shutil
 import sys
 from pathlib import Path
+from subprocess import CalledProcessError
 from typing import Annotated, cast
 
 import numpy as np
@@ -53,12 +54,12 @@ def auto_loop(video: Path, *, threshold: float = DEFAULT_THRESHOLD) -> None:
 
 
 def is_named_loop(video: Path) -> bool:
-    return 'looped' in video.name.lower()
+    return video.stem.lower().endswith('-looped')
 
 
 def endpoint_difference(video: Path) -> float:
-    first = frame_sample(first_frame_command(video))
-    last = frame_sample(last_frame_command(video))
+    first = frame_sample(first_frame_command(video), video)
+    last = frame_sample(last_frame_command(video), video)
     return mean_difference(first, last)
 
 
@@ -90,10 +91,16 @@ def frame_command(video: Path, *, seek_from_end: bool) -> list[str]:
     return command
 
 
-def frame_sample(command: list[str]) -> np.ndarray:
-    data = cast(bytes, run_silent(command).stdout)
+def frame_sample(command: list[str], video: Path) -> np.ndarray:
+    try:
+        data = cast(bytes, run_silent(command).stdout)
+    except (CalledProcessError, OSError):
+        sys.exit(f'{video}: could not decode an endpoint frame')
     if len(data) != FRAME_BYTE_COUNT:
-        sys.exit(f'Expected {FRAME_BYTE_COUNT} frame bytes, got {len(data)}')
+        sys.exit(
+            f'{video}: expected {FRAME_BYTE_COUNT} endpoint frame bytes, '
+            f'got {len(data)}'
+        )
     return np.frombuffer(data, dtype=np.uint8).reshape(
         (FRAME_SIZE, FRAME_SIZE, FRAME_CHANNELS)
     )

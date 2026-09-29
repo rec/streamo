@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import secrets
+import time
 import urllib.parse
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -58,23 +59,26 @@ class KickCallbackServer(HTTPServer):
 class KickCallbackHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         server = cast(KickCallbackServer, self.server)
-        query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+        url = urllib.parse.urlsplit(self.path)
+        query = urllib.parse.parse_qs(url.query)
         state = first_query_value(query, 'state')
-        if state != server.expected_state:
-            server.error = 'Kick authorization returned an invalid state'
+        if url.path != '/' or state != server.expected_state:
+            message = 'This request is not the expected Kick authorization callback.'
+            status = 400
         elif error := first_query_value(query, 'error'):
             server.error = f'Kick authorization failed: {error}'
+            message = server.error
+            status = 400
         elif code := first_query_value(query, 'code'):
             server.code = code
+            message = 'Kick authorization complete. You can close this window.'
+            status = 200
         else:
             server.error = 'Kick authorization returned no code'
-        message = (
-            'Kick authorization complete. You can close this window.'
-            if server.error is None
-            else server.error
-        )
+            message = server.error
+            status = 400
         body = message.encode()
-        self.send_response(200 if server.error is None else 400)
+        self.send_response(status)
         self.send_header('Content-Type', 'text/plain; charset=utf-8')
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
@@ -174,11 +178,18 @@ def receive_kick_code(
     server.expected_state = state
     server.code = None
     server.error = None
+    deadline = time.monotonic() + 300
     try:
         print(f'Open this URL to authorize streamO:\n\n{authorization_url}\n')
         if open_browser:
             webbrowser.open(authorization_url)
-        server.handle_request()
+        while server.code is None and server.error is None:
+            if (remaining := deadline - time.monotonic()) <= 0:
+                raise ValueError('Kick authorization timed out after 5 minutes')
+            server.timeout = min(1, remaining)
+            server.handle_request()
+    except KeyboardInterrupt:
+        raise SystemExit('Kick authorization interrupted') from None
     finally:
         server.server_close()
     if server.error is not None:

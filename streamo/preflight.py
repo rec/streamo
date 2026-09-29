@@ -304,28 +304,39 @@ def check_storage(config: Streamo) -> Check:
         return Check(
             name='image_storage', status='skipped', detail='Participant images disabled'
         )
-    directory = config.primary_image_dir
-    while not directory.exists() and directory != directory.parent:
-        directory = directory.parent
-    try:
-        with tempfile.TemporaryFile(dir=directory):
-            pass
-    except OSError as error:
-        return Check(
-            name='image_storage',
-            status='fail',
-            detail=f'Cannot write image storage ({type(error).__name__})',
-        )
-    if directory != config.primary_image_dir:
-        return Check(
-            name='image_storage',
-            status='warning',
-            detail=(
-                f'{config.primary_image_dir} does not exist; '
-                f'ancestor {directory} is writable'
-            ),
-        )
-    return Check(name='image_storage', status='pass', detail=f'{directory} is writable')
+    failures: list[str] = []
+    warnings: list[str] = []
+    for index, image_dir in enumerate(config.image_dir):
+        if not image_dir.exists():
+            if index:
+                failures.append(f'{image_dir} does not exist')
+                continue
+            directory = image_dir
+            while not directory.exists() and directory != directory.parent:
+                directory = directory.parent
+            warnings.append(f'{image_dir} does not exist; checking {directory}')
+        else:
+            directory = image_dir
+        if not directory.is_dir():
+            failures.append(f'{directory} is not a directory')
+            continue
+        try:
+            with os.scandir(directory) as entries:
+                next(entries, None)
+            if index == 0:
+                with tempfile.TemporaryFile(dir=directory):
+                    pass
+        except OSError as error:
+            failures.append(f'{directory}: {type(error).__name__}')
+    if failures:
+        return Check(name='image_storage', status='fail', detail='; '.join(failures))
+    if warnings:
+        return Check(name='image_storage', status='warning', detail='; '.join(warnings))
+    return Check(
+        name='image_storage',
+        status='pass',
+        detail=f'{len(config.image_dir)} image directories available',
+    )
 
 
 def check_display(config: Streamo) -> list[Check]:

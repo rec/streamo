@@ -132,6 +132,7 @@ class AudioCapture:
             except BlockingIOError:
                 if now - self.last_write > 1:
                     self.error = 'FFmpeg audio input stalled; discarding old audio'
+                    self.attach_output(self.output)
             except OSError:
                 self.error = 'FFmpeg audio input closed'
             else:

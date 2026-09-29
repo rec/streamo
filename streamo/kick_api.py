@@ -98,10 +98,13 @@ class KickAccessTokenProvider:
         self.transport = transport
         self.token: str | None = None
         self.expires_at = 0.0
+        self.persist_pending = False
         self.lock = threading.Lock()
 
     def access_token(self, *, force_refresh: bool = False) -> str:
         with self.lock:
+            if self.persist_pending:
+                self.persist_credentials()
             if (
                 force_refresh
                 or self.token is None
@@ -126,17 +129,28 @@ class KickAccessTokenProvider:
             client_secret=self.credentials.client_secret,
             refresh_token=token.refresh_token,
         )
-        write_private_toml(
-            self.path,
-            {
-                'client_id': credentials.client_id,
-                'client_secret': credentials.client_secret.get_secret_value(),
-                'refresh_token': credentials.refresh_token.get_secret_value(),
-            },
-        )
         self.credentials = credentials
         self.token = token.access_token.get_secret_value()
         self.expires_at = time.monotonic() + max(token.expires_in - 60, 0)
+        self.persist_pending = True
+        self.persist_credentials()
+
+    def persist_credentials(self) -> None:
+        try:
+            write_private_toml(
+                self.path,
+                {
+                    'client_id': self.credentials.client_id,
+                    'client_secret': self.credentials.client_secret.get_secret_value(),
+                    'refresh_token': self.credentials.refresh_token.get_secret_value(),
+                },
+            )
+        except OSError as error:
+            raise KickApiError(
+                'Kick rotated its token but credentials could not be saved; '
+                'keep streamO running, restore writable storage, then retry'
+            ) from error
+        self.persist_pending = False
 
 
 @dataclass

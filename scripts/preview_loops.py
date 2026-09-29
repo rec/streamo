@@ -2,7 +2,9 @@
 import shutil
 import sys
 import tempfile
+from math import isfinite
 from pathlib import Path
+from subprocess import CalledProcessError
 from typing import Annotated, cast
 
 import tyro
@@ -15,7 +17,7 @@ from . import loop_videos
 class PreviewLoops(BaseModel, frozen=True):
     """Preview loop boundaries; accept into loops/ and archive converted sources.
 
-    Files named with 'looped' move directly to loops/ without a preview.
+    Files with a -looped suffix move directly to loops/ without a preview.
     """
 
     videos: Annotated[list[Path], tyro.conf.Positional]
@@ -44,7 +46,13 @@ def preview_loop(video: Path) -> None:
             print(f'{video} [r=replay, l=loop, m=mark as looping, return=skip]')
             print(f'Playing preview for {video}...')
             play_preview(playback)
-            answer = input('> ').strip().lower()
+            try:
+                answer = input('> ').strip().lower()
+            except EOFError:
+                print(f'Leaving skipped file in place: {video}')
+                return
+            except KeyboardInterrupt:
+                sys.exit('\nPreview interrupted')
             if answer == 'r':
                 continue
             if answer == 'l':
@@ -64,7 +72,7 @@ def preview_loop(video: Path) -> None:
 
 
 def is_named_loop(video: Path) -> bool:
-    return 'looped' in video.name.lower()
+    return video.stem.lower().endswith('-looped')
 
 
 def loops_directory(video: Path) -> Path:
@@ -149,20 +157,26 @@ def preview_command(video: Path) -> list[str]:
 
 
 def duration(video: Path) -> float:
-    result = run_silent(
-        [
-            'ffprobe',
-            '-v',
-            'error',
-            '-show_entries',
-            'format=duration',
-            '-of',
-            'default=nokey=1:noprint_wrappers=1',
-            video.as_posix(),
-        ],
-        text=True,
-    )
-    return float(cast(str, result.stdout).strip())
+    try:
+        result = run_silent(
+            [
+                'ffprobe',
+                '-v',
+                'error',
+                '-show_entries',
+                'format=duration',
+                '-of',
+                'default=nokey=1:noprint_wrappers=1',
+                video.as_posix(),
+            ],
+            text=True,
+        )
+        seconds = float(cast(str, result.stdout).strip())
+    except (CalledProcessError, OSError, ValueError):
+        sys.exit(f'{video}: could not determine video duration')
+    if not isfinite(seconds) or seconds <= 0:
+        sys.exit(f'{video}: video duration must be finite and positive')
+    return seconds
 
 
 def accept_loop(video: Path, preview: Path) -> None:

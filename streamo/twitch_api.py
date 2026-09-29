@@ -203,7 +203,10 @@ class TwitchApi:
             )
         if status == 204 or not response:
             return {}
-        parsed = json.loads(response)
+        try:
+            parsed = json.loads(response)
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise TwitchApiError('Twitch API returned invalid JSON') from error
         if not isinstance(parsed, dict):
             raise TwitchApiError('Twitch API response was not an object')
         return parsed

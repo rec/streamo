@@ -103,10 +103,10 @@ be finite, and working dimensions must be positive.
 
 | Field | Default | Purpose |
 | --- | --- | --- |
-| `sample_rate` | `48000` | Audio capture sample rate |
+| `sample_rate` | `48000` | Audio capture sample rate, up to 192000 Hz |
 | `video` | none | Looping visual-bed file |
-| `video_resolution` | `"640x360"` | Overlay working resolution |
-| `video_frame_rate` | `10` | Overlay working frame rate |
+| `video_resolution` | `"640x360"` | Overlay working resolution, up to 1920x1080 |
+| `video_frame_rate` | `10` | Overlay working frame rate, up to 60 fps |
 | `live_overlays` | `true` | Enable titles, participant images and slate; startup-only |
 | `title_card` | none | Title-card image |
 | `title_interval` | `180.0` | Seconds between title-card appearances |
@@ -123,6 +123,7 @@ be finite, and working dimensions must be positive.
 
 An encoding profile always states its container, audio encoding, and, for video
 streams, video encoding. Audio codecs are `aac`, `mp3`, `opus`, and `vorbis`.
+Encoded video is limited to 3840x2160 at 60 fps.
 Video codecs are `h264`, `hevc`, and `av1`. Valid audio/container pairs are
 AAC/ADTS, AAC or MP3/FLV, MP3/MP3, AAC, MP3, or Opus/MPEG-TS, and Opus or
 Vorbis/Ogg. `pixel_format` defaults to `"yuv420p"`.
@@ -226,7 +227,9 @@ the remote stream. It is ignored for audio-only streams. On a Pi, the service
 account normally needs access to `/dev/dri`, usually through the `video` group.
 The player uses SDL KMSDRM without a desktop session and receives the already
 encoded program over loopback-only MPEG-TS. A failed player retries after five
-seconds while HDMI remains connected; its failure is logged. Inspect the service
+seconds while HDMI remains connected; `status.local_display` reports whether it
+is requested, connected, playing, or failing. On non-Linux hosts it reports that
+automatic display requires Linux DRM. Inspect the service
 with `systemctl cat streamo` and device permissions with `ls -l /dev/dri`. Confirm
 the actual FFplay build and HDMI hot-plug behaviour on the target.
 
@@ -269,6 +272,7 @@ the service, a secret-free ingest hostname, adapter capabilities, and
 request. Health refreshes every 30 seconds, with `remote_health_error` and
 `remote_health_updated_at` (Unix seconds) distinguishing failures and stale data.
 Adapters without a health API report `null`.
+`local_display.error` also creates an incident when player playback fails.
 
 `audio_error` reports a current problem; `audio_last_error`, `audio_error_count`,
 and `audio_dropped_frames` retain the history after recovery. Capture retries

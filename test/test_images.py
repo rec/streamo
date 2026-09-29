@@ -1,5 +1,6 @@
 import io
 import random
+import threading
 from collections.abc import Callable, MutableSequence
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
@@ -24,6 +25,59 @@ class NoShuffleRandom(random.Random):
         random: Callable[[], float] | None = None,
     ) -> None:
         pass
+
+
+def test_feed_stop_waits_for_inflight_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    feed = ImageFeed(url='https://example.test/foto.php', token='x' * 20)
+    poller = ImageFeedPoller(feed, tmp_path)
+    entered = threading.Event()
+    release = threading.Event()
+
+    def poll() -> list[Path]:
+        entered.set()
+        assert release.wait(5)
+        return []
+
+    monkeypatch.setattr(poller, 'poll', poll)
+    poller.start()
+    assert entered.wait(5)
+    stopped = threading.Event()
+    closer = threading.Thread(target=lambda: (poller.stop(), stopped.set()))
+    closer.start()
+    assert not stopped.wait(0.05)
+    release.set()
+    assert stopped.wait(5)
+    closer.join()
+
+
+def test_invalid_oversized_image_is_skipped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bad = tmp_path / 'bad.png'
+    good = tmp_path / 'good.png'
+    bad.touch()
+    good.touch()
+    scheduler = ImageScheduler(tmp_path, NoShuffleRandom(), initial_paths=set())
+    producer = ImageFrameProducer(
+        scheduler,
+        width=16,
+        height=16,
+        frame_rate=10,
+        interval=2,
+        duration=1,
+        fade=0,
+    )
+
+    def load(path: Path, width: int, height: int) -> np.ndarray:
+        if path == bad:
+            raise Image.DecompressionBombError('oversized')
+        return np.zeros((height, width, 4), dtype=np.uint8)
+
+    monkeypatch.setattr(streamo.images, 'load_image', load)
+    assert producer.next_frame_image() is not None
+    assert producer.current_path == good
 
 
 def test_scheduler_shows_every_image_before_repeating(tmp_path: Path) -> None:

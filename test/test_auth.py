@@ -1,14 +1,74 @@
 import base64
 import hashlib
+import io
 import stat
 import tomllib
 import urllib.parse
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
+import pytest
 from pydantic import SecretStr
 
 from streamo import __main__, auth, kick_api
+
+
+def test_kick_callback_rejects_wrong_state_without_ending_attempt() -> None:
+    handler = object.__new__(auth.KickCallbackHandler)
+    server = SimpleNamespace(expected_state='expected', code=None, error=None)
+    handler.server = server
+    handler.path = '/?state=wrong&code=unwanted'
+    handler.wfile = io.BytesIO()
+    responses: list[int] = []
+    handler.send_response = responses.append
+    handler.send_header = lambda name, value: None
+    handler.end_headers = lambda: None
+
+    handler.do_GET()
+
+    assert responses == [400]
+    assert server.code is None
+    assert server.error is None
+
+
+def test_kick_callback_timeout_closes_server(monkeypatch: pytest.MonkeyPatch) -> None:
+    servers: list[object] = []
+
+    class FakeServer:
+        def __init__(self, address: object, handler: object) -> None:
+            self.code: str | None = None
+            self.error: str | None = None
+            self.closed = False
+            servers.append(self)
+
+        def handle_request(self) -> None:
+            pass
+
+        def server_close(self) -> None:
+            self.closed = True
+
+    monkeypatch.setattr(auth, 'KickCallbackServer', FakeServer)
+    ticks = iter((0.0, 301.0))
+    monkeypatch.setattr(auth.time, 'monotonic', lambda: next(ticks))
+    with pytest.raises(ValueError, match='timed out'):
+        auth.receive_kick_code(
+            'https://example.test/auth', 'state', callback_port=0, open_browser=False
+        )
+    assert servers[0].closed
+
+
+def test_kick_callback_interrupt_closes_server(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    server = mock.Mock(code=None, error=None)
+    server.handle_request.side_effect = KeyboardInterrupt
+    monkeypatch.setattr(auth, 'KickCallbackServer', lambda address, handler: server)
+    with pytest.raises(SystemExit, match='interrupted'):
+        auth.receive_kick_code(
+            'https://example.test/auth', 'state', callback_port=0, open_browser=False
+        )
+    server.server_close.assert_called_once()
 
 
 class FakeFlow:

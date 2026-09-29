@@ -1,6 +1,7 @@
 import errno
 import os
 import subprocess
+import sys
 import threading
 import time
 from collections.abc import Callable
@@ -25,6 +26,7 @@ from .ffmpeg_progress import update_progress
 from .overlays import LiveOverlays, write_overlay_frames
 from .provider_config import StreamingServiceConfiguration
 from .providers import FfmpegOutput, StreamingServiceAdapter, tee_escape
+from .runtime import RuntimeState
 
 LOGGER = get_logger(__name__)
 DRM_STATUS_ROOT = Path('/sys/class/drm')
@@ -33,9 +35,13 @@ PLAYER_SHUTDOWN_TIMEOUT = 5.0
 
 
 class LocalDisplayController:
-    def __init__(self, status_root: Path = DRM_STATUS_ROOT) -> None:
+    def __init__(
+        self, state: RuntimeState, status_root: Path = DRM_STATUS_ROOT
+    ) -> None:
+        self.state = state
         self.status_root = status_root
         self.connected = False
+        self.error: str | None = None
         self.player: subprocess.Popen[bytes] | None = None
         self.retry = RetrySchedule(RetryPolicy(delay=5), clock=time.monotonic)
         self.player_output: process.OutputTail | None = None
@@ -47,6 +53,7 @@ class LocalDisplayController:
                 self.player_output.text() if self.player_output else '',
             )
             self.player = None
+            self.error = 'Local display player exited'
             self.retry.failed()
         connected = drm_connected(self.status_root)
         if connected != self.connected:
@@ -56,11 +63,21 @@ class LocalDisplayController:
             self.start_player()
         elif not connected:
             self.stop_player()
+            self.error = None
+        self.state.set_local_display(
+            requested=True,
+            connected=self.connected,
+            playing=self.player is not None,
+            error=self.error,
+        )
 
     def close(self) -> None:
         self.connected = False
         self.stop_player()
         self.retry.cancel()
+        self.state.set_local_display(
+            requested=True, connected=False, playing=False, error=self.error
+        )
 
     def start_player(self) -> None:
         if self.player is not None or not self.retry.begin_attempt():
@@ -74,8 +91,12 @@ class LocalDisplayController:
                 env={**os.environ, 'SDL_VIDEODRIVER': 'KMSDRM'},
             )
             self.player_output = process.capture_stderr(self.player)
+            self.error = None
         except OSError as error:
             LOGGER.error('Could not start local display player: %s', error)
+            self.error = (
+                f'Could not start local display player ({type(error).__name__})'
+            )
             self.retry.failed()
 
     def stop_player(self) -> None:
@@ -105,6 +126,19 @@ def stream(
     recover = config.recover_publish and not preview
     retry: RetrySchedule | None = None
     state.set_publish_requested(not preview)
+    display_requested = (
+        not preview
+        and config.local_display
+        and config.streaming_service.encoding.video is not None
+    )
+    state.set_local_display(
+        requested=display_requested,
+        connected=False,
+        playing=False,
+        error='Automatic local display requires Linux DRM'
+        if display_requested and sys.platform != 'linux'
+        else None,
+    )
     try:
         with ExitStack() as resources:
             producer = (
@@ -138,8 +172,9 @@ def stream(
                 not preview
                 and config.local_display
                 and config.streaming_service.encoding.video
+                and sys.platform == 'linux'
             ):
-                local_display = LocalDisplayController()
+                local_display = LocalDisplayController(state)
                 resources.callback(local_display.close)
             published = False
 
@@ -211,6 +246,14 @@ def stream(
             return 0
     except KeyboardInterrupt:
         return 0
+    except (OSError, RuntimeError, ValueError) as error:
+        message = (
+            str(error)
+            if isinstance(error, OverlayWorkerError)
+            else f'Stream failed ({type(error).__name__})'
+        )
+        state.publish_failed(message, None)
+        return 1
     finally:
         if retry is not None:
             retry.cancel()
@@ -221,6 +264,10 @@ def stream(
 
 
 class EncoderLaunchError(OSError):
+    pass
+
+
+class OverlayWorkerError(RuntimeError):
     pass
 
 
@@ -267,6 +314,7 @@ def run_attempt(
         assert ffmpeg.stdin is not None
         audio.attach_output(ffmpeg.stdin)
         resources.callback(audio.attach_output, None)
+        image_thread = None
         if image_stream is not None and producer is not None:
             image_thread = threading.Thread(
                 target=write_overlay_frames,
@@ -294,6 +342,8 @@ def run_attempt(
         started()
         next_display_poll = 0.0
         while ffmpeg.poll() is None:
+            if image_thread is not None and not image_thread.is_alive():
+                raise OverlayWorkerError('Overlay worker stopped while FFmpeg is alive')
             if should_stop(controller) or (
                 preview_process is not None and preview_process.poll() is not None
             ):
