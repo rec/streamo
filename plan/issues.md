@@ -15,14 +15,6 @@ captures complete subprocess output. FFmpeg stderr can grow with a long job.
 Bound diagnostics after measuring a representative long render and failure.
 Deferred: log size is not a priority for this pass.
 
-## P3: API and project clarity
-
-### 24. Remaining reliability boundaries lack focused tests
-
-The PHP manifest append rollback needs a focused failure test with its fix.
-Existing render and service tests mostly cover distinct behavior; there is no
-clear cluster of redundant tests to remove.
-
 ## Reccy and layout notes
 
 streamO already uses reccy's service lifecycle, RPC, atomic output, retry

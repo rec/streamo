@@ -98,12 +98,8 @@ function upload_image(string $dataDirectory): void
     }
     chmod($target, 0640);
     fseek($manifest, 0, SEEK_END);
-    $appendOffset = ftell($manifest);
     $record = json_encode(['id' => $id], JSON_UNESCAPED_SLASHES) . "\n";
-    if (fwrite($manifest, $record) !== strlen($record) || !fflush($manifest)) {
-        ftruncate($manifest, $appendOffset);
-        fflush($manifest);
-        unlink($target);
+    if (!append_manifest_record($manifest, $record, $target)) {
         flock($manifest, LOCK_UN);
         fclose($manifest);
         fail(500, 'The image feed could not be updated.');
@@ -114,6 +110,18 @@ function upload_image(string $dataDirectory): void
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
     echo json_encode(['id' => $id]);
+}
+
+function append_manifest_record($manifest, string $record, string $target): bool
+{
+    $appendOffset = ftell($manifest);
+    if (fwrite($manifest, $record) === strlen($record) && fflush($manifest)) {
+        return true;
+    }
+    ftruncate($manifest, $appendOffset);
+    fflush($manifest);
+    unlink($target);
+    return false;
 }
 
 function send_feed(string $dataDirectory): void
@@ -178,6 +186,8 @@ function send_image(string $dataDirectory): void
     header('X-Content-Type-Options: nosniff');
     readfile($path);
 }
+
+if (isset($_SERVER['SCRIPT_FILENAME']) && realpath($_SERVER['SCRIPT_FILENAME']) !== __FILE__) return;
 
 [$roomToken, $dataDirectory] = configuration();
 require_token($roomToken);
