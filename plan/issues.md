@@ -27,24 +27,6 @@ Deferred: log size is not a priority for this pass.
 
 ## P2: recovery and operational traps
 
-### 11. Overlay controls hold the frame lock during file I/O and decoding
-
-`LiveOverlays.frame()` holds the state lock during directory scans, photo
-loading, and full-frame composition. `image_next` decodes under that lock.
-A slow volume can block status and controls beyond reccy's one-second RPC
-timeout. Keep file I/O and decoding off the state lock while preserving cue
-ordering and applied revisions. Verify control responsiveness with delayed
-image reads. This needs a scheduling change; operator direction is pending.
-
-### 15. Large render plans can exhaust FFmpeg inputs and decoders
-
-`scripts/render.py` creates one FFmpeg input for every scene and title event,
-including repeated sources. A long plan can exhaust process arguments,
-descriptors, memory, or decoders. Measure realistic one-hour and worst-case
-short-scene plans. If a limit is reached, render bounded segments from the
-saved plan while preserving exact timing. Segmented execution is a structural
-change; operator direction is pending.
-
 ## P3: API and project clarity
 
 ### 21. `video_resolution` and `video_frame_rate` describe overlay work, not output
@@ -72,10 +54,10 @@ three task-based documents.
 
 ### 24. Remaining reliability boundaries lack focused tests
 
-The unresolved directory-approval collision, delayed image reads, large render
-plans, and PHP manifest append rollback need focused failure tests with their
-fixes. Existing render and service tests mostly cover distinct behavior; there
-is no clear cluster of redundant tests to remove.
+The unresolved directory-approval collision and PHP manifest append rollback
+need focused failure tests with their fixes. Existing render and service tests
+mostly cover distinct behavior; there is no clear cluster of redundant tests
+to remove.
 
 ### 25. Shell deployment helpers are easy to misuse
 

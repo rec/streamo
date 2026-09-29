@@ -1,4 +1,5 @@
 import io
+import threading
 from pathlib import Path
 from unittest import mock
 
@@ -236,3 +237,49 @@ def test_image_controls_require_enabled_rotation(config: Streamo) -> None:
     assert isinstance(
         controller.handle_request(rpc.Request(command='image_skip')), ipc.Error
     )
+
+
+def test_controls_respond_while_image_read_is_delayed(config: Streamo) -> None:
+    overlays = LiveOverlays(config.model_copy(update={'image_interval': 20}), set())
+    assert overlays.photos is not None
+    entered = threading.Event()
+    release = threading.Event()
+    controlled = threading.Event()
+
+    def delayed_frame() -> bytes:
+        entered.set()
+        assert release.wait(2)
+        return overlays.photos.transparent
+
+    def control() -> None:
+        overlays.set_slate(SlateCue(visible=True))
+        overlays.control_images('image_pause', {'paused': True})
+        assert overlays.snapshot()['requested']['slate_visible'] is True
+        controlled.set()
+
+    with mock.patch.object(overlays.photos, 'frame', side_effect=delayed_frame):
+        frame_thread = threading.Thread(target=overlays.frame)
+        frame_thread.start()
+        assert entered.wait(1)
+        control_thread = threading.Thread(target=control)
+        control_thread.start()
+        responsive = controlled.wait(0.5)
+        release.set()
+        frame_thread.join(2)
+        control_thread.join(2)
+    assert responsive
+    assert not frame_thread.is_alive()
+    assert not control_thread.is_alive()
+
+
+def test_missing_next_image_reports_error_after_frame(config: Streamo) -> None:
+    overlays = LiveOverlays(config.model_copy(update={'image_interval': 20}), set())
+    assert overlays.control_images('image_next', {'id': 'missing.png'}) == {
+        'paused': False,
+        'next_id': 'missing.png',
+    }
+    overlays.frame()
+    images = overlays.snapshot()['images']
+    assert isinstance(images, dict)
+    assert images['next_id'] is None
+    assert 'must exist and be approved' in images['error']

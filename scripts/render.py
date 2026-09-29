@@ -27,6 +27,7 @@ from .render_plan import (
 from .title_card import is_markdown, render_markdown_title_card
 
 IMAGE_SUFFIXES = {'.avif', '.bmp', '.gif', '.jpeg', '.jpg', '.png', '.webp'}
+MAX_RENDER_INPUTS = 64
 
 
 def render(config: Render) -> None:
@@ -109,12 +110,109 @@ def execute_prepared_plan(config: Render, plan: RenderPlan) -> None:
     print_render_schedule(config, plan)
     assert config.output is not None
     with new_media_output(config.output) as temporary:
-        command = ffmpeg_command(config.model_copy(update={'output': temporary}), plan)
-        index = command.index('-filter_complex')
-        graph = temporary.with_suffix('.filters')
-        graph.write_text(command[index + 1])
-        command[index : index + 2] = ['-filter_complex_script', str(graph)]
-        run_silent(command)
+        if len(plan.scenes) + len(plan.title_events) <= MAX_RENDER_INPUTS:
+            run_render_command(config.model_copy(update={'output': temporary}), plan)
+        else:
+            render_segments(config, plan, temporary)
+
+
+def render_segments(config: Render, plan: RenderPlan, output: Path) -> None:
+    starts = [start for start, _ in scene_start_times(plan)]
+    chunks: list[Path] = []
+    first = 0
+    beginning = 0.0
+    while beginning < config.duration:
+        last = min(first + MAX_RENDER_INPUTS // 2 - 1, len(plan.scenes) - 1)
+        while True:
+            ending = (
+                config.duration
+                if last == len(plan.scenes) - 1
+                else min(
+                    config.duration,
+                    plan.scenes[0].duration - plan.transitions[0].duration,
+                )
+                if last == 0
+                else min(
+                    config.duration,
+                    starts[last] + plan.transitions[last - 1].duration,
+                )
+            )
+            titles = [
+                e
+                for e in plan.title_events
+                if e.start < ending and e.start + e.duration > beginning
+            ]
+            if last - first + 1 + len(titles) <= MAX_RENDER_INPUTS:
+                break
+            if last == first:
+                sys.exit('render plan has too many overlapping title events')
+            last -= 1
+        if ending <= beginning:
+            sys.exit('render plan has no forward segment boundary')
+        frames = round(ending * config.fps) - round(beginning * config.fps)
+        if frames <= 0:
+            sys.exit('render segment is shorter than one output frame')
+        chunk = output.parent / f'chunk-{len(chunks):04}.mp4'
+        subplan = RenderPlan.model_construct(
+            scenes=plan.scenes[first : last + 1],
+            transitions=plan.transitions[first:last],
+            title_events=titles,
+        )
+        run_render_command(
+            config.model_copy(
+                update={'output': chunk, 'duration': frames / config.fps}
+            ),
+            subplan,
+            title_offset=starts[first],
+            first_frame=round(beginning * config.fps),
+            frame_count=frames,
+        )
+        chunks.append(chunk)
+        first = last
+        beginning = ending
+    manifest = output.parent / 'chunks.txt'
+    manifest.write_text(''.join(f"file '{p.name}'\n" for p in chunks))
+    run_silent(
+        [
+            'ffmpeg',
+            '-hide_banner',
+            '-y',
+            '-f',
+            'concat',
+            '-safe',
+            '0',
+            '-i',
+            manifest.as_posix(),
+            '-c',
+            'copy',
+            '-movflags',
+            '+faststart',
+            output.as_posix(),
+        ]
+    )
+
+
+def run_render_command(
+    config: Render,
+    plan: RenderPlan,
+    *,
+    title_offset: float = 0.0,
+    first_frame: int = 0,
+    frame_count: int | None = None,
+) -> None:
+    assert config.output is not None
+    command = ffmpeg_command(
+        config,
+        plan,
+        title_offset=title_offset,
+        first_frame=first_frame,
+        frame_count=frame_count,
+    )
+    index = command.index('-filter_complex')
+    graph = config.output.with_suffix('.filters')
+    graph.write_text(command[index + 1])
+    command[index : index + 2] = ['-filter_complex_script', str(graph)]
+    run_silent(command)
 
 
 def validate_config(config: Render) -> None:
@@ -267,7 +365,14 @@ def toml_value(value: object) -> str:
     raise TypeError(f'unsupported TOML value {value!r}')
 
 
-def ffmpeg_command(config: Render, plan: RenderPlan) -> list[str]:
+def ffmpeg_command(
+    config: Render,
+    plan: RenderPlan,
+    *,
+    title_offset: float = 0.0,
+    first_frame: int = 0,
+    frame_count: int | None = None,
+) -> list[str]:
     assert config.output is not None
     command = ['ffmpeg', '-hide_banner', '-y']
 
@@ -287,7 +392,13 @@ def ffmpeg_command(config: Render, plan: RenderPlan) -> list[str]:
                 ]
             )
 
-    filter_complex, output_label = filter_graph(config, plan)
+    filter_complex, output_label = filter_graph(
+        config,
+        plan,
+        title_offset=title_offset,
+        first_frame=first_frame,
+        frame_count=frame_count,
+    )
     command.extend(
         [
             '-filter_complex',
@@ -325,7 +436,14 @@ def input_args(scene: Scene) -> list[str]:
     return ['-stream_loop', '-1', '-t', duration, '-i', scene.media.path.as_posix()]
 
 
-def filter_graph(config: Render, plan: RenderPlan) -> tuple[str, str]:
+def filter_graph(
+    config: Render,
+    plan: RenderPlan,
+    *,
+    title_offset: float = 0.0,
+    first_frame: int = 0,
+    frame_count: int | None = None,
+) -> tuple[str, str]:
     filters: list[str] = []
     for index, scene in enumerate(plan.scenes):
         filters.append(normalize_filter(index, scene, config))
@@ -346,7 +464,15 @@ def filter_graph(config: Render, plan: RenderPlan) -> tuple[str, str]:
     title_input = len(plan.scenes)
     for index, event in enumerate(plan.title_events):
         title_label = f'title{index}'
-        filters.append(title_filter(config, title_input + index, event, title_label))
+        filters.append(
+            title_filter(
+                config,
+                title_input + index,
+                event,
+                title_label,
+                start=event.start - title_offset,
+            )
+        )
         next_label = f'overlay{index}'
         filters.append(
             f'[{current_label}][{title_label}]'
@@ -354,11 +480,15 @@ def filter_graph(config: Render, plan: RenderPlan) -> tuple[str, str]:
         )
         current_label = next_label
 
-    filters.append(
-        f'[{current_label}]'
-        f'scale={config.width}:{config.height},'
-        f'fps={config.fps},format=yuv420p[out]'
-    )
+    output_filter = f'[{current_label}]scale={config.width}:{config.height}'
+    if frame_count is not None:
+        output_filter += f',setpts=PTS+{title_offset:.6f}/TB'
+    output_filter += f',fps={config.fps},format=yuv420p'
+    if frame_count is not None:
+        start = first_frame / config.fps
+        end = (first_frame + frame_count) / config.fps
+        output_filter += f',trim=start={start:.6f}:end={end:.6f},setpts=PTS-STARTPTS'
+    filters.append(f'{output_filter}[out]')
     return ';'.join(filters), '[out]'
 
 
@@ -374,7 +504,12 @@ def normalize_filter(index: int, scene: Scene, config: Render) -> str:
 
 
 def title_filter(
-    config: Render, input_index: int, event: TitleEvent, output_label: str
+    config: Render,
+    input_index: int,
+    event: TitleEvent,
+    output_label: str,
+    *,
+    start: float | None = None,
 ) -> str:
     fade_out_start = max(0.0, event.duration - config.title_fade)
     return (
@@ -386,7 +521,8 @@ def title_filter(
         'format=rgba,'
         f'fade=t=in:st=0:d={config.title_fade:.6f}:alpha=1,'
         f'fade=t=out:st={fade_out_start:.6f}:d={config.title_fade:.6f}:alpha=1,'
-        f'setpts=PTS-STARTPTS+{event.start:.6f}/TB[{output_label}]'
+        f'setpts=PTS-STARTPTS+{event.start if start is None else start:.6f}/TB'
+        f'[{output_label}]'
     )
 
 

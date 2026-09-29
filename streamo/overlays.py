@@ -6,10 +6,13 @@ from typing import BinaryIO
 
 from PIL import Image, ImageDraw, ImageFont
 from pydantic import BaseModel, ConfigDict, Field
+from reccy.runtime.logging import get_logger
 
 from .config import Streamo
 from .images import ImageFrameProducer, ImageScheduler, load_image
 from .moderation import ImageApproval
+
+LOGGER = get_logger(__name__)
 
 
 class TitleVisibility(enum.StrEnum):
@@ -67,6 +70,12 @@ class LiveOverlays:
         self.slate = render_text('Intermission', self.working_size)
         self.slate_visible = False
         self.lock = threading.Lock()
+        self.frame_lock = threading.Lock()
+        self.image_paused = False
+        self.image_next: Path | None = None
+        self.image_skip = False
+        self.image_status: dict[str, object] | None = None
+        self.image_error: str | None = None
         self.revision = 1
         self.applied: dict[str, object] | None = None
         self.frame_index = 0
@@ -92,6 +101,8 @@ class LiveOverlays:
             if config.image_interval > 0
             else None
         )
+        if self.photos is not None:
+            self.image_status = {'paused': False, 'next_id': None}
 
     def set_title(self, cue: TitleCue) -> dict[str, object]:
         replacement = (
@@ -122,11 +133,14 @@ class LiveOverlays:
 
     def snapshot(self) -> dict[str, object]:
         with self.lock:
+            images = None if self.image_status is None else dict(self.image_status)
+            if images is not None and self.image_error is not None:
+                images['error'] = self.image_error
             return {
                 'enabled': True,
                 'requested': self.requested(),
                 'applied': None if self.applied is None else dict(self.applied),
-                'images': self.photos.snapshot() if self.photos is not None else None,
+                'images': images,
             }
 
     def control_images(
@@ -136,18 +150,28 @@ class LiveOverlays:
             if self.photos is None:
                 raise ValueError('Image controls require a positive image_interval')
             if command == 'image_pause':
-                self.photos.paused = ImagePause.model_validate(payload).paused
+                self.image_paused = ImagePause.model_validate(payload).paused
             elif command == 'image_next':
                 cue = ImageNext.model_validate(payload)
-                self.photos.select_next(self.approval.image_path(cue.id))
+                if not cue.id or Path(cue.id).name != cue.id:
+                    raise ValueError('Image ID must be a filename in image_dir')
+                self.image_next = self.approval.image_dir / cue.id
             elif command == 'image_skip':
                 if payload:
                     raise ValueError('image_skip accepts no parameters')
-                self.photos.skip()
+                self.image_skip = True
             else:
                 raise ValueError('Unknown image control')
             self.revision += 1
-            return self.photos.snapshot()
+            assert self.image_status is not None
+            self.image_status = {
+                'paused': self.image_paused,
+                'next_id': self.image_next.name
+                if self.image_next is not None
+                else self.image_status['next_id'],
+            }
+            self.image_error = None
+            return dict(self.image_status)
 
     def requested(self) -> dict[str, object]:
         # Caller holds the lock, so a revision and its contents stay together.
@@ -164,41 +188,76 @@ class LiveOverlays:
             self.applied = None
 
     def frame(self) -> tuple[bytes, dict[str, object]]:
-        with self.lock:
+        with self.frame_lock:
+            with self.lock:
+                slate_visible = self.slate_visible
+                slate = self.slate
+                title = self.title
+                title_visibility = self.title_visibility
+                image_paused = self.image_paused
+                image_next = self.image_next
+                image_skip = self.image_skip
+                self.image_next = None
+                self.image_skip = False
+                frame_index = self.frame_index
+                if not slate_visible:
+                    self.frame_index += 1
+                requested = self.requested()
+            if self.photos is not None:
+                self.photos.paused = image_paused
+                if image_skip:
+                    self.photos.skip()
+                if image_next is not None:
+                    try:
+                        self.photos.select_next(image_next)
+                    except (ValueError, OSError) as error:
+                        LOGGER.error('Could not select image %s: %s', image_next, error)
+                        with self.lock:
+                            self.image_error = str(error)
             canvas = Image.new(
-                'RGBA', self.size, 'black' if self.slate_visible else (0, 0, 0, 0)
+                'RGBA', self.size, 'black' if slate_visible else (0, 0, 0, 0)
             )
             position = (
                 (self.size[0] - self.working_size[0]) // 2,
                 (self.size[1] - self.working_size[1]) // 2,
             )
-            if self.slate_visible:
-                canvas.alpha_composite(self.slate, position)
+            if slate_visible:
+                canvas.alpha_composite(slate, position)
             else:
-                elapsed = (self.frame_index / self.frame_rate) % self.title_interval
+                elapsed = (frame_index / self.frame_rate) % self.title_interval
                 opacity = (
                     1.0
-                    if self.title_visibility == TitleVisibility.show
+                    if title_visibility == TitleVisibility.show
                     else 0.0
-                    if self.title_visibility == TitleVisibility.hide
+                    if title_visibility == TitleVisibility.hide
                     else title_opacity(elapsed, self.title_duration, self.title_fade)
                 )
-                if self.title is not None and opacity > 0:
-                    title = self.title.copy()
-                    title.putalpha(
-                        title.getchannel('A').point(lambda a: round(a * opacity))
+                if title is not None and opacity > 0:
+                    visible_title = title.copy()
+                    visible_title.putalpha(
+                        visible_title.getchannel('A').point(
+                            lambda a: round(a * opacity)
+                        )
                     )
-                    canvas.alpha_composite(title, position)
+                    canvas.alpha_composite(visible_title, position)
                 if self.photos is not None:
                     photo = Image.frombytes(
                         'RGBA', self.working_size, self.photos.frame()
                     )
                     canvas.alpha_composite(photo, position)
-                self.frame_index += 1
+            photo_status = self.photos.snapshot() if self.photos is not None else None
+            with self.lock:
+                if photo_status is not None:
+                    self.image_status = {
+                        'paused': self.image_paused,
+                        'next_id': self.image_next.name
+                        if self.image_next is not None
+                        else photo_status['next_id'],
+                    }
             return canvas.tobytes(), {
-                **self.requested(),
+                **requested,
                 'image_id': self.photos.visible_id
-                if self.photos is not None and not self.slate_visible
+                if self.photos is not None and not slate_visible
                 else None,
             }
 

@@ -77,6 +77,7 @@ def test_render_passes_large_filter_graph_through_file(
         seed=1,
     )
     plan = build_plan(config, [Media(path=p, duration=10) for p in config.inputs])
+    monkeypatch.setattr(render, 'MAX_RENDER_INPUTS', 1000)
 
     def run_silent(command: list[str]) -> None:
         graph_path = Path(command[command.index('-filter_complex_script') + 1])
@@ -88,6 +89,96 @@ def test_render_passes_large_filter_graph_through_file(
     render.execute_prepared_plan(config, plan)
     assert config.output is not None
     assert config.output.read_bytes() == b'completed render'
+
+
+def test_long_render_bounds_ffmpeg_inputs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = Render(
+        inputs=[Path('a.mp4')],
+        output=tmp_path / 'out.mp4',
+        duration=3600,
+        seed=1,
+    )
+    plan = build_plan(config, [Media(path=config.inputs[0], duration=10)])
+    input_counts: list[int] = []
+
+    def run_silent(command: list[str]) -> None:
+        if '-filter_complex_script' in command:
+            input_counts.append(command.count('-i'))
+        Path(command[-1]).write_bytes(b'completed render')
+
+    monkeypatch.setattr(render, 'run_silent', run_silent)
+    render.execute_prepared_plan(config, plan)
+    assert len(input_counts) > 1
+    assert max(input_counts) <= render.MAX_RENDER_INPUTS
+    assert config.output is not None
+    assert config.output.read_bytes() == b'completed render'
+
+
+def test_segmented_render_preserves_scene_timing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixtures = Path(__file__).parent / 'fixtures' / 'render'
+    inputs = [fixtures / 'blue-circle.mp4', fixtures / 'red-diamond.mp4']
+    config = Render(
+        inputs=inputs,
+        output=tmp_path / 'single.mp4',
+        duration=6,
+        seed=1,
+        width=160,
+        height=90,
+        fps=6,
+        work_scale=1,
+        work_fps=6,
+        start_black_duration=1,
+    )
+    plan = build_plan(config, [Media(path=p, duration=1.5) for p in inputs])
+    monkeypatch.setattr(render, 'MAX_RENDER_INPUTS', 1000)
+    render.execute_prepared_plan(config, plan)
+    segmented = config.model_copy(update={'output': tmp_path / 'segmented.mp4'})
+    monkeypatch.setattr(render, 'MAX_RENDER_INPUTS', 4)
+    render.execute_prepared_plan(segmented, plan)
+
+    expected = decode_video_frames(config.output, width=160, height=90)
+    actual = decode_video_frames(segmented.output, width=160, height=90)
+    assert actual.shape == expected.shape
+    assert np.abs(actual.astype(int) - expected.astype(int)).mean() < 5
+
+
+def test_segmented_render_preserves_title_across_segments(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixture = Path(__file__).parent / 'fixtures' / 'render' / 'blue-circle.mp4'
+    title = tmp_path / 'title.png'
+    Image.new('RGBA', (160, 90), 'yellow').save(title)
+    config = Render(
+        inputs=[fixture],
+        output=tmp_path / 'single.mp4',
+        duration=6,
+        seed=1,
+        width=160,
+        height=90,
+        fps=6,
+        work_scale=1,
+        work_fps=6,
+        start_black_duration=1,
+        title_card=title,
+        title_duration=1,
+        title_fade=0.5,
+    )
+    plan = build_plan(config, [Media(path=fixture, duration=1.5)])
+    plan.title_events = [TitleEvent(start=3, duration=1)]
+    monkeypatch.setattr(render, 'MAX_RENDER_INPUTS', 1000)
+    render.execute_prepared_plan(config, plan)
+    segmented = config.model_copy(update={'output': tmp_path / 'segmented.mp4'})
+    monkeypatch.setattr(render, 'MAX_RENDER_INPUTS', 6)
+    render.execute_prepared_plan(segmented, plan)
+
+    expected = decode_video_frames(config.output, width=160, height=90)
+    actual = decode_video_frames(segmented.output, width=160, height=90)
+    assert actual.shape == expected.shape
+    assert np.all(actual[19:23, 45, 80, 0] > actual[19:23, 45, 80, 2])
 
 
 def test_fade_duration_uses_half_longer_video() -> None:

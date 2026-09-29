@@ -436,12 +436,15 @@ Image playback controls also require a positive `image_interval`:
 
 Skipping while paused leaves the photo hidden until rotation resumes and reaches
 the next interval. Choosing a photo does not interrupt the current interval or
-resume a paused rotation. Invalid or unapproved choices return an error and keep
-the existing reservation. Deleted or subsequently rejected choices are skipped
+resume a paused rotation. Malformed IDs return an error immediately. File checks
+and decoding happen on the frame worker. A missing, unreadable, or unapproved
+image is not reserved; status then reports the reason in
+`overlays.images.error`. Deleted or subsequently rejected choices are skipped
 when the interval begins. A skipped photo remains eligible for later selection.
 
 Status reports `overlays.images.paused` and `overlays.images.next_id` (null when
-there is no eligible reservation). `overlays.applied.image_id` identifies the
+there is no eligible reservation). A newly requested ID may appear until the
+next frame checks it. `overlays.applied.image_id` identifies the
 photo in the last complete frame written to the encoder, or null during a gap,
 slate, or skipped appearance. `overlays.applied` itself is null while no frame
 has reached the current encoder. These values describe local output, not viewer
@@ -691,8 +694,10 @@ output path if the target already exists. New render plans contain absolute
 paths; relative paths in hand-written plans resolve from the plan’s directory.
 Saved plans reject empty/short timelines, invalid durations, missing transitions,
 and excessive overlaps before rendering. Filter graphs are passed through a file
-to avoid oversized command arguments. Long renders still open one input per
-scene; decoder and memory capacity depend on the target machine.
+to avoid oversized command arguments. Long renders are composed from bounded
+segments and concatenated after each segment succeeds. Segment joins preserve
+the output frame count, though transition and title fades can differ around a
+join.
 
 ## Development
 
