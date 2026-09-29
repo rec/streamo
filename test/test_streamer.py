@@ -1,3 +1,4 @@
+from io import BytesIO
 from pathlib import Path
 from unittest import mock
 from urllib.parse import quote, quote_plus, unquote_plus
@@ -194,6 +195,36 @@ def test_process_diagnostic_command_redacts_output_secret() -> None:
     assert 'key' not in ' '.join(command)
     assert '[REDACTED]' in command[-1]
     assert 'udp\\://127.0.0.1\\:23000?pkt_size=1316' in command[-1]
+
+
+def test_encoder_output_reaches_reccy_log_without_ingest_secret(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    config = _config()
+    output = ingest_output(config.streaming_service)
+    controller = ControlController(RuntimeState())
+    ffmpeg = mock.Mock(
+        stderr=BytesIO(
+            (
+                f'Could not write to {output.destinations[0].url}\n'
+                'bitrate= 250.5kbits/s\n'
+            ).encode()
+        )
+    )
+
+    with caplog.at_level('INFO'):
+        streamer.read_encoder_output(
+            ffmpeg,
+            streamer.process.OutputTail(),
+            controller,
+            output,
+            config.streaming_service,
+        )
+
+    assert 'FFmpeg: Could not write to [REDACTED]' in caplog.text
+    assert output.destinations[0].url not in caplog.text
+    assert 'FFmpeg: bitrate= 250.5kbits/s' in caplog.text
+    assert controller.state.snapshot()['output_bitrate_kbps'] == 250.5
 
 
 def test_preview_is_cleaned_up_when_command_building_fails() -> None:

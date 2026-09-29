@@ -350,7 +350,7 @@ def run_attempt(
         if ffmpeg.stderr is not None:
             reader = threading.Thread(
                 target=read_encoder_output,
-                args=(ffmpeg, tail, controller),
+                args=(ffmpeg, tail, controller, output, service.service),
                 name='streamOEncoderOutput',
                 daemon=True,
             )
@@ -394,12 +394,18 @@ def read_encoder_output(
     ffmpeg: subprocess.Popen[bytes],
     tail: process.OutputTail,
     controller: ControlController,
+    output: FfmpegOutput | None,
+    service: StreamingServiceConfiguration,
 ) -> None:
     assert ffmpeg.stderr is not None
     for line in ffmpeg.stderr:
         text = line.decode(errors='replace')
         tail.append(text)
         update_progress(controller.state, text)
+        if output is not None:
+            text = redacted_ffmpeg_stderr(text, output, service)
+        if text := text.rstrip('\r\n'):
+            LOGGER.info('FFmpeg: %s', text)
 
 
 def close_encoder(

@@ -354,6 +354,12 @@ or one beyond the current sequence. History is in memory; after an application
 restart, clients should reset their cursor to zero. This is not a persistent
 show log.
 
+FFmpeg encoder output, including progress lines, is written to reccy's service
+log with ingest credentials redacted. Programs can read the log at
+`~/Library/Logs/streamo/streamo.log` on macOS or
+`~/.local/state/streamo/streamo.log` on Linux. On Windows it is
+`%LOCALAPPDATA%/streamo/logs/streamo.log`. reccy rotates these logs.
+
 Status includes active `warnings` and the latest `incident_sequence`. Audio
 errors, drops, encoder failures, and provider-query failures produce transitions.
 Provider health becomes stale after 90 seconds without a completed query;
