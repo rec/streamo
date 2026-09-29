@@ -298,7 +298,7 @@ fade_out_seconds = 1
 
 Each page has exactly one text or image source. Media and text are checked
 before the broadcast starts. Each page fades in, remains visible, then fades
-out. The Twitch-program audio reaches silence two seconds after the final
+out. The program audio reaches silence two seconds after the final
 page; video reaches black at the same point and remains black and silent for
 two more seconds. The local room mix is independent of this fade.
 Each image is limited to 8 MiB and 2048 pixels per side. Supported formats are
@@ -545,8 +545,8 @@ streamO polls the server over outbound HTTPS and stores each new JPEG in
 the incoming inbox.
 
 The page uses French when the browser's primary language begins with `fr` and
-English for every other browser. Current Safari can prepare HEIC photos without
-a server-side converter. There is deliberately no WebAssembly fallback. If a
+English for every other browser. Browsers that support HEIC can prepare those
+photos without a server-side converter. There is no WebAssembly fallback. If a
 browser cannot decode a selected HEIC photo, the page explains that limitation
 and asks the participant to contact Tom.
 
@@ -570,7 +570,7 @@ then omit `--dry-run` to copy it.
 The target is required and displayed before transfer. On the server, run
 `scripts/set-secret.sh` as root to enter the room token at a private prompt,
 or use `scripts/set-secret.sh --token-file PRIVATE_FILE` with a file readable
-only by its owner. The token no longer appears in the command line.
+only by its owner.
 
 If the PHP file is available at `https://ax.to/show/foto.php`, put this URL in
 streamO's TOML configuration using the same token:
@@ -774,5 +774,6 @@ Source responsibilities are separated into `provider_config.py` (configuration),
 `providers.py` (adapters and ingest output), `composition.py` (live FFmpeg graph),
 `streamer.py` (process lifecycle), and `audio.py` (capture). Offline media uses
 `scripts/render_plan.py` for planning, `scripts/title_card.py` for Markdown cards,
-and `scripts/render.py` for execution. See [the handover](handover.md)
-for completed work and the limits of verification.
+and `scripts/render.py` for execution. See [the feature plan](../plan/features.md)
+for remaining proposals and [the handover](handover.md) for decisions and
+verification limits.
