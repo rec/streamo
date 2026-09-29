@@ -28,8 +28,6 @@ files are excluded from discovery and removal. The dependency is pinned to reccy
 
 All 22 findings from the completed issue review are addressed in source.
 The resolved issue list has been removed; its history remains in Git.
-The later review and remaining deferred findings are in
-[plan/issues.md](../plan/issues.md).
 The operator guide is [streamo.md](streamo.md); README only links into it.
 
 Issue 1 was committed as `7cf183f` and audio recovery/lifecycle fixes as
