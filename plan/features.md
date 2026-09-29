@@ -1,8 +1,7 @@
 # Remaining features for streamO
 
-Implementation has been requested in the order below. Completed features have
-been removed; original numbering is retained. Unresolved architectural choices
-still require review. Effort is a rough estimate, not a delivery promise.
+These features remain unimplemented, in priority order. Unresolved architectural
+choices still require review. Effort is a rough estimate, not a delivery promise.
 
 ## Implementation order
 
@@ -75,7 +74,3 @@ recs rather than introducing another general recording subsystem here.
 
 The existing [operator guide](../doc/streamo.md) describes implemented behavior.
 The features listed here are not yet implemented.
-
-## Additional work beyond the prompt
-
-None. Implementation stays within the requested features and this repository.
