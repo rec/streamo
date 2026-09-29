@@ -12,6 +12,7 @@ from PIL import Image
 from reccy.protocol import ipc, rpc
 from reccy.runtime.files import atomic_output
 
+from .closing import ClosingSequence
 from .images import IMAGE_SUFFIXES, MAX_IMAGE_BYTES, MAX_IMAGE_SIDE, image_paths
 from .kick_api import KickApiError
 from .moderation import ImagePreview, ImageQueue, ImageReview
@@ -38,6 +39,7 @@ class ControlController:
     image_dir: Path = Path('images')
     service: StreamingServiceAdapter | None = None
     overlays: LiveOverlays | None = None
+    closing: ClosingSequence | None = None
     commands: queue.Queue[ControlCommand] = field(default_factory=queue.Queue)
 
     def handle_request(self, request: rpc.Request) -> rpc.Result:
@@ -45,12 +47,30 @@ class ControlController:
         if command == 'ping':
             return 'pong'
         if command == 'status':
-            return {
+            status = {
                 **self.state.snapshot(),
                 'overlays': self.overlays.snapshot()
                 if self.overlays
                 else {'enabled': False},
             }
+            if self.closing is not None:
+                status['closing'] = self.closing.snapshot()
+            return status
+        if command == 'close_start':
+            if self.closing is None or self.overlays is None:
+                return ipc.Error(
+                    type='error', message='Closing credits are unavailable'
+                )
+            if self.state.snapshot()['state'] not in {'streaming', 'muted'}:
+                return ipc.Error(type='error', message='A live stream is required')
+            if set(request.params) != {'operation_id'} or not isinstance(
+                request.params['operation_id'], str
+            ):
+                return ipc.Error(type='error', message='operation_id is required')
+            try:
+                return self.closing.start(request.params['operation_id'])
+            except (OSError, ValueError) as error:
+                return ipc.Error(type='error', message=str(error))
         if command in {'image_queue', 'image_preview', 'image_review'}:
             if self.overlays is None:
                 return ipc.Error(

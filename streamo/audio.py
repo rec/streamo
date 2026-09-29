@@ -7,6 +7,7 @@ import numpy as np
 import sounddevice
 from reccy.runtime.retry import RetryPolicy, RetrySchedule
 
+from .closing import ClosingSequence
 from .runtime import RuntimeState
 
 
@@ -20,12 +21,14 @@ class AudioCapture:
         sample_rate: int,
         output: IO[bytes] | None,
         state: RuntimeState,
+        closing: ClosingSequence | None = None,
     ) -> None:
         self.device = device
         self.channel = channel
         self.sample_rate = sample_rate
         self.output = output
         self.state = state
+        self.closing = closing
         self.blocks: queue.Queue[tuple[np.ndarray, str]] = queue.Queue(
             maxsize=max(1, sample_rate // 1024)
         )
@@ -112,6 +115,8 @@ class AudioCapture:
             if block is not None:
                 if self.state.is_muted():
                     block.fill(0)
+                elif self.closing is not None:
+                    block *= self.closing.audio_gain(now=time.time())
                 self.state.record_audio(
                     frames=len(block),
                     sample_rate=self.sample_rate,

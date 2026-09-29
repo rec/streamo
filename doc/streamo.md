@@ -254,6 +254,7 @@ Then send requests in this form:
 {"type": "request", "command": "mute", "params": {}}
 {"type": "request", "command": "unmute", "params": {}}
 {"type": "request", "command": "stop", "params": {}}
+{"type": "request", "command": "close_start", "params": {"operation_id": "unique-show-id"}}
 {"type": "request", "command": "ping", "params": {}}
 {"type": "request", "command": "image", "params": {"urls": ["file:///tmp/guest.png"]}}
 {"type": "request", "command": "remove_last_image", "params": {}}
@@ -263,6 +264,43 @@ The server returns a raw JSON result or an error object. `image` accepts one or
 more `file:`, HTTP, or HTTPS URLs and publishes valid images into the incoming inbox
 with atomic publication of each file after the entire batch validates. A failed
 validation publishes nothing; a publication error rolls back files from that batch.
+
+`close_start` starts the closing-credits sequence for a live video stream and
+returns its operation ID. A second request while closing is rejected. The
+`status.closing` object reports its ID, state, page, timing, black interval, and
+error. A control connection may reconnect and observe that operation without
+starting another. Once the final two seconds of black and silence have been
+encoded, streamO stops the broadcast but keeps its control endpoint available
+for the completion report. `stop` still ends the service immediately. If
+streamO restarts during credits, the saved operation reports `failed` with an
+uncertain broadcast outcome rather than pretending the closing sequence finished.
+
+For a video stream with overlays, the default pages read “The humans made the
+music”, “The machines merely helped”, and “Thank you for listening”. Replace
+them in the streamO configuration when the real credits are ready:
+
+```toml
+[closing_credits]
+audio_fade_curve = "linear" # or "equal_power"
+
+[[closing_credits.pages]]
+text = "Performers and guests"
+visible_seconds = 3
+fade_in_seconds = 1
+fade_out_seconds = 1
+
+[[closing_credits.pages]]
+image = "final-card.png"
+visible_seconds = 3
+fade_in_seconds = 1
+fade_out_seconds = 1
+```
+
+Each page has exactly one text or image source. Media and text are checked
+before the broadcast starts. Each page fades in, remains visible, then fades
+out. The Twitch-program audio reaches silence two seconds after the final
+page; video reaches black at the same point and remains black and silent for
+two more seconds. The local room mix is independent of this fade.
 Each image is limited to 8 MiB and 2048 pixels per side. Supported formats are
 GIF, JPEG, PNG, and WebP.
 

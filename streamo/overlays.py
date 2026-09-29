@@ -8,6 +8,7 @@ from PIL import Image, ImageDraw, ImageFont
 from pydantic import BaseModel, ConfigDict, Field
 from reccy.runtime.logging import get_logger
 
+from .closing import ClosingSequence
 from .config import Streamo
 from .images import ImageFrameProducer, ImageScheduler, load_image
 from .moderation import ImageApproval
@@ -48,7 +49,12 @@ class ImageNext(BaseModel, frozen=True):
 
 
 class LiveOverlays:
-    def __init__(self, config: Streamo, initial_paths: set[Path]) -> None:
+    def __init__(
+        self,
+        config: Streamo,
+        initial_paths: set[Path],
+        closing: ClosingSequence | None = None,
+    ) -> None:
         encoding = config.streaming_service.encoding.video
         assert encoding is not None
         width, height = encoding.resolution.split('x')
@@ -56,6 +62,18 @@ class LiveOverlays:
         width, height = config.overlay_resolution.split('x')
         self.working_size = (int(width), int(height))
         self.frame_rate = config.overlay_frame_rate
+        self.closing = closing
+        self.credit_pages: list[Image.Image] = []
+        if config.resolved_closing_credits is not None:
+            for page in config.resolved_closing_credits.pages:
+                if page.image is None:
+                    assert page.text is not None
+                    self.credit_pages.append(render_text(page.text, self.working_size))
+                else:
+                    with Image.open(page.image) as image:
+                        rendered = image.convert('RGBA')
+                        rendered.thumbnail(self.working_size)
+                        self.credit_pages.append(rendered.copy())
         self.title_interval = config.title_interval
         self.title_duration = config.title_duration
         self.title_fade = config.title_fade
@@ -187,6 +205,10 @@ class LiveOverlays:
 
     def frame(self) -> tuple[bytes, dict[str, object]]:
         with self.frame_lock:
+            if self.closing is not None:
+                operation = self.closing.snapshot()
+                if operation['state'] == 'running':
+                    return self._closing_frame(operation)
             with self.lock:
                 slate_visible = self.slate_visible
                 slate = self.slate
@@ -258,6 +280,35 @@ class LiveOverlays:
                 if self.photos is not None and not slate_visible
                 else None,
             }
+
+    def _closing_frame(
+        self, operation: dict[str, object]
+    ) -> tuple[bytes, dict[str, object]]:
+        assert self.closing is not None
+        elapsed = operation['elapsed_seconds']
+        assert isinstance(elapsed, int | float)
+        page, opacity, phase = self.closing.visual(float(elapsed))
+        if page is None:
+            opacity = self.closing.video_black_opacity(float(elapsed))
+        alpha = round(opacity * 255)
+        canvas = Image.new('RGBA', self.size, (0, 0, 0, alpha))
+        if page is not None and alpha:
+            graphic = self.credit_pages[page - 1].copy()
+            graphic.putalpha(
+                graphic.getchannel('A').point(lambda a: round(a * opacity))
+            )
+            canvas.alpha_composite(
+                graphic,
+                (
+                    (self.size[0] - graphic.width) // 2,
+                    (self.size[1] - graphic.height) // 2,
+                ),
+            )
+        return canvas.tobytes(), {
+            'closing_operation_id': operation['operation_id'],
+            'closing_phase': phase,
+            'closing_page': page,
+        }
 
     def mark_applied(self, visual: dict[str, object]) -> None:
         with self.lock:

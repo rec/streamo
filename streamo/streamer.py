@@ -142,7 +142,7 @@ def stream(
     try:
         with ExitStack() as resources:
             producer = (
-                LiveOverlays(config, initial_image_paths)
+                LiveOverlays(config, initial_image_paths, controller.closing)
                 if config.streaming_service.encoding.video is not None
                 and config.live_overlays
                 else None
@@ -156,7 +156,12 @@ def stream(
                 state.configure_service(service)
                 output = local_display_output(config, service.output(prepared))
             audio = AudioCapture(
-                config.device_name, config.channel, config.sample_rate, None, state
+                config.device_name,
+                config.channel,
+                config.sample_rate,
+                None,
+                state,
+                controller.closing,
             )
             resources.callback(audio.close_capture)
             preview_process = None
@@ -214,13 +219,22 @@ def stream(
                 except EncoderLaunchError as error:
                     returncode, stopped = 1, False
                     message = f'Could not launch FFmpeg (errno {error.errno})'
+                    if controller.closing is not None:
+                        controller.closing.fail(message)
                     if not recover or error.errno not in RETRYABLE_LAUNCH_ERRORS:
                         state.publish_failed(message, None)
                         return returncode
                 else:
                     if stopped:
+                        if controller.closing is not None and controller.closing.tick():
+                            controller.closing.complete()
                         return 0
                     message = f'FFmpeg exited with {returncode}'
+                    if controller.closing is not None:
+                        controller.closing.fail(message)
+                        if controller.closing.snapshot()['state'] == 'failed':
+                            state.publish_failed(message, None)
+                            return returncode or 1
                     if not recover:
                         if returncode:
                             state.publish_failed(message, None)
@@ -255,6 +269,10 @@ def stream(
         state.publish_failed(message, None)
         return 1
     finally:
+        if controller.closing is not None:
+            controller.closing.fail(
+                'Broadcast stopped before closing credits completed'
+            )
         if retry is not None:
             retry.cancel()
         state.set_publish_requested(False)
@@ -342,6 +360,9 @@ def run_attempt(
         started()
         next_display_poll = 0.0
         while ffmpeg.poll() is None:
+            if controller.closing is not None and controller.closing.tick():
+                state.set_state('stopping')
+                return 0, True
             if image_thread is not None and not image_thread.is_alive():
                 raise OverlayWorkerError('Overlay worker stopped while FFmpeg is alive')
             if should_stop(controller) or (

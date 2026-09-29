@@ -1,4 +1,5 @@
 import re
+import time
 from math import isfinite
 from pathlib import Path
 from typing import TYPE_CHECKING, Self
@@ -9,6 +10,7 @@ from reccy.protocol import ipc, rpc
 from reccy.reccy import Reccy, ReccyStatus
 from reccy.services.spec import load
 
+from .closing import DEFAULT_CREDITS, ClosingCredits, ClosingSequence
 from .image_feed import ImageFeed, ImageFeedPoller
 from .images import image_paths
 from .provider_config import StreamingServiceConfiguration
@@ -34,6 +36,10 @@ class Streamo(Reccy, frozen=True):
     streaming_service: StreamingServiceConfiguration
     video: Path | None = None
     title_card: Path | None = None
+    closing_credits: ClosingCredits | None = None
+    closing_state_path: Path = Field(
+        default_factory=lambda: Path.home() / '.local/state/streamo/closing.json'
+    )
 
     sample_rate: int = 48_000
     overlay_resolution: str = '640x360'
@@ -71,6 +77,9 @@ class Streamo(Reccy, frozen=True):
             state=RuntimeState(self.health_warnings),
             image_dir=self.incoming_image_dir,
             service=None if preview else service_adapter,
+            closing=ClosingSequence(
+                self.resolved_closing_credits, self.closing_state_path
+            ),
         )
         controller.state.configure_service(service_adapter)
         if preview:
@@ -101,6 +110,11 @@ class Streamo(Reccy, frozen=True):
             )
             if returncode:
                 self.publish_error(f'ffmpeg exited with {returncode}')
+            if controller.closing is not None and (
+                controller.closing.snapshot()['state'] == 'completed'
+            ):
+                while not streamer.should_stop(controller):
+                    time.sleep(0.1)
             return returncode
         finally:
             if image_feed_poller is not None:
@@ -116,6 +130,17 @@ class Streamo(Reccy, frozen=True):
         if self.live_overlays and self.title_card is not None:
             with Image.open(self.title_card) as image:
                 image.load()
+        if self.resolved_closing_credits is not None:
+            from .overlays import render_text
+
+            width, height = (int(v) for v in self.overlay_resolution.split('x'))
+            for page in self.resolved_closing_credits.pages:
+                if page.image is not None:
+                    with Image.open(page.image) as image:
+                        image.load()
+                else:
+                    assert page.text is not None
+                    render_text(page.text, (width, height))
 
     @field_validator('overlay_resolution')
     @classmethod
@@ -249,11 +274,21 @@ class Streamo(Reccy, frozen=True):
     def validate_video(self) -> Self:
         if self.streaming_service.encoding.video is not None and self.video is None:
             raise ValueError('video is required for video streaming')
+        if self.closing_credits is not None and (
+            self.streaming_service.encoding.video is None or not self.live_overlays
+        ):
+            raise ValueError('closing_credits requires video and live_overlays')
         return self
 
     @property
     def required_channels(self) -> int:
         return self.channel + 1
+
+    @property
+    def resolved_closing_credits(self) -> ClosingCredits | None:
+        if self.streaming_service.encoding.video is None or not self.live_overlays:
+            return None
+        return self.closing_credits or DEFAULT_CREDITS
 
     model_config = ConfigDict(hide_input_in_errors=True, extra='forbid')
 
