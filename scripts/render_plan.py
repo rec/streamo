@@ -5,50 +5,53 @@ from typing import Annotated, Self
 
 import tyro
 from pydantic import BaseModel, Field, field_validator, model_validator
+from reccy.configuration import units
+from reccy.configuration.tyro import unit_spec
 
 BLACK = Path('__black__')
-
-
 MAX_XFADE_DURATION = 59.999
+TIME_SPEC = unit_spec(units.Seconds, 'SECONDS')
+FRAME_RATE_SPEC = unit_spec(units.WholeFramesPerSecond, 'FPS')
+PIXELS_SPEC = unit_spec(units.Pixels, 'PIXELS')
 
 
 class Media(BaseModel):
     path: Path
-    duration: float = Field(gt=0, allow_inf_nan=False)
+    duration: units.Seconds = Field(gt=0)
     is_still: bool = False
 
 
 class Scene(BaseModel):
     media: Media
-    duration: float = Field(gt=0, allow_inf_nan=False)
+    duration: units.Seconds = Field(gt=0)
 
 
 class Transition(BaseModel):
-    duration: float = Field(ge=0, le=MAX_XFADE_DURATION, allow_inf_nan=False)
+    duration: units.Seconds = Field(ge=0, le=MAX_XFADE_DURATION)
 
 
 class TitleEvent(BaseModel):
-    start: float = Field(ge=0, allow_inf_nan=False)
-    duration: float = Field(gt=0, allow_inf_nan=False)
+    start: units.Seconds = Field(ge=0)
+    duration: units.Seconds = Field(gt=0)
 
 
 class Render(BaseModel, frozen=True):
     inputs: list[Path]
     output: Path | None = None
-    duration: float = 3600.0
+    duration: Annotated[units.Seconds, TIME_SPEC] = 3600.0
     seed: int | None = None
     title_card: Path | None = None
-    width: int = 640
-    height: int = 360
-    fps: int = 24
+    width: Annotated[units.Pixels, PIXELS_SPEC] = 640
+    height: Annotated[units.Pixels, PIXELS_SPEC] = 360
+    fps: Annotated[units.WholeFramesPerSecond, FRAME_RATE_SPEC] = 24
     work_scale: int = 2
-    work_fps: int = 30
-    still_duration: float = 30.0
-    start_black_duration: float = 8.0
-    title_interval: float = 180.0
-    title_jitter: float = 30.0
-    title_duration: float = 8.0
-    title_fade: float = 4.0
+    work_fps: Annotated[units.WholeFramesPerSecond, FRAME_RATE_SPEC] = 30
+    still_duration: Annotated[units.Seconds, TIME_SPEC] = 30.0
+    start_black_duration: Annotated[units.Seconds, TIME_SPEC] = 8.0
+    title_interval: Annotated[units.Seconds, TIME_SPEC] = 180.0
+    title_jitter: Annotated[units.Seconds, TIME_SPEC] = 30.0
+    title_duration: Annotated[units.Seconds, TIME_SPEC] = 8.0
+    title_fade: Annotated[units.Seconds, TIME_SPEC] = 4.0
     plan: Annotated[bool, tyro.conf.arg(aliases=['-p'])] = False
     plan_only: Annotated[bool, tyro.conf.arg(aliases=['-P'])] = False
 

@@ -7,25 +7,45 @@ from typing import Annotated, Literal, Self
 
 from pydantic import (
     BaseModel,
+    BeforeValidator,
     ConfigDict,
     Field,
     SecretStr,
+    TypeAdapter,
     field_validator,
     model_validator,
 )
+from reccy.configuration import units
+
+
+def normalize_ffmpeg_bitrate(value: object) -> object:
+    if isinstance(value, str) and re.fullmatch(r'[0-9]+(?:\.[0-9]+)?[kKmM]', value):
+        suffix = 'k' if value[-1] in {'k', 'K'} else 'M'
+        return f'{value[:-1]}{suffix}bps'
+    return value
+
+
+def pixel_resolution(value: str) -> tuple[int, int]:
+    parts = re.split(r'(?<=\d)[xX](?=\d)|\s+[xX×]\s+', value)
+    if len(parts) != 2:
+        raise ValueError('resolution must contain positive WIDTHxHEIGHT values')
+    adapter = TypeAdapter(units.Pixels)
+    try:
+        width, height = (adapter.validate_python(p) for p in parts)
+    except ValueError:
+        raise ValueError('resolution must contain positive pixel dimensions') from None
+    if width <= 0 or height <= 0:
+        raise ValueError('resolution must contain positive pixel dimensions')
+    return width, height
 
 
 class AudioEncoding(BaseModel, frozen=True):
     codec: Literal['aac', 'mp3', 'opus', 'vorbis']
-    bitrate: str
-    sample_rate: int
+    bitrate: Annotated[
+        units.WholeBitsPerSecond, BeforeValidator(normalize_ffmpeg_bitrate)
+    ] = Field(gt=0)
+    sample_rate: units.WholeHertz
     channels: Literal[1, 2]
-
-    @field_validator('bitrate')
-    @classmethod
-    def validate_bitrate(cls, value: str) -> str:
-        validate_bitrate(value)
-        return value
 
     @field_validator('sample_rate')
     @classmethod
@@ -39,27 +59,21 @@ class AudioEncoding(BaseModel, frozen=True):
 
 class VideoEncoding(BaseModel, frozen=True):
     codec: Literal['h264', 'hevc', 'av1']
-    bitrate: str
+    bitrate: Annotated[
+        units.WholeBitsPerSecond, BeforeValidator(normalize_ffmpeg_bitrate)
+    ] = Field(gt=0)
     resolution: str
-    frame_rate: int
-    keyframe_interval: float
+    frame_rate: units.WholeFramesPerSecond
+    keyframe_interval: units.Seconds
     pixel_format: str = 'yuv420p'
-
-    @field_validator('bitrate')
-    @classmethod
-    def validate_bitrate(cls, value: str) -> str:
-        validate_bitrate(value)
-        return value
 
     @field_validator('resolution')
     @classmethod
     def validate_resolution(cls, value: str) -> str:
-        match = re.fullmatch(r'([1-9][0-9]*)x([1-9][0-9]*)', value.lower())
-        if match is None:
-            raise ValueError('resolution must contain positive WIDTHxHEIGHT values')
-        if int(match[1]) > 3840 or int(match[2]) > 2160:
+        width, height = pixel_resolution(value)
+        if width > 3840 or height > 2160:
             raise ValueError('resolution must not exceed 3840x2160')
-        return value
+        return f'{width}x{height}'
 
     @field_validator('frame_rate')
     @classmethod
@@ -124,7 +138,7 @@ class SrtIngest(BaseModel, frozen=True):
     protocol: Literal['srt']
     url: str
     passphrase: SecretStr | None = None
-    latency_ms: int = 120
+    latency_ms: units.WholeMilliseconds = 120
 
     @model_validator(mode='after')
     def validate_ingest(self) -> Self:
@@ -142,7 +156,7 @@ class HlsPushIngest(BaseModel, frozen=True):
     protocol: Literal['hls']
     upload_url: str
     stream_key: SecretStr
-    segment_duration: float
+    segment_duration: units.Seconds
 
     @model_validator(mode='after')
     def validate_ingest(self) -> Self:
@@ -351,12 +365,6 @@ def validate_icecast_encoding(encoding: EncodingProfile) -> None:
             f'{encoding.audio.codec} is not compatible with the '
             f'{encoding.container} container'
         )
-
-
-def validate_bitrate(value: str) -> None:
-    match = re.fullmatch(r'([0-9]+(?:\.[0-9]+)?)([kKmM]?)', value)
-    if match is None or float(match.group(1)) <= 0:
-        raise ValueError('bitrate must be a positive FFmpeg rate')
 
 
 def require_secret(value: SecretStr, name: str) -> None:

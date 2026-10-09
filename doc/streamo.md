@@ -26,9 +26,9 @@ starting point:
 device_name = "X18"
 channel = 17
 video = "visual-bed.mp4"
-sample_rate = 48000
-overlay_resolution = "1280x720"
-overlay_frame_rate = 30
+sample_rate = "48kHz"
+overlay_resolution = "1280px x 720px"
+overlay_frame_rate = "30fps"
 
 [streaming_service]
 service = "twitch"
@@ -46,16 +46,16 @@ container = "flv"
 
 [streaming_service.encoding.audio]
 codec = "aac"
-bitrate = "160k"
-sample_rate = 48000
+bitrate = "160kbps"
+sample_rate = "48kHz"
 channels = 2
 
 [streaming_service.encoding.video]
 codec = "h264"
-bitrate = "2500k"
-resolution = "1280x720"
-frame_rate = 30
-keyframe_interval = 2
+bitrate = "2.5Mbps"
+resolution = "1280px x 720px"
+frame_rate = "30fps"
+keyframe_interval = "2s"
 
 [streaming_service.metadata]
 title = "Live show"
@@ -100,6 +100,15 @@ audio values when they should agree. Overlay dimensions and frame rate affect
 the overlays only; the base video retains the published resolution and frame rate.
 Local media must be readable before any provider preparation begins. Timings must
 be finite, and working dimensions must be positive.
+
+Unit-bearing settings accept Pint quantities: for example, `"500ms"` for a
+duration, `"48kHz"` for a sample rate, `"30fps"` for a frame rate,
+`"160kbps"` for a bitrate, and `"-60dB"` for an audio level. Resolution
+dimensions can include pixel units, as in `"1280px x 720px"`. Plain numbers
+remain valid in the field's named unit: seconds for durations, milliseconds
+for `latency_ms`, kilobits per second for `max_bitrate_kbps`, and bits per
+second for encoding bitrates. Existing FFmpeg bitrate shorthand such as
+`"160k"` remains accepted in encoding profiles.
 
 | Field | Default | Purpose |
 | --- | --- | --- |
@@ -707,7 +716,7 @@ Build a visual bed from looped videos and still images:
 uv run python -m scripts.render \
   --inputs a-looped.mp4 b-looped.mp4 still.png \
   --output visual-bed.mp4 \
-  --duration 3600 \
+  --duration 1h \
   --seed 1234 \
   --title-card title.md
 ```
@@ -746,7 +755,10 @@ To create a forward/backward loop without moving the original, use
 `uv run python -m scripts.loop_videos videos/*.mp4`. To prepare smaller 720p
 H.264 sources, use `uv run python -m scripts.reencode_videos output/ videos/*.mp4`.
 Its default bitrate is capped at 1200 kbps and 80% of the source bitrate;
-`--max-bitrate-kbps` and `--source-ratio` adjust those limits.
+`--max-bitrate-kbps` accepts values such as `1.5Mbps`, and `--source-ratio`
+adjusts the proportional limit. The renderer's time, frame-rate, and dimension
+options likewise accept units, and hand-written saved plans accept unit-bearing
+durations.
 
 Media outputs are published only after a successful render. Existing outputs,
 archive collisions, and duplicate re-encoding stems are rejected. Choose a new

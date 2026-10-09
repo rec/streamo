@@ -7,6 +7,8 @@ from typing import Annotated, cast
 
 import tyro
 from pydantic import BaseModel
+from reccy.configuration import units
+from reccy.configuration.tyro import unit_spec
 from reccy.runtime.process import run_silent
 
 from .media_output import new_media_output
@@ -20,7 +22,10 @@ class ReencodeVideos(BaseModel, frozen=True):
 
     output_directory: Annotated[Path, tyro.conf.Positional]
     videos: Annotated[list[Path], tyro.conf.Positional]
-    max_bitrate_kbps: int = DEFAULT_MAX_BITRATE_KBPS
+    max_bitrate_kbps: Annotated[
+        units.WholeKilobitsPerSecond,
+        unit_spec(units.WholeKilobitsPerSecond, 'KBPS'),
+    ] = DEFAULT_MAX_BITRATE_KBPS
     source_ratio: float = DEFAULT_SOURCE_RATIO
 
 

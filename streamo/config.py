@@ -1,4 +1,3 @@
-import re
 import threading
 import time
 from math import isfinite
@@ -7,6 +6,7 @@ from typing import TYPE_CHECKING, Self
 
 from PIL import Image
 from pydantic import ConfigDict, Field, PrivateAttr, field_validator, model_validator
+from reccy.configuration import units
 from reccy.protocol import ipc, rpc
 from reccy.reccy import Reccy, ReccyStatus
 from reccy.services.spec import load
@@ -14,7 +14,7 @@ from reccy.services.spec import load
 from .closing import DEFAULT_CREDITS, ClosingCredits, ClosingSequence
 from .image_feed import ImageFeed, ImageFeedPoller
 from .images import image_paths
-from .provider_config import StreamingServiceConfiguration
+from .provider_config import StreamingServiceConfiguration, pixel_resolution
 from .providers import GenericServiceAdapter, adapter_for
 from .runtime import HealthWarnings, RuntimeState
 
@@ -42,12 +42,12 @@ class Streamo(Reccy, frozen=True):
         default_factory=lambda: Path.home() / '.local/state/streamo/closing.json'
     )
 
-    sample_rate: int = 48_000
+    sample_rate: units.WholeHertz = 48_000
     overlay_resolution: str = '640x360'
-    overlay_frame_rate: int = 10
-    title_interval: float = 180.0
-    title_duration: float = 8.0
-    title_fade: float = 2.0
+    overlay_frame_rate: units.WholeFramesPerSecond = 10
+    title_interval: units.Seconds = 180.0
+    title_duration: units.Seconds = 8.0
+    title_fade: units.Seconds = 2.0
     local_display: bool = True
     live_overlays: bool = Field(
         default=True,
@@ -60,9 +60,9 @@ class Streamo(Reccy, frozen=True):
     image_approval_required: bool = False
     image_feed: ImageFeed | None = None
     current_session_image_weight: int = 3
-    image_interval: float = 0.0
-    image_duration: float = 8.0
-    image_fade: float = 2.0
+    image_interval: units.Seconds = 0.0
+    image_duration: units.Seconds = 8.0
+    image_fade: units.Seconds = 2.0
     _controller: 'ControlController | None' = PrivateAttr(default=None)
 
     def run(self, *, preview: bool = False) -> int:
@@ -146,14 +146,10 @@ class Streamo(Reccy, frozen=True):
     @field_validator('overlay_resolution')
     @classmethod
     def validate_resolution(cls, value: str) -> str:
-        if re.fullmatch(r'[1-9][0-9]*x[1-9][0-9]*', value.lower()) is None:
-            raise ValueError(
-                'overlay_resolution must contain positive WIDTHxHEIGHT values'
-            )
-        width, height = (int(p) for p in value.lower().split('x'))
+        width, height = pixel_resolution(value)
         if width > 1920 or height > 1080:
             raise ValueError('overlay_resolution must not exceed 1920x1080')
-        return value.lower()
+        return f'{width}x{height}'
 
     def rpc_response(
         self, request: rpc.Request, cancelled: threading.Event

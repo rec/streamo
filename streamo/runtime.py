@@ -4,15 +4,16 @@ from collections import deque
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+from reccy.configuration import units
 
 from .providers import StreamingServiceAdapter, endpoint_host
 
 
 class HealthWarnings(BaseModel, frozen=True):
-    silence_seconds: float = Field(default=0, ge=0, allow_inf_nan=False)
-    silence_level_db: float = Field(default=-60, ge=-120, le=0, allow_inf_nan=False)
-    clipping_seconds: float = Field(default=2, ge=0, allow_inf_nan=False)
-    output_stall_seconds: float = Field(default=10, ge=0, allow_inf_nan=False)
+    silence_seconds: units.Seconds = Field(default=0, ge=0)
+    silence_level_db: units.Decibels = Field(default=-60, ge=-120, le=0)
+    clipping_seconds: units.Seconds = Field(default=2, ge=0)
+    output_stall_seconds: units.Seconds = Field(default=10, ge=0)
 
     model_config = ConfigDict(extra='forbid')
 

@@ -297,7 +297,7 @@ def test_srt_output_includes_latency_and_redacts_passphrase() -> None:
             protocol='srt',
             url='srt://ingest.example.test:9000?mode=caller',
             passphrase='secret phrase',
-            latency_ms=250,
+            latency_ms='0.25s',
         ),
         encoding=EncodingProfile.model_validate(encoding('mpegts')),
     )

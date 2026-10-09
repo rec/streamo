@@ -8,26 +8,27 @@ usage: python -m scripts.render [-h] [OPTIONS]
                       (required)
   --output {None}|PATH
                       (default: None)
-  --duration FLOAT    (default: 3600.0)
+  --duration SECONDS  (default: 3600.0)
   --seed {None}|INT   (default: None)
   --title-card {None}|PATH
                       (default: None)
-  --width INT         (default: 640)
-  --height INT        (default: 360)
-  --fps INT           (default: 24)
+  --width PIXELS      (default: 640)
+  --height PIXELS     (default: 360)
+  --fps FPS           (default: 24)
   --work-scale INT    (default: 2)
-  --work-fps INT      (default: 30)
-  --still-duration FLOAT
+  --work-fps FPS      (default: 30)
+  --still-duration SECONDS
                       (default: 30.0)
-  --start-black-duration FLOAT
+  --start-black-duration SECONDS
                       (default: 8.0)
-  --title-interval FLOAT
+  --title-interval SECONDS
                       (default: 180.0)
-  --title-jitter FLOAT
+  --title-jitter SECONDS
                       (default: 30.0)
-  --title-duration FLOAT
+  --title-duration SECONDS
                       (default: 8.0)
-  --title-fade FLOAT  (default: 4.0)
+  --title-fade SECONDS
+                      (default: 4.0)
   -p, --plan, --no-plan
                       (default: False)
   -P, --plan-only, --no-plan-only

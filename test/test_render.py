@@ -42,6 +42,37 @@ def test_render_rejects_invalid_durations(duration: float) -> None:
         Media(path=Path('clip.mp4'), duration=duration)
 
 
+def test_render_cli_and_saved_plan_accept_units() -> None:
+    config = tyro.cli(
+        Render,
+        args=[
+            '--inputs',
+            'clip.mp4',
+            '--duration',
+            '1min',
+            '--fps',
+            '30fps',
+            '--width',
+            '1.28kpx',
+        ],
+    )
+    assert (config.duration, config.fps, config.width) == (60, 30, 1280)
+
+    plan = RenderPlan.model_validate(
+        {
+            'render': config.model_dump(),
+            'scenes': [
+                {
+                    'duration': '1min',
+                    'media': {'path': 'clip.mp4', 'duration': '60s'},
+                }
+            ],
+        }
+    )
+    saved = plan_toml(plan)
+    assert RenderPlan.model_validate(tomllib.loads(saved)).scenes[0].duration == 60
+
+
 def test_saved_plan_rejects_missing_transitions_and_excessive_overlap() -> None:
     scene = Scene(media=Media(path=Path('clip.mp4'), duration=2), duration=2)
     with pytest.raises(ValueError, match='one transition'):

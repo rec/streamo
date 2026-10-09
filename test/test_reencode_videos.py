@@ -2,8 +2,17 @@ import subprocess as sp
 from pathlib import Path
 
 import pytest
+import tyro
 
 from scripts import reencode_videos
+
+
+def test_reencode_cli_accepts_bitrate_units() -> None:
+    options = tyro.cli(
+        reencode_videos.ReencodeVideos,
+        args=['output', 'clip.mp4', '--max-bitrate-kbps', '1.5Mbps'],
+    )
+    assert options.max_bitrate_kbps == 1500
 
 
 def test_reencode_command_uses_mezzanine_settings() -> None:

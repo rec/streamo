@@ -8,15 +8,16 @@ from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from reccy.configuration import units
 from reccy.runtime.files import atomic_output
 
 
 class CreditPage(BaseModel, frozen=True):
     text: str | None = None
     image: Path | None = None
-    visible_seconds: float = Field(gt=0, allow_inf_nan=False)
-    fade_in_seconds: float = Field(gt=0, allow_inf_nan=False)
-    fade_out_seconds: float = Field(gt=0, allow_inf_nan=False)
+    visible_seconds: units.Seconds = Field(gt=0)
+    fade_in_seconds: units.Seconds = Field(gt=0)
+    fade_out_seconds: units.Seconds = Field(gt=0)
 
     @model_validator(mode='after')
     def one_source(self) -> 'CreditPage':

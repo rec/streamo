@@ -17,6 +17,7 @@ from pydantic import (
     ValidationError,
     field_validator,
 )
+from reccy.configuration import units
 from reccy.runtime.files import atomic_output
 from reccy.runtime.logging import get_logger
 
@@ -28,7 +29,7 @@ LOGGER = get_logger(__name__)
 class ImageFeed(BaseModel, frozen=True):
     url: str
     token: SecretStr = Field(min_length=20)
-    poll_interval: float = Field(default=2.0, ge=0.5, allow_inf_nan=False)
+    poll_interval: units.Seconds = Field(default=2.0, ge=0.5)
 
     @field_validator('url')
     @classmethod

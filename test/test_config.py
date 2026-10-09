@@ -5,6 +5,7 @@ import pytest
 from pydantic import ValidationError
 from reccy.reccy import Reccy
 
+from streamo.closing import CreditPage
 from streamo.config import Streamo
 from streamo.image_feed import ImageFeed
 from streamo.provider_config import (
@@ -14,6 +15,7 @@ from streamo.provider_config import (
     TwitchService,
     VideoEncoding,
 )
+from streamo.runtime import HealthWarnings
 
 
 def _service() -> TwitchService:
@@ -50,6 +52,85 @@ def test_overlay_times_must_be_finite(value: float) -> None:
             streaming_service=_service(),
             image_interval=value,
         )
+
+
+def test_unit_bearing_stream_settings_normalize_to_runtime_numbers() -> None:
+    service = _service().model_dump()
+    service['encoding']['audio']['bitrate'] = '160kbps'
+    service['encoding']['audio']['sample_rate'] = '48kHz'
+    service['encoding']['video']['bitrate'] = '2.5Mbps'
+    service['encoding']['video']['frame_rate'] = '30fps'
+    service['encoding']['video']['keyframe_interval'] = '1500ms'
+    config = Streamo.model_validate(
+        {
+            'device_name': 'X18',
+            'channel': 1,
+            'video': 'bed.mp4',
+            'streaming_service': service,
+            'sample_rate': '48kHz',
+            'overlay_resolution': '1.28kpx x 720px',
+            'overlay_frame_rate': '10fps',
+            'title_interval': '3min',
+            'title_duration': '8s',
+            'title_fade': '500ms',
+            'image_interval': '20s',
+            'image_duration': '8s',
+            'image_fade': '500ms',
+        }
+    )
+
+    assert config.sample_rate == 48_000
+    assert config.overlay_resolution == '1280x720'
+    assert config.overlay_frame_rate == 10
+    assert config.title_interval == 180
+    assert config.title_fade == 0.5
+    assert config.image_interval == 20
+    assert config.image_fade == 0.5
+    assert config.streaming_service.encoding.audio.bitrate == 160_000
+    assert config.streaming_service.encoding.audio.sample_rate == 48_000
+    assert config.streaming_service.encoding.video.bitrate == 2_500_000
+    assert config.streaming_service.encoding.video.frame_rate == 30
+    assert config.streaming_service.encoding.video.keyframe_interval == 1.5
+
+
+def test_video_resolution_accepts_pixel_units() -> None:
+    video = _service().encoding.video
+    assert video is not None
+    configured = video.model_copy(update={'resolution': '1.28kpx x 720px'})
+    parsed = VideoEncoding.model_validate(configured.model_dump())
+    assert parsed.resolution == '1280x720'
+
+
+def test_other_unit_bearing_settings_accept_converted_units() -> None:
+    warnings = HealthWarnings.model_validate(
+        {
+            'silence_seconds': '500ms',
+            'silence_level_db': '-60dB',
+            'clipping_seconds': '2s',
+            'output_stall_seconds': '0.5min',
+        }
+    )
+    feed = ImageFeed.model_validate(
+        {
+            'url': 'https://example.test/feed',
+            'token': 'x' * 20,
+            'poll_interval': '750ms',
+        }
+    )
+    page = CreditPage.model_validate(
+        {
+            'text': 'Credits',
+            'visible_seconds': '3s',
+            'fade_in_seconds': '500ms',
+            'fade_out_seconds': '0.5s',
+        }
+    )
+
+    assert warnings.silence_seconds == 0.5
+    assert warnings.silence_level_db == -60
+    assert warnings.output_stall_seconds == 30
+    assert feed.poll_interval == 0.75
+    assert page.duration == 4
 
 
 def test_preview_does_not_initialize_provider(tmp_path: Path) -> None:
