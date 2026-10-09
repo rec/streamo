@@ -1,5 +1,6 @@
 import json
 import subprocess
+import threading
 from pathlib import Path
 from unittest import mock
 
@@ -223,7 +224,9 @@ def test_cli_and_rpc_return_same_report(
         mock.patch.object(preflight, 'check', return_value=report),
     ):
         assert main(['preflight']) == 1
-        response = config.rpc_response(rpc.Request(command='preflight'))
+        response = config.rpc_response(
+            rpc.Request(command='preflight'), threading.Event()
+        )
     assert json.loads(capsys.readouterr().out) == response
 
 

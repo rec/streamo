@@ -1,4 +1,5 @@
 import re
+import threading
 import time
 from math import isfinite
 from pathlib import Path
@@ -154,7 +155,11 @@ class Streamo(Reccy, frozen=True):
             raise ValueError('overlay_resolution must not exceed 1920x1080')
         return value.lower()
 
-    def rpc_response(self, request: rpc.Request) -> rpc.Result:
+    def rpc_response(
+        self, request: rpc.Request, cancelled: threading.Event
+    ) -> rpc.Result:
+        if cancelled.is_set():
+            return ipc.Error(type='error', message='request was cancelled')
         if request.command == 'preflight':
             from .preflight import check
 

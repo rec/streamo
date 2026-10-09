@@ -26,12 +26,13 @@ def test_service_exit_code_matches_requested_action(
     with (
         mock.patch.object(
             Streamo,
-            f'{action}_service',
+            'service_status',
             return_value=StatusResult(
                 installed=installed,
                 running=running,
             ),
         ),
+        mock.patch.object(Streamo, f'{action}_service'),
         mock.patch('streamo.daemon.print_service_status'),
     ):
         assert (
@@ -45,9 +46,10 @@ def test_install_creates_daemon_service_with_absolute_config_path() -> None:
     with (
         mock.patch.object(
             Streamo,
-            'install_service',
+            'service_status',
             return_value=StatusResult(installed=True, running=True),
-        ) as install_service,
+        ),
+        mock.patch.object(Streamo, 'install_service') as install_service,
         mock.patch('streamo.daemon.print_service_status'),
     ):
         result = daemon.run(daemon.DaemonOptions(action='install', config=config))
@@ -61,6 +63,19 @@ def test_install_creates_daemon_service_with_absolute_config_path() -> None:
             str(config.resolve()),
         ],
     )
+
+
+def test_status_uses_reccy_service_status() -> None:
+    with (
+        mock.patch.object(
+            Streamo,
+            'service_status',
+            return_value=StatusResult(installed=True, running=True),
+        ) as service_status,
+        mock.patch('streamo.daemon.print_service_status'),
+    ):
+        assert daemon.run(daemon.DaemonOptions(action='status')) == 0
+    service_status.assert_called_once_with()
 
 
 def test_preview_runs_config_without_twitch_output(tmp_path: Path) -> None:

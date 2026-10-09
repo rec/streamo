@@ -45,7 +45,7 @@ def run(options: DaemonOptions) -> int:
         config = load_config(options.config)
         return config.run(preview=options.action == 'preview')
     if options.action == 'install':
-        result = streamo.install_service(
+        streamo.install_service(
             [
                 'daemon',
                 'run',
@@ -53,8 +53,9 @@ def run(options: DaemonOptions) -> int:
                 str(options.config.expanduser().resolve()),
             ]
         )
-    else:
-        result = getattr(streamo, f'{options.action}_service')()
+    elif options.action != 'status':
+        getattr(streamo, f'{options.action}_service')()
+    result = streamo.service_status()
     print_service_status(STREAMO_SERVICE.name, result)
     if options.action == 'uninstall':
         return int(result.installed or result.running is True)
