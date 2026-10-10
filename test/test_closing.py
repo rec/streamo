@@ -4,12 +4,12 @@ from unittest import mock
 import pytest
 from PIL import Image
 from reccy.protocol import ipc, rpc
+from test_overlays import config as overlay_config
 
 from streamo.closing import ClosingCredits, ClosingSequence, CreditPage
 from streamo.control import ControlController
 from streamo.overlays import LiveOverlays
 from streamo.runtime import RuntimeState
-from test.test_overlays import config as overlay_config
 
 
 def credits() -> ClosingCredits:

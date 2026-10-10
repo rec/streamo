@@ -8,6 +8,7 @@ from PIL import Image
 from pydantic import ValidationError
 from pytest_regressions.data_regression import DataRegressionFixture
 from reccy.protocol import ipc, rpc
+from test_config import _service
 
 from streamo.config import Streamo
 from streamo.control import ControlController
@@ -15,7 +16,6 @@ from streamo.images import ImageScheduler
 from streamo.moderation import ImageApproval, ImageQueue, ImageReview
 from streamo.overlays import LiveOverlays
 from streamo.runtime import RuntimeState
-from test.test_config import _service
 
 
 @pytest.fixture

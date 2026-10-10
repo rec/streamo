@@ -9,12 +9,12 @@ from PIL import Image
 from pydantic import ValidationError
 from pytest_regressions.image_regression import ImageRegressionFixture
 from reccy.protocol import ipc, rpc
+from test_config import _service
 
 from streamo.config import Streamo
 from streamo.control import ControlController
 from streamo.overlays import LiveOverlays, SlateCue, TitleCue, write_overlay_frames
 from streamo.runtime import RuntimeState
-from test.test_config import _service
 
 
 @pytest.fixture
