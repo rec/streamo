@@ -7,7 +7,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-09-22T18:39:24.142636Z"
+exclude-newer = "2026-10-03T16:14:32.457644Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -809,7 +809,7 @@ wheels = [
 
 [[package]]
 name = "streamo"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "google-auth" },
