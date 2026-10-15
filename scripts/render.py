@@ -3,7 +3,7 @@ import json
 import sys
 import tempfile
 import tomllib
-from math import isfinite
+from math import ceil, isfinite
 from pathlib import Path
 from subprocess import CalledProcessError
 from typing import cast
@@ -154,6 +154,7 @@ def render_segments(config: Render, plan: RenderPlan, output: Path) -> None:
             sys.exit('render segment is shorter than one output frame')
         chunk = output.parent / f'chunk-{len(chunks):04}.mp4'
         subplan = RenderPlan.model_construct(
+            render=config,
             scenes=plan.scenes[first : last + 1],
             transitions=plan.transitions[first:last],
             title_events=titles,
@@ -484,6 +485,13 @@ def filter_graph(
     if frame_count is not None:
         output_filter += f',setpts=PTS+{title_offset:.6f}/TB'
     output_filter += f',fps={config.fps},format=yuv420p'
+    if config.title_fade > 0:
+        duration = plan.render.duration if plan.render is not None else config.duration
+        # Reach black on the last visible frame, before playback loops.
+        fade_end = max(0.0, (ceil(duration * config.fps) - 1) / config.fps)
+        fade_duration = min(config.title_fade, max(1 / config.fps, fade_end))
+        fade_start = max(0.0, fade_end - fade_duration)
+        output_filter += f',fade=t=out:st={fade_start:.6f}:d={fade_duration:.6f}'
     if frame_count is not None:
         start = first_frame / config.fps
         end = (first_frame + frame_count) / config.fps

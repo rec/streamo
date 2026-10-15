@@ -725,6 +725,13 @@ The renderer starts from black, selects randomly from all media except the immed
 between scenes, and can overlay a PNG, other supported still image, or rendered
 Markdown title card.
 
+The complete composition fades to black over the final `--title-fade` seconds
+(default four), including any title overlay. The last frame is black so playback
+can loop back to the opening black without a cut to a lit image. The fade stays
+within the requested movie duration and applies at the end of the whole movie,
+including when rendering in segments. Setting `--title-fade 0` disables it.
+Existing movies need to be rendered again to include the final fade.
+
 Add `--plan` (or `-p`) to print the generated render plan as TOML before
 rendering. Add `--plan-only` (or `-P`) to print it without rendering:
 

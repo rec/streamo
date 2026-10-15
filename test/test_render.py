@@ -147,8 +147,9 @@ def test_long_render_bounds_ffmpeg_inputs(
     assert config.output.read_bytes() == b'completed render'
 
 
+@pytest.mark.parametrize('title_fade', [0.5, 10.0])
 def test_segmented_render_preserves_scene_timing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, title_fade: float
 ) -> None:
     fixtures = Path(__file__).parent / 'fixtures' / 'render'
     inputs = [fixtures / 'blue-circle.mp4', fixtures / 'red-diamond.mp4']
@@ -163,6 +164,7 @@ def test_segmented_render_preserves_scene_timing(
         work_scale=1,
         work_fps=6,
         start_black_duration=1,
+        title_fade=title_fade,
     )
     plan = build_plan(config, [Media(path=p, duration=1.5) for p in inputs])
     monkeypatch.setattr(render, 'MAX_RENDER_INPUTS', 1000)
@@ -174,6 +176,10 @@ def test_segmented_render_preserves_scene_timing(
     expected = decode_video_frames(config.output, width=160, height=90)
     actual = decode_video_frames(segmented.output, width=160, height=90)
     assert actual.shape == expected.shape
+    assert actual.shape[0] == 36
+    assert actual[-1].max() <= 2
+    assert expected[-1].max() <= 2
+    assert actual[-2].mean() > actual[-1].mean()
     assert np.abs(actual.astype(int) - expected.astype(int)).mean() < 5
 
 
@@ -199,7 +205,10 @@ def test_segmented_render_preserves_title_across_segments(
         title_fade=0.5,
     )
     plan = build_plan(config, [Media(path=fixture, duration=1.5)])
-    plan.title_events = [TitleEvent(start=3, duration=1)]
+    plan.title_events = [
+        TitleEvent(start=3, duration=1),
+        TitleEvent(start=5, duration=1),
+    ]
     monkeypatch.setattr(render, 'MAX_RENDER_INPUTS', 1000)
     render.execute_prepared_plan(config, plan)
     segmented = config.model_copy(update={'output': tmp_path / 'segmented.mp4'})
@@ -209,6 +218,8 @@ def test_segmented_render_preserves_title_across_segments(
     expected = decode_video_frames(config.output, width=160, height=90)
     actual = decode_video_frames(segmented.output, width=160, height=90)
     assert actual.shape == expected.shape
+    assert actual[-1].max() <= 2
+    assert expected[-1].max() <= 2
     assert np.all(actual[19:23, 45, 80, 0] > actual[19:23, 45, 80, 2])
 
 
@@ -419,7 +430,7 @@ def test_ffmpeg_command_uses_inputs_xfade_and_title_overlay() -> None:
     assert '-loop' in command
     assert 'scale=1280:720' in graph
     assert 'fps=30' in graph
-    assert 'scale=640:360,fps=24,format=yuv420p[out]' in graph
+    assert 'scale=640:360,fps=24,format=yuv420p,fade=t=out:' in graph
     assert 'xfade=transition=fade' in graph
     assert 'overlay=(W-w)/2:(H-h)/2:eof_action=pass' in graph
     assert command[command.index('-t', command.index('-movflags')) + 1] == '20.000000'
@@ -632,6 +643,8 @@ def test_render_visual_bed_regression(
     expected_frames = decode_video_frames(expected, width=160, height=90)
     actual_frames = decode_video_frames(output, width=160, height=90)
     assert actual_frames.shape == expected_frames.shape
+    assert actual_frames[0].max() <= 2
+    assert actual_frames[-1].max() <= 2
     assert np.abs(actual_frames.astype(int) - expected_frames.astype(int)).mean() < 0.5
 
 
