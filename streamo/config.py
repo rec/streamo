@@ -63,7 +63,7 @@ class Streamo(Reccy, frozen=True):
     current_session_image_weight: int = 3
     image_interval: units.Seconds = 0.0
     image_duration: units.Seconds = 8.0
-    image_fade: units.Seconds = 2.0
+    image_fade: units.Seconds = 4.0
     _controller: 'ControlController | None' = PrivateAttr(default=None)
 
     def run(self, *, preview: bool = False) -> int:

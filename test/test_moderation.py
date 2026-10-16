@@ -58,7 +58,12 @@ def test_unreviewed_images_wait_and_rejection_hides_cached_photo(
     # Finish the empty interval and start the approved image.
     for _ in range(200):
         frame, _ = overlays.frame()
-    assert frame[:4] == bytes((255, 0, 0, 255))
+    assert Image.frombytes('RGBA', overlays.size, frame).getpixel((320, 180)) == (
+        255,
+        0,
+        0,
+        153,
+    )
     reply = controller.handle_request(
         rpc.Request(
             command='image_review',
@@ -138,7 +143,12 @@ def test_trusted_photo_displays_while_same_named_incoming_photo_waits(
     Image.new('RGBA', (640, 360), 'red').save(incoming)
 
     frame, visual = overlays.frame()
-    assert frame[:4] == bytes((0, 0, 255, 255))
+    assert Image.frombytes('RGBA', overlays.size, frame).getpixel((320, 180)) == (
+        0,
+        0,
+        255,
+        153,
+    )
     assert visual['image_id'] == 'trusted/1/photo.png'
     assert overlays.approval.queue(ImageQueue())['images'] == [
         {'id': 'incoming/photo.png', 'state': 'pending'}

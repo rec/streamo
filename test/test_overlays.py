@@ -85,7 +85,29 @@ def test_slate_pauses_title_and_photo_timing(config: Streamo) -> None:
     overlays.set_slate(SlateCue(visible=False))
     frame, _ = overlays.frame()
     pixels = np.frombuffer(frame, dtype=np.uint8).reshape((360, 640, 4))
-    assert pixels[180, 320, 3] == 64
+    assert pixels[180, 320, 3] == 38
+
+
+def test_photos_fill_screen_with_slow_translucent_fades(
+    config: Streamo, image_regression: ImageRegressionFixture
+) -> None:
+    Image.new('RGBA', (32, 18), 'red').save(config.primary_image_dir / 'photo.png')
+    overlays = LiveOverlays(config.model_copy(update={'image_interval': 20}), set())
+    frames = [
+        Image.frombytes('RGBA', overlays.size, overlays.frame()[0]) for _ in range(33)
+    ]
+
+    assert frames[0].getchannel('A').getextrema() == (0, 0)
+    assert frames[8].getchannel('A').getextrema()[1] == 76
+    assert frames[16].getchannel('A').getextrema()[1] == 153
+    assert frames[24].getchannel('A').getextrema()[1] == 76
+    assert frames[32].getchannel('A').getextrema() == (0, 0)
+    assert frames[16].getbbox() == (32, 18, 608, 342)
+    background = Image.new('RGBA', overlays.size, 'blue')
+    background.alpha_composite(frames[16])
+    contents = io.BytesIO()
+    background.save(contents, format='PNG')
+    image_regression.check(contents.getvalue())
 
 
 def test_title_auto_fades_and_hides(config: Streamo, tmp_path: Path) -> None:

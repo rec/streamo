@@ -59,6 +59,10 @@ class LiveOverlays:
         assert encoding is not None
         width, height = encoding.resolution.split('x')
         self.size = (int(width), int(height))
+        self.photo_size = (
+            max(1, round(self.size[0] * 0.9)),
+            max(1, round(self.size[1] * 0.9)),
+        )
         width, height = config.overlay_resolution.split('x')
         self.working_size = (int(width), int(height))
         self.frame_rate = config.overlay_frame_rate
@@ -109,8 +113,8 @@ class LiveOverlays:
                     approval=self.approval,
                     directory_weights=[*config.resolved_image_dir_weights, 1],
                 ),
-                width=self.working_size[0],
-                height=self.working_size[1],
+                width=self.photo_size[0],
+                height=self.photo_size[1],
                 frame_rate=config.overlay_frame_rate,
                 interval=config.image_interval,
                 duration=config.image_duration,
@@ -262,9 +266,15 @@ class LiveOverlays:
                     canvas.alpha_composite(visible_title, position)
                 if self.photos is not None:
                     photo = Image.frombytes(
-                        'RGBA', self.working_size, self.photos.frame()
+                        'RGBA', self.photo_size, self.photos.frame()
                     )
-                    canvas.alpha_composite(photo, position)
+                    canvas.alpha_composite(
+                        photo,
+                        (
+                            (self.size[0] - self.photo_size[0]) // 2,
+                            (self.size[1] - self.photo_size[1]) // 2,
+                        ),
+                    )
             photo_status = self.photos.snapshot() if self.photos is not None else None
             with self.lock:
                 if photo_status is not None:

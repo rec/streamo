@@ -182,7 +182,7 @@ class ImageFrameProducer:
         if not self.eligible(path):
             raise ValueError('Next image must exist and be approved')
         # Decode before replacing a pending choice; invalid files preserve it.
-        load_image(path, self.width, self.height)
+        load_image(path, self.width, self.height, upscale=True)
         self.next_path = path
 
     def snapshot(self) -> dict[str, object]:
@@ -216,7 +216,7 @@ class ImageFrameProducer:
                 return None
             attempted.add(path)
             try:
-                image = load_image(path, self.width, self.height)
+                image = load_image(path, self.width, self.height, upscale=True)
                 self.current_path = path
                 return image
             except (
@@ -233,8 +233,8 @@ class ImageFrameProducer:
         if elapsed >= self.duration:
             return 0.0
         if self.fade == 0:
-            return 1.0
-        return max(
+            return 0.6
+        return 0.6 * max(
             0.0,
             min(1.0, elapsed / self.fade, (self.duration - elapsed) / self.fade),
         )
@@ -252,10 +252,19 @@ def image_paths(image_dir: Path) -> list[Path]:
     )
 
 
-def load_image(path: Path, width: int, height: int) -> np.ndarray:
+def load_image(
+    path: Path, width: int, height: int, *, upscale: bool = False
+) -> np.ndarray:
     with Image.open(path) as source:
         image = source.convert('RGBA')
-    image.thumbnail((width, height), Image.Resampling.LANCZOS)
+    if upscale:
+        scale = min(width / image.width, height / image.height)
+        image = image.resize(
+            (max(1, round(image.width * scale)), max(1, round(image.height * scale))),
+            Image.Resampling.LANCZOS,
+        )
+    else:
+        image.thumbnail((width, height), Image.Resampling.LANCZOS)
     canvas = Image.new('RGBA', (width, height))
     position = ((width - image.width) // 2, (height - image.height) // 2)
     canvas.alpha_composite(image, position)

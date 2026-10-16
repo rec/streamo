@@ -67,7 +67,9 @@ def test_invalid_oversized_image_is_skipped(
         fade=0,
     )
 
-    def load(path: Path, width: int, height: int) -> np.ndarray:
+    def load(
+        path: Path, width: int, height: int, *, upscale: bool = False
+    ) -> np.ndarray:
         if path == bad:
             raise Image.DecompressionBombError('oversized')
         return np.zeros((height, width, 4), dtype=np.uint8)
@@ -167,17 +169,18 @@ def test_frame_producer_scales_and_centers_image(tmp_path: Path) -> None:
     Image.new('RGBA', (1, 2), (0, 255, 0, 255)).save(path)
     producer = ImageFrameProducer(
         ImageScheduler(tmp_path),
-        width=4,
-        height=2,
+        width=8,
+        height=8,
         frame_rate=1,
         interval=2,
         duration=1,
         fade=0,
     )
 
-    frame = np.frombuffer(producer.frame(), dtype=np.uint8).reshape((2, 4, 4))
+    frame = Image.frombytes('RGBA', (8, 8), producer.frame())
 
-    assert frame[:, :, 3].tolist() == [[0, 255, 0, 0], [0, 255, 0, 0]]
+    assert frame.getbbox() == (2, 0, 6, 8)
+    assert frame.getpixel((3, 3)) == (0, 255, 0, 153)
 
 
 def test_frame_producer_fades_and_then_emits_transparency(tmp_path: Path) -> None:
@@ -194,7 +197,7 @@ def test_frame_producer_fades_and_then_emits_transparency(tmp_path: Path) -> Non
 
     alpha = [producer.frame()[3] for _ in range(12)]
 
-    assert alpha == [0, 64, 128, 191, 255, 191, 128, 64, 0, 0, 0, 0]
+    assert alpha == [0, 38, 76, 115, 153, 115, 76, 38, 0, 0, 0, 0]
 
 
 def test_frame_producer_skips_invalid_images(tmp_path: Path) -> None:
@@ -210,7 +213,7 @@ def test_frame_producer_skips_invalid_images(tmp_path: Path) -> None:
         fade=0,
     )
 
-    assert producer.frame() == bytes((0, 0, 255, 255))
+    assert producer.frame() == bytes((0, 0, 255, 153))
 
 
 def test_image_feed_poller_downloads_new_jpegs_and_records_cursor(
@@ -327,7 +330,7 @@ def test_paused_fade_and_skip_preserve_next_selection(tmp_path: Path) -> None:
     )
     producer.frame()
     held = producer.frame()
-    assert held == bytes((255, 0, 0, 64))
+    assert held == bytes((255, 0, 0, 38))
     assert producer.snapshot()['next_id'] == 'trusted/1/b.png'
     producer.paused = True
     for _ in range(20):
@@ -339,7 +342,7 @@ def test_paused_fade_and_skip_preserve_next_selection(tmp_path: Path) -> None:
     for _ in range(10):
         assert producer.frame() == bytes(4)
     producer.frame()  # Next interval starts at zero opacity.
-    assert producer.frame() == bytes((0, 0, 255, 64))
+    assert producer.frame() == bytes((0, 0, 255, 38))
     assert (tmp_path / 'a.png').exists()
 
 

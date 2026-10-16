@@ -107,7 +107,7 @@ second for encoding bitrates. Existing FFmpeg bitrate shorthand such as
 | `image_approval_required` | `false` | Hold unreviewed internet images for approval |
 | `image_interval` | `0.0` | Seconds between participant images; zero disables them |
 | `image_duration` | `8.0` | Seconds each participant image is visible |
-| `image_fade` | `2.0` | Participant-image fade duration, in seconds |
+| `image_fade` | `4.0` | Participant-image fade-in and fade-out duration, in seconds |
 | `current_session_image_weight` | `3` | Current-session images per older image |
 
 Encoding settings default to FLV and stereo AAC audio at 48 kHz and 160 kbps.
@@ -400,7 +400,10 @@ The compositor sends a full output-resolution RGBA frame at `overlay_frame_rate`
 even when transparent. At 1920×1080 and 10 fps that is approximately 83 MB/s
 through the local pipe, plus rendering/copying/compositing work, not extra network
 upload bandwidth. Target-machine performance has not been measured. Title and
-photo assets retain their centered `overlay_resolution` working size.
+title assets retain their centered `overlay_resolution` working size. Participant
+photos are centered and scaled to fit 90% of the broadcast width and height,
+preserving their proportions and enlarging smaller images. Their opacity never
+exceeds 60%. By default they fade in over four seconds and out over four seconds.
 
 The `title` RPC requires `visibility`: `auto`, `show`, or `hide`. Optional `text`
 replaces the configured image with plain text (maximum 500 characters, wrapped
@@ -519,7 +522,7 @@ uploads use the same inbox. All configured directories are trusted image sources
 image_dir = ["images"]
 image_interval = 20.0
 image_duration = 8.0
-image_fade = 2.0
+image_fade = 4.0
 
 [image_feed]
 url = "https://example.com/foto.php"
@@ -571,7 +574,7 @@ image_dir = ["images"]
 current_session_image_weight = 3
 image_interval = 20.0
 image_duration = 8.0
-image_fade = 2.0
+image_fade = 4.0
 
 [image_feed]
 url = "https://ax.to/show/foto.php"
