@@ -47,7 +47,7 @@ exclude-newer = "1 week"
 
 [tool.uv.sources]
 reccy = { git = "https://github.com/rec/reccy.git", branch = "main" }
-recs = { git = "https://github.com/rec/recs.git", rev = "762b3e5" }
+recs = { git = "https://github.com/rec/recs.git", branch = "main" }
 
 [tool.ruff]
 line-length = 88

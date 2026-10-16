@@ -979,7 +979,7 @@ dependencies = [
 [[package]]
 name = "recs"
 version = "0.13.1"
-source = { git = "https://github.com/rec/recs.git?rev=762b3e5#762b3e5d1a9fb563bcd0162a0ad51dc588d6be0b" }
+source = { git = "https://github.com/rec/recs.git?branch=main#762b3e5d1a9fb563bcd0162a0ad51dc588d6be0b" }
 dependencies = [
     { name = "dvice" },
     { name = "humanfriendly" },
@@ -1146,7 +1146,7 @@ requires-dist = [
     { name = "pillow", specifier = ">=12.3.0" },
     { name = "pydantic", specifier = ">=2" },
     { name = "reccy", git = "https://github.com/rec/reccy.git?branch=main" },
-    { name = "recs", git = "https://github.com/rec/recs.git?rev=762b3e5" },
+    { name = "recs", git = "https://github.com/rec/recs.git?branch=main" },
     { name = "sounddevice" },
     { name = "tyro" },
 ]
