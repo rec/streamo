@@ -257,7 +257,10 @@ class RecsReceiver:
         assert self.sample_rate is not None
         if header.frames > self.sample_rate // 50:
             raise ValueError('recs packet exceeds the supported 20 ms block duration')
-        while len(self.received) >= 5:
+        while (
+            sum(h.frames for h, _ in self.received) + header.frames
+            > self.sample_rate // 10
+        ):
             old, _ = self.received.popleft()
             self.dropped_frames += old.frames
         self.received.append((header, pcm))
@@ -383,12 +386,22 @@ class RecsAudio(AudioOutput):
             )
             if not self.pending:
                 if receiver.received:
-                    header, pcm = receiver.received.popleft()
+                    header = receiver.received[0][0]
+                    status = next(
+                        (
+                            h.input_status
+                            for h, _ in receiver.received
+                            if h.input_status
+                        ),
+                        '',
+                    )
+                    pcm = b''.join(p for _, p in receiver.received)
+                    receiver.received.clear()
                     block = np.frombuffer(pcm, dtype='<f4').reshape(-1, 2).copy()
-                    self.blocks.put_nowait((block, header.input_status))
+                    self.blocks.put_nowait((block, status))
                     self.pending_since = header.offered_at
                     self.silence_due = (
-                        max(now, self.silence_due) + header.frames / self.sample_rate
+                        max(now, self.silence_due) + len(block) / self.sample_rate
                     )
                 elif self.output is not None and now >= self.silence_due:
                     frames = max(1, self.sample_rate // 100)

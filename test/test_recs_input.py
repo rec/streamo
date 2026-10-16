@@ -401,6 +401,37 @@ def test_receiver_reconnects_and_shutdown_interrupts_blocked_reader(
     assert rpc_server.commands.count('unsubscribe_audio') == 2
 
 
+@pytest.mark.parametrize('packet_frames', [[384, 96], [1, 383, 96]])
+def test_small_packets_keep_up_with_the_encoder_loop(
+    settings: RecsInput,
+    clock: list[float],
+    tmp_path: Path,
+    packet_frames: list[int],
+) -> None:
+    phase = np.arange(48_000, dtype=np.float32) / 48_000
+    samples = np.column_stack((0.25 * np.sin(2 * np.pi * 440 * phase), phase - 0.5))
+    write_wav(tmp_path / 'input.wav', samples)
+    state = RuntimeState()
+    with (tmp_path / 'received.pcm').open('w+b', buffering=0) as output:
+        audio = RecsAudio(settings, 48_000, output, state)
+        try:
+            frame = 0
+            for _ in range(100):
+                for n in packet_frames:
+                    feed(audio, samples[frame : frame + n], clock[0], frame)
+                    frame += n
+                audio.update()
+                clock[0] += 0.01
+            output.seek(0)
+            result = np.frombuffer(output.read(), dtype='<f4').reshape(-1, 2)
+            np.testing.assert_array_equal(result, samples)
+            write_wav(tmp_path / 'received.wav', result)
+            assert state.snapshot()['audio_frames'] == 48_000
+            assert state.snapshot()['audio_dropped_frames'] == 0
+        finally:
+            audio.close_capture()
+
+
 def test_slow_encoder_does_not_replay_stale_audio(
     settings: RecsInput,
     clock: list[float],
@@ -477,15 +508,21 @@ def test_intentional_pause_does_not_consume_outage_budget(
         audio.close_capture()
 
 
+@pytest.mark.parametrize('packet_frames', [960, 384])
 def test_receiver_queue_is_bounded_and_encoder_replacement_discards_old_audio(
-    settings: RecsInput, clock: list[float], samples: np.ndarray, tmp_path: Path
+    settings: RecsInput,
+    clock: list[float],
+    samples: np.ndarray,
+    tmp_path: Path,
+    packet_frames: int,
 ) -> None:
     audio = RecsAudio(settings, 48_000, None, RuntimeState())
     try:
-        for start in range(0, len(samples), 960):
-            feed(audio, samples[start : start + 960], clock[0], start)
-        assert len(audio.receiver.received) == 5
-        assert audio.receiver.dropped_frames == 43_200
+        for start in range(0, len(samples), packet_frames):
+            feed(audio, samples[start : start + packet_frames], clock[0], start)
+        retained = sum(h.frames for h, _ in audio.receiver.received)
+        assert retained == 4800 // packet_frames * packet_frames
+        assert audio.receiver.dropped_frames == 48_000 - retained
         with (tmp_path / 'new-encoder.pcm').open('w+b', buffering=0) as output:
             audio.pending = b'old partial bytes'
             audio.attach_output(output)
