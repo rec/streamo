@@ -103,6 +103,9 @@ def test_start_control_rejects_duplicates_and_exposes_status(tmp_path: Path) -> 
 
 def test_credit_frames_fade_to_black(tmp_path: Path) -> None:
     config = overlay_config.__wrapped__(tmp_path)
+    assert config.resolved_closing_credits is not None
+    assert len(config.resolved_closing_credits.pages) == 1
+    assert config.resolved_closing_credits.pages[0].text == 'Thank you\nfor watching'
     closing = ClosingSequence(
         config.resolved_closing_credits, tmp_path / 'closing.json'
     )
@@ -113,7 +116,7 @@ def test_credit_frames_fade_to_black(tmp_path: Path) -> None:
         first, _ = overlays.frame()
     with mock.patch('streamo.closing.time.time', return_value=101):
         visible, _ = overlays.frame()
-    with mock.patch('streamo.closing.time.time', return_value=117):
+    with mock.patch('streamo.closing.time.time', return_value=107):
         black, _ = overlays.frame()
 
     size = overlays.size

@@ -322,9 +322,9 @@ for the completion report. `stop` still ends the service immediately. If
 streamO restarts during credits, the saved operation reports `failed` with an
 uncertain broadcast outcome rather than pretending the closing sequence finished.
 
-For a video stream with overlays, the default pages read “The humans made the
-music”, “The machines merely helped”, and “Thank you for listening”. Replace
-them in the streamO configuration when the real credits are ready:
+For a video stream with overlays, the default is one card reading “Thank you”
+and “for watching” on separate lines. showCo's closing action uses these same
+streamO credits. To replace the default, configure pages in streamO:
 
 ```toml
 [closing_credits]
