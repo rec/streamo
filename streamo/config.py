@@ -30,9 +30,10 @@ class Streamo(Reccy, frozen=True):
     status_model = ReccyStatus
     rpc_enabled = True
 
-    device_name: str
+    device_name: str = 'X18'
     channel: int = Field(
-        description='First channel of the stereo input pair, numbered from 1.'
+        default=17,
+        description='First channel of the stereo input pair, numbered from 1.',
     )
     streaming_service: StreamingServiceConfiguration
     video: Path | None = None
@@ -142,6 +143,16 @@ class Streamo(Reccy, frozen=True):
                 else:
                     assert page.text is not None
                     render_text(page.text, (width, height))
+
+    @model_validator(mode='before')
+    @classmethod
+    def default_streaming_service(cls, value: object) -> object:
+        if not isinstance(value, dict):
+            return value
+        service = value.get('streaming_service', {})
+        if not isinstance(service, dict) or 'service' in service:
+            return value
+        return {**value, 'streaming_service': {'service': 'twitch', **service}}
 
     @field_validator('overlay_resolution')
     @classmethod

@@ -63,9 +63,14 @@ category = "Music"
 tags = ["live"]
 ```
 
-`device_name`, `channel`, and `streaming_service` are required. `channel` is
-one-based and selects the first channel in the stereo pair: `17` selects
-channels 17 and 18. `video` is required whenever the encoding profile contains
+`device_name` selects the audio input device and defaults to `"X18"`.
+`channel` is one-based and selects the first channel in the stereo pair; its
+default, `17`, captures channels 17 and 18. Set both explicitly for a different
+device or USB routing. These defaults do not select the computer's microphone.
+The service choice defaults to `"twitch"` when `streaming_service.service` is
+omitted. The `streaming_service.ingest` and `streaming_service.encoding`
+settings are still required, including the destination's stream key.
+`video` is required whenever the encoding profile contains
 a video section. Relative media, image-directory, and provider-credential paths
 resolve from the configuration file’s directory. `~` expands to the user’s home
 directory, including for credential files.

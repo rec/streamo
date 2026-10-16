@@ -93,6 +93,26 @@ def test_unit_bearing_stream_settings_normalize_to_runtime_numbers() -> None:
     assert config.streaming_service.encoding.video.keyframe_interval == 1.5
 
 
+def test_configuration_defaults_to_x18_main_mix_and_twitch() -> None:
+    service = _service().model_dump()
+    del service['service']
+    config = Streamo.model_validate({'streaming_service': service, 'video': 'bed.mp4'})
+
+    assert config.device_name == 'X18'
+    assert config.channel == 17
+    assert config.required_channels == 18
+    assert config.streaming_service.service == 'twitch'
+
+
+def test_missing_publishing_configuration_reports_required_twitch_settings() -> None:
+    with pytest.raises(ValidationError) as raised:
+        Streamo.model_validate({})
+
+    errors = raised.value.errors()
+    assert all(e['loc'][:2] == ('streaming_service', 'twitch') for e in errors)
+    assert {e['loc'][-1] for e in errors} == {'ingest', 'encoding'}
+
+
 def test_video_resolution_accepts_pixel_units() -> None:
     video = _service().encoding.video
     assert video is not None
