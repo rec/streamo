@@ -44,19 +44,7 @@ class ClosingCredits(BaseModel, frozen=True):
 DEFAULT_CREDITS = ClosingCredits(
     pages=[
         CreditPage(
-            text='The humans made the music',
-            visible_seconds=3,
-            fade_in_seconds=1,
-            fade_out_seconds=1,
-        ),
-        CreditPage(
-            text='The machines merely helped',
-            visible_seconds=3,
-            fade_in_seconds=1,
-            fade_out_seconds=1,
-        ),
-        CreditPage(
-            text='Thank you for listening',
+            text='Thank you\nfor watching',
             visible_seconds=3,
             fade_in_seconds=1,
             fade_out_seconds=1,
