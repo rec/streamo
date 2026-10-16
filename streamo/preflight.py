@@ -16,6 +16,7 @@ from .composition import AUDIO_CODECS, VIDEO_CODECS
 from .config import Streamo
 from .daemon import load_config
 from .providers import ServiceCapability, adapter_for
+from .recs_input import RecsConnection
 
 
 class Check(BaseModel, frozen=True):
@@ -85,6 +86,8 @@ def check(
 
 
 def check_audio(config: Streamo, *, probe_device: bool) -> list[Check]:
+    if config.recs_input is not None:
+        return check_recs_audio(config)
     try:
         device = sounddevice.query_devices(config.device_name, 'input')
     except (sounddevice.PortAudioError, ValueError, OSError) as error:
@@ -192,6 +195,59 @@ def check_audio(config: Streamo, *, probe_device: bool) -> list[Check]:
                 )
             )
     return checks
+
+
+def check_recs_audio(config: Streamo) -> list[Check]:
+    assert config.recs_input is not None
+    connection = RecsConnection(config.recs_input)
+    try:
+        inspection = connection.inspect()
+        if not connection.private_endpoint():
+            return [
+                Check(
+                    name='recs_input',
+                    status='fail',
+                    detail='recs control endpoint is writable by other users',
+                )
+            ]
+    except (OSError, ValueError) as error:
+        return [
+            Check(
+                name='recs_input',
+                status='fail',
+                detail=(
+                    'Cannot inspect the selected recs instance/source '
+                    f'({type(error).__name__})'
+                ),
+            )
+        ]
+    status: Literal['pass', 'fail', 'warning'] = 'pass'
+    detail = (
+        f'{config.recs_input.source}: {inspection.sample_rate} Hz, '
+        f'channels {config.recs_input.channels}'
+    )
+    if not inspection.enabled:
+        status, detail = 'fail', 'Enable --forward-audio in recs'
+    elif inspection.paused or inspection.muted:
+        status, detail = (
+            'warning',
+            detail + '; recs is intentionally paused or mic-muted',
+        )
+    elif inspection.state in {'pending', 'connected'}:
+        status, detail = (
+            'warning',
+            detail + '; source is subscribed, a second client cannot attach',
+        )
+    elif inspection.state != 'idle':
+        status, detail = 'fail', detail + '; source is not available for forwarding'
+    return [
+        Check(name='recs_input', status=status, detail=detail),
+        Check(
+            name='audio_open',
+            status='skipped',
+            detail='recs owns the device; no subscription or hardware probe performed',
+        ),
+    ]
 
 
 def check_media(config: Streamo) -> list[Check]:
