@@ -327,9 +327,9 @@ class LiveOverlays:
 
 
 def write_overlay_frames(stream: BinaryIO, producer: LiveOverlays) -> None:
+    deadline = time.monotonic()
     try:
         while True:
-            started = time.monotonic()
             frame, visual = producer.frame()
             pending = memoryview(frame)
             while pending:
@@ -339,7 +339,10 @@ def write_overlay_frames(stream: BinaryIO, producer: LiveOverlays) -> None:
                 pending = pending[written:]
             stream.flush()
             producer.mark_applied(visual)
-            time.sleep(max(0, 1 / producer.frame_rate - (time.monotonic() - started)))
+            # Keep the raw-video timestamps aligned with live audio after a
+            # slow frame or blocked pipe, rather than preserving every delay.
+            deadline += 1 / producer.frame_rate
+            time.sleep(max(0, deadline - time.monotonic()))
     except BrokenPipeError:
         pass
     finally:

@@ -194,6 +194,32 @@ def test_applied_revision_requires_complete_write_and_resets_on_recovery(
     assert writer.complete
 
 
+def test_overlay_frames_catch_up_after_a_blocked_write() -> None:
+    now = [0.0]
+    applied: list[float] = []
+    producer = mock.Mock(frame_rate=4)
+    producer.frame.side_effect = [(b'frame', {})] * 5 + [BrokenPipeError]
+    producer.mark_applied.side_effect = lambda visual: applied.append(now[0])
+    writer = mock.Mock()
+
+    def write(data: memoryview) -> int:
+        if not applied:
+            now[0] += 0.75
+        return len(data)
+
+    def sleep(seconds: float) -> None:
+        now[0] += seconds
+
+    writer.write.side_effect = write
+    with (
+        mock.patch('streamo.overlays.time.monotonic', lambda: now[0]),
+        mock.patch('streamo.overlays.time.sleep', sleep),
+    ):
+        write_overlay_frames(writer, producer)
+    assert applied == [0.75, 0.75, 0.75, 0.75, 1.0]
+    writer.close.assert_called_once()
+
+
 def test_image_controls_report_applied_photo_and_survive_recovery(
     config: Streamo,
 ) -> None:
