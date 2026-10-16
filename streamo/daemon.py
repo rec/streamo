@@ -1,9 +1,10 @@
+import sys
 import tomllib
 from pathlib import Path
 from typing import Annotated, Literal
 
 import tyro
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from reccy.services.controller import print_service_status
 
 from .config import STREAMO_SERVICE, Streamo
@@ -42,7 +43,29 @@ def main(argv: list[str] | None = None) -> int:
 def run(options: DaemonOptions) -> int:
     streamo = Streamo.model_construct()
     if options.action in {'run', 'preview'}:
-        config = load_config(options.config)
+        try:
+            config = load_config(options.config)
+        except FileNotFoundError as error:
+            sys.exit(f'streamO configuration file does not exist: {error.filename}')
+        except ValidationError as error:
+            path = options.config.expanduser().resolve()
+            details = []
+            for item in error.errors(include_input=False):
+                location = item['loc']
+                if 'twitch' in location and (
+                    location[-1] == 'stream_key'
+                    or item['msg'] == 'Value error, stream_key is required'
+                ):
+                    details.append(
+                        "Twitch needs your account's stream key. Add "
+                        '[streaming_service.ingest] with stream_key = "YOUR_KEY" '
+                        'to this configuration file.'
+                    )
+                else:
+                    details.append(
+                        f'{".".join(str(p) for p in location)}: {item["msg"]}'
+                    )
+            sys.exit(f'Invalid streamO configuration {path}:\n' + '\n'.join(details))
         return config.run(preview=options.action == 'preview')
     if options.action == 'install':
         streamo.install_service(

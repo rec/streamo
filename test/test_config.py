@@ -110,7 +110,37 @@ def test_missing_publishing_configuration_reports_required_twitch_settings() -> 
 
     errors = raised.value.errors()
     assert all(e['loc'][:2] == ('streaming_service', 'twitch') for e in errors)
-    assert {e['loc'][-1] for e in errors} == {'ingest', 'encoding'}
+    assert {e['loc'][-1] for e in errors} == {'stream_key'}
+
+
+def test_twitch_needs_only_a_stream_key_and_video() -> None:
+    config = Streamo.model_validate(
+        {'video': 'bed.mp4', 'streaming_service': {'ingest': {'stream_key': 'secret'}}}
+    )
+    service = config.streaming_service
+    assert service.service == 'twitch'
+    assert service.ingest.protocol == 'rtmps'
+    assert service.ingest.server_url == 'rtmps://live.twitch.tv/app'
+    assert service.encoding.container == 'flv'
+    assert service.encoding.audio.codec == 'aac'
+    assert service.encoding.audio.bitrate == 160_000
+    assert service.encoding.video is not None
+    assert service.encoding.video.resolution == '1280x720'
+    assert service.encoding.video.frame_rate == 30
+
+
+def test_twitch_defaults_allow_partial_encoding_overrides() -> None:
+    config = Streamo.model_validate(
+        {
+            'video': 'bed.mp4',
+            'streaming_service': {
+                'ingest': {'stream_key': 'secret'},
+                'encoding': {'video': {'bitrate': '3Mbps'}},
+            },
+        }
+    )
+    assert config.streaming_service.encoding.video.bitrate == 3_000_000
+    assert config.streaming_service.encoding.video.frame_rate == 30
 
 
 def test_video_resolution_accepts_pixel_units() -> None:

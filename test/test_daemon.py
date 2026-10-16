@@ -180,3 +180,23 @@ def test_json_configuration_is_not_accepted(tmp_path: Path) -> None:
 
     with pytest.raises(tomllib.TOMLDecodeError):
         daemon.load_config(config)
+
+
+def test_startup_names_missing_configuration_file(tmp_path: Path) -> None:
+    config = tmp_path / 'missing.toml'
+    with pytest.raises(SystemExit) as raised:
+        daemon.run(daemon.DaemonOptions(config=config))
+    assert str(config) in str(raised.value)
+    assert 'configuration file does not exist' in str(raised.value)
+
+
+def test_startup_explains_missing_twitch_key(tmp_path: Path) -> None:
+    config = tmp_path / 'config.toml'
+    config.write_text('video = "bed.mp4"\n')
+    with pytest.raises(SystemExit) as raised:
+        daemon.run(daemon.DaemonOptions(config=config))
+    message = str(raised.value)
+    assert str(config) in message
+    assert '[streaming_service.ingest]' in message
+    assert 'stream_key = "YOUR_KEY"' in message
+    assert 'streaming_service.twitch' not in message

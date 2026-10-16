@@ -23,53 +23,28 @@ Create `~/.config/streamo/config.toml`. This Twitch configuration is a useful
 starting point:
 
 ```toml
-device_name = "X18"
-channel = 17
 video = "visual-bed.mp4"
-sample_rate = "48kHz"
-overlay_resolution = "1280px x 720px"
-overlay_frame_rate = "30fps"
-
-[streaming_service]
-service = "twitch"
-client_id = "replace-with-client-id"
-access_token = "replace-with-access-token"
-broadcaster_id = "123456789"
 
 [streaming_service.ingest]
-protocol = "rtmps"
-server_url = "rtmps://live.twitch.tv/app"
 stream_key = "replace-with-stream-key"
-
-[streaming_service.encoding]
-container = "flv"
-
-[streaming_service.encoding.audio]
-codec = "aac"
-bitrate = "160kbps"
-sample_rate = "48kHz"
-channels = 2
-
-[streaming_service.encoding.video]
-codec = "h264"
-bitrate = "2.5Mbps"
-resolution = "1280px x 720px"
-frame_rate = "30fps"
-keyframe_interval = "2s"
-
-[streaming_service.metadata]
-title = "Live show"
-category = "Music"
-tags = ["live"]
 ```
+
+Replace the movie path and stream key with your own values. The stream key is
+the secret that authorizes publishing to your Twitch account; it cannot have a
+shared default. The `ingest` section means the destination server and its key.
+Twitch's server address and protocol are filled in automatically.
+`encoding` means how the picture and sound are compressed: Twitch defaults to
+1280x720 H.264 video at 30 fps and 2.5 Mbps, with two-second keyframes, plus
+48 kHz stereo AAC audio at 160 kbps, in an FLV container. These settings can be
+overridden individually; see [the full example](../examples/twitch.toml).
 
 `device_name` selects the audio input device and defaults to `"X18"`.
 `channel` is one-based and selects the first channel in the stereo pair; its
 default, `17`, captures channels 17 and 18. Set both explicitly for a different
 device or USB routing. These defaults do not select the computer's microphone.
 The service choice defaults to `"twitch"` when `streaming_service.service` is
-omitted. The `streaming_service.ingest` and `streaming_service.encoding`
-settings are still required, including the destination's stream key.
+omitted. For Twitch, only `streaming_service.ingest.stream_key` needs to be
+supplied; the other publishing settings have defaults.
 `video` is required whenever the encoding profile contains
 a video section. Relative media, image-directory, and provider-credential paths
 resolve from the configuration file’s directory. `~` expands to the user’s home
@@ -135,8 +110,10 @@ second for encoding bitrates. Existing FFmpeg bitrate shorthand such as
 | `image_fade` | `2.0` | Participant-image fade duration, in seconds |
 | `current_session_image_weight` | `3` | Current-session images per older image |
 
-An encoding profile always states its container, audio encoding, and, for video
-streams, video encoding. Audio codecs are `aac`, `mp3`, `opus`, and `vorbis`.
+Encoding settings default to FLV and stereo AAC audio at 48 kHz and 160 kbps.
+Twitch also supplies the video defaults described above. Other video services
+need a video section; an empty section selects the H.264 video defaults.
+Audio codecs are `aac`, `mp3`, `opus`, and `vorbis`.
 Encoded video is limited to 3840x2160 at 60 fps.
 Video codecs are `h264`, `hevc`, and `av1`. Valid audio/container pairs are
 AAC/ADTS, AAC or MP3/FLV, MP3/MP3, AAC, MP3, or Opus/MPEG-TS, and Opus or

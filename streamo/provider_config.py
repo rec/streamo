@@ -40,12 +40,12 @@ def pixel_resolution(value: str) -> tuple[int, int]:
 
 
 class AudioEncoding(BaseModel, frozen=True):
-    codec: Literal['aac', 'mp3', 'opus', 'vorbis']
+    codec: Literal['aac', 'mp3', 'opus', 'vorbis'] = 'aac'
     bitrate: Annotated[
         units.WholeBitsPerSecond, BeforeValidator(normalize_ffmpeg_bitrate)
-    ] = Field(gt=0)
-    sample_rate: units.WholeHertz
-    channels: Literal[1, 2]
+    ] = Field(default=160_000, gt=0)
+    sample_rate: units.WholeHertz = 48_000
+    channels: Literal[1, 2] = 2
 
     @field_validator('sample_rate')
     @classmethod
@@ -58,13 +58,13 @@ class AudioEncoding(BaseModel, frozen=True):
 
 
 class VideoEncoding(BaseModel, frozen=True):
-    codec: Literal['h264', 'hevc', 'av1']
+    codec: Literal['h264', 'hevc', 'av1'] = 'h264'
     bitrate: Annotated[
         units.WholeBitsPerSecond, BeforeValidator(normalize_ffmpeg_bitrate)
-    ] = Field(gt=0)
-    resolution: str
-    frame_rate: units.WholeFramesPerSecond
-    keyframe_interval: units.Seconds
+    ] = Field(default=2_500_000, gt=0)
+    resolution: str = '1280x720'
+    frame_rate: units.WholeFramesPerSecond = 30
+    keyframe_interval: units.Seconds = 2
     pixel_format: str = 'yuv420p'
 
     @field_validator('resolution')
@@ -95,8 +95,8 @@ class VideoEncoding(BaseModel, frozen=True):
 
 
 class EncodingProfile(BaseModel, frozen=True):
-    container: Literal['flv', 'mpegts', 'ogg', 'mp3', 'adts']
-    audio: AudioEncoding
+    container: Literal['flv', 'mpegts', 'ogg', 'mp3', 'adts'] = 'flv'
+    audio: AudioEncoding = Field(default_factory=AudioEncoding)
     video: VideoEncoding | None = None
 
     @model_validator(mode='after')
@@ -250,6 +250,9 @@ class StreamingService(BaseModel, frozen=True):
 class TwitchService(StreamingService, frozen=True):
     service: Literal['twitch']
     name: str = 'Twitch'
+    encoding: EncodingProfile = Field(
+        default_factory=lambda: EncodingProfile(video=VideoEncoding())
+    )
     client_id: SecretStr | None = None
     access_token: SecretStr | None = None
     broadcaster_id: str | None = None
@@ -257,6 +260,22 @@ class TwitchService(StreamingService, frozen=True):
     moderator_id: str | None = None
     api_url: str = 'https://api.twitch.tv/helix'
     bandwidth_test: bool = False
+
+    @model_validator(mode='before')
+    @classmethod
+    def default_output(cls, value: object) -> object:
+        if not isinstance(value, dict):
+            return value
+        result = dict(value)
+        if isinstance(ingest := result.get('ingest', {}), dict):
+            result['ingest'] = {
+                'protocol': 'rtmps',
+                'server_url': 'rtmps://live.twitch.tv/app',
+                **ingest,
+            }
+        if isinstance(encoding := result.get('encoding'), dict):
+            result['encoding'] = {'video': {}, **encoding}
+        return result
 
 
 class YouTubeService(StreamingService, frozen=True):
