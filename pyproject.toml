@@ -17,6 +17,7 @@ dependencies = [
     "pillow>=12.3.0",
     "pydantic>=2",
     "reccy",
+    "recs",
     "sounddevice",
     "tyro",
 ]
@@ -46,6 +47,7 @@ exclude-newer = "1 week"
 
 [tool.uv.sources]
 reccy = { git = "https://github.com/rec/reccy.git", branch = "main" }
+recs = { git = "https://github.com/rec/recs.git", branch = "main" }
 
 [tool.ruff]
 line-length = 88
