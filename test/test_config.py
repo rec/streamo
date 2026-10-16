@@ -76,6 +76,7 @@ def test_unit_bearing_stream_settings_normalize_to_runtime_numbers() -> None:
             'image_interval': '20s',
             'image_duration': '8s',
             'image_fade': '500ms',
+            'image_fade_out': '250ms',
         }
     )
 
@@ -86,6 +87,7 @@ def test_unit_bearing_stream_settings_normalize_to_runtime_numbers() -> None:
     assert config.title_fade == 0.5
     assert config.image_interval == 20
     assert config.image_fade == 0.5
+    assert config.image_fade_out == 0.25
     assert config.streaming_service.encoding.audio.bitrate == 160_000
     assert config.streaming_service.encoding.audio.sample_rate == 48_000
     assert config.streaming_service.encoding.video.bitrate == 2_500_000
@@ -327,6 +329,17 @@ def test_image_duration_must_fit_interval() -> None:
         )
 
 
+def test_image_fades_must_fit_total_duration() -> None:
+    with pytest.raises(ValidationError, match='image fades must fit'):
+        Streamo(
+            video=Path('visual-bed.mp4'),
+            streaming_service=_service(),
+            image_interval=30,
+            image_fade=17,
+            image_fade_out=4,
+        )
+
+
 def test_image_feed_requires_enabled_participant_images() -> None:
     with pytest.raises(ValidationError, match='image_interval must be positive'):
         Streamo(
@@ -390,7 +403,7 @@ def test_disabling_overlays_skips_title_and_remote_feed(tmp_path: Path) -> None:
         streaming_service=_service(),
         live_overlays=False,
         title_card=tmp_path / 'missing.png',
-        image_interval=20,
+        image_interval=30,
         image_feed=ImageFeed(url='https://example.test/photos.php', token='a' * 20),
     )
     with (

@@ -138,14 +138,16 @@ class ImageFrameProducer:
         frame_rate: int,
         interval: float,
         duration: float,
-        fade: float,
+        fade_in: float,
+        fade_out: float,
     ) -> None:
         self.scheduler = scheduler
         self.width = width
         self.height = height
         self.frame_rate = frame_rate
         self.duration = duration
-        self.fade = fade
+        self.fade_in = fade_in
+        self.fade_out = fade_out
         self.interval_frames = max(1, round(interval * frame_rate))
         self.transparent = bytes(width * height * 4)
         self.current_path: Path | None = None
@@ -232,11 +234,13 @@ class ImageFrameProducer:
         elapsed = frame / self.frame_rate
         if elapsed >= self.duration:
             return 0.0
-        if self.fade == 0:
-            return 0.6
         return 0.6 * max(
             0.0,
-            min(1.0, elapsed / self.fade, (self.duration - elapsed) / self.fade),
+            min(
+                1.0,
+                elapsed / self.fade_in if self.fade_in else 1.0,
+                (self.duration - elapsed) / self.fade_out if self.fade_out else 1.0,
+            ),
         )
 
 

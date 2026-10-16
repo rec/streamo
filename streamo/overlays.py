@@ -118,7 +118,8 @@ class LiveOverlays:
                 frame_rate=config.overlay_frame_rate,
                 interval=config.image_interval,
                 duration=config.image_duration,
-                fade=config.image_fade,
+                fade_in=config.image_fade,
+                fade_out=config.image_fade_out,
             )
             if config.image_interval > 0
             else None

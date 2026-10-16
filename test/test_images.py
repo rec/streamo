@@ -64,7 +64,8 @@ def test_invalid_oversized_image_is_skipped(
         frame_rate=10,
         interval=2,
         duration=1,
-        fade=0,
+        fade_in=0,
+        fade_out=0,
     )
 
     def load(
@@ -174,7 +175,8 @@ def test_frame_producer_scales_and_centers_image(tmp_path: Path) -> None:
         frame_rate=1,
         interval=2,
         duration=1,
-        fade=0,
+        fade_in=0,
+        fade_out=0,
     )
 
     frame = Image.frombytes('RGBA', (8, 8), producer.frame())
@@ -192,7 +194,8 @@ def test_frame_producer_fades_and_then_emits_transparency(tmp_path: Path) -> Non
         frame_rate=4,
         interval=3,
         duration=2,
-        fade=1,
+        fade_in=1,
+        fade_out=1,
     )
 
     alpha = [producer.frame()[3] for _ in range(12)]
@@ -210,7 +213,8 @@ def test_frame_producer_skips_invalid_images(tmp_path: Path) -> None:
         frame_rate=1,
         interval=2,
         duration=1,
-        fade=0,
+        fade_in=0,
+        fade_out=0,
     )
 
     assert producer.frame() == bytes((0, 0, 255, 153))
@@ -326,7 +330,8 @@ def test_paused_fade_and_skip_preserve_next_selection(tmp_path: Path) -> None:
         frame_rate=4,
         interval=3,
         duration=2,
-        fade=1,
+        fade_in=1,
+        fade_out=1,
     )
     producer.frame()
     held = producer.frame()
@@ -362,7 +367,8 @@ def test_next_selection_is_validated_and_rechecked_before_display(
         frame_rate=1,
         interval=2,
         duration=1,
-        fade=0,
+        fade_in=0,
+        fade_out=0,
     )
     producer.frame()
     producer.select_next(tmp_path / 'c.png')

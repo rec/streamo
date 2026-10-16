@@ -62,8 +62,9 @@ class Streamo(Reccy, frozen=True):
     image_feed: ImageFeed | None = None
     current_session_image_weight: int = 3
     image_interval: units.Seconds = 0.0
-    image_duration: units.Seconds = 8.0
-    image_fade: units.Seconds = 4.0
+    image_duration: units.Seconds = 20.0
+    image_fade: units.Seconds = 12.0
+    image_fade_out: units.Seconds = 4.0
     _controller: 'ControlController | None' = PrivateAttr(default=None)
 
     def run(self, *, preview: bool = False) -> int:
@@ -245,6 +246,7 @@ class Streamo(Reccy, frozen=True):
         'image_interval',
         'image_duration',
         'image_fade',
+        'image_fade_out',
     )
     @classmethod
     def validate_nonnegative_time(cls, value: float) -> float:
@@ -278,8 +280,8 @@ class Streamo(Reccy, frozen=True):
             raise ValueError('image_duration must be positive')
         if self.image_duration >= self.image_interval:
             raise ValueError('image_duration must be shorter than image_interval')
-        if self.image_fade * 2 > self.image_duration:
-            raise ValueError('image_fade must fit within image_duration')
+        if self.image_fade + self.image_fade_out > self.image_duration:
+            raise ValueError('image fades must fit within image_duration')
         return self
 
     @model_validator(mode='after')

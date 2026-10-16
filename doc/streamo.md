@@ -106,8 +106,9 @@ second for encoding bitrates. Existing FFmpeg bitrate shorthand such as
 | `image_dir_weights` | descending to `1` | Comma-separated or integer-list directory weights; repeats the final weight |
 | `image_approval_required` | `false` | Hold unreviewed internet images for approval |
 | `image_interval` | `0.0` | Seconds between participant images; zero disables them |
-| `image_duration` | `8.0` | Seconds each participant image is visible |
-| `image_fade` | `4.0` | Participant-image fade-in and fade-out duration, in seconds |
+| `image_duration` | `20.0` | Total seconds each participant image is visible, including fades |
+| `image_fade` | `12.0` | Participant-image fade-in duration, in seconds |
+| `image_fade_out` | `4.0` | Participant-image fade-out duration, in seconds |
 | `current_session_image_weight` | `3` | Current-session images per older image |
 
 Encoding settings default to FLV and stereo AAC audio at 48 kHz and 160 kbps.
@@ -403,7 +404,10 @@ upload bandwidth. Target-machine performance has not been measured. Title and
 title assets retain their centered `overlay_resolution` working size. Participant
 photos are centered and scaled to fit 90% of the broadcast width and height,
 preserving their proportions and enlarging smaller images. Their opacity never
-exceeds 60%. By default they fade in over four seconds and out over four seconds.
+exceeds 60%. By default they fade in over 12 seconds, hold at 60% for four
+seconds, then fade out over four seconds. `image_duration` includes both fades;
+the remaining time is the hold. Set `image_interval` above 20 seconds when using
+these defaults.
 
 The `title` RPC requires `visibility`: `auto`, `show`, or `hide`. Optional `text`
 replaces the configured image with plain text (maximum 500 characters, wrapped
@@ -520,9 +524,10 @@ uploads use the same inbox. All configured directories are trusted image sources
 
 ```toml
 image_dir = ["images"]
-image_interval = 20.0
-image_duration = 8.0
-image_fade = 4.0
+image_interval = 30.0
+image_duration = 20.0
+image_fade = 12.0
+image_fade_out = 4.0
 
 [image_feed]
 url = "https://example.com/foto.php"
@@ -572,9 +577,10 @@ streamO's TOML configuration using the same token:
 ```toml
 image_dir = ["images"]
 current_session_image_weight = 3
-image_interval = 20.0
-image_duration = 8.0
-image_fade = 4.0
+image_interval = 30.0
+image_duration = 20.0
+image_fade = 12.0
+image_fade_out = 4.0
 
 [image_feed]
 url = "https://ax.to/show/foto.php"

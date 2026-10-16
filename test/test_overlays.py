@@ -75,7 +75,12 @@ def test_title_layout_and_opaque_full_size_slate(
 def test_slate_pauses_title_and_photo_timing(config: Streamo) -> None:
     Image.new('RGBA', (160, 90), 'red').save(config.primary_image_dir / 'photo.png')
     config = config.model_copy(
-        update={'image_interval': 3, 'image_duration': 2, 'image_fade': 1}
+        update={
+            'image_interval': 3,
+            'image_duration': 2,
+            'image_fade': 1,
+            'image_fade_out': 1,
+        }
     )
     overlays = LiveOverlays(config, set())
     overlays.frame()  # Start of fade, transparent.
@@ -92,19 +97,19 @@ def test_photos_fill_screen_with_slow_translucent_fades(
     config: Streamo, image_regression: ImageRegressionFixture
 ) -> None:
     Image.new('RGBA', (32, 18), 'red').save(config.primary_image_dir / 'photo.png')
-    overlays = LiveOverlays(config.model_copy(update={'image_interval': 20}), set())
+    overlays = LiveOverlays(config.model_copy(update={'image_interval': 30}), set())
     frames = [
-        Image.frombytes('RGBA', overlays.size, overlays.frame()[0]) for _ in range(33)
+        Image.frombytes('RGBA', overlays.size, overlays.frame()[0]) for _ in range(81)
     ]
 
     assert frames[0].getchannel('A').getextrema() == (0, 0)
-    assert frames[8].getchannel('A').getextrema()[1] == 76
-    assert frames[16].getchannel('A').getextrema()[1] == 153
     assert frames[24].getchannel('A').getextrema()[1] == 76
-    assert frames[32].getchannel('A').getextrema() == (0, 0)
-    assert frames[16].getbbox() == (32, 18, 608, 342)
+    assert all(f.getchannel('A').getextrema()[1] == 153 for f in frames[48:65])
+    assert frames[72].getchannel('A').getextrema()[1] == 76
+    assert frames[80].getchannel('A').getextrema() == (0, 0)
+    assert frames[48].getbbox() == (32, 18, 608, 342)
     background = Image.new('RGBA', overlays.size, 'blue')
-    background.alpha_composite(frames[16])
+    background.alpha_composite(frames[48])
     contents = io.BytesIO()
     background.save(contents, format='PNG')
     image_regression.check(contents.getvalue())
@@ -196,7 +201,12 @@ def test_image_controls_report_applied_photo_and_survive_recovery(
     Image.new('RGBA', (160, 90), 'red').save(path)
     overlays = LiveOverlays(
         config.model_copy(
-            update={'image_interval': 3, 'image_duration': 2, 'image_fade': 0}
+            update={
+                'image_interval': 3,
+                'image_duration': 2,
+                'image_fade': 0,
+                'image_fade_out': 0,
+            }
         ),
         set(),
     )
