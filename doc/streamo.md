@@ -49,9 +49,15 @@ enabled. Resume starts at the live edge, without replaying disconnected audio.
 
 The receiver retains at most 100 ms of audio, independent of packet size, and
 batches queued packets for each encoder update. It discards audio older than
-250 ms, including pending encoder writes. A slow encoder cannot block recs or
-grow an unlimited backlog. Status includes `audio_input` with source, channel
-order, rate, capture clock, connection health, and intentional-pause state.
+250 ms before writing it into FFmpeg. On Linux, the encoder pipe holds at most
+1 MiB (2.73 seconds of stereo float PCM at 48 kHz), allowing bounded buffering
+during ingest startup and video processing. This pipe is separate from the
+receiver's freshness limit. PCM probing is minimized because its format is
+already known. Overlay frames follow a fixed schedule and catch up after a
+blocked write, keeping their media clock aligned with live audio. A slow encoder
+cannot block recs or grow an unlimited backlog. Status includes `audio_input`
+with source, channel order, rate, capture clock, connection health, and
+intentional-pause state.
 Existing dropped-frame and audio-error status also applies.
 
 Preflight inspects capabilities, instance identity, source availability, channel

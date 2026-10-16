@@ -347,6 +347,9 @@ def run_attempt(
                 stderr=subprocess.PIPE,
                 pass_fds=() if image_input is None else (image_input.fileno(),),
                 bufsize=0,
+                # FFmpeg can pause PCM reads during ingest startup and video
+                # processing. At 48 kHz this bounds the pipe to 2.73 s of audio.
+                pipesize=1024 * 1024 if sys.platform == 'linux' else -1,
             )
         except OSError as error:
             raise EncoderLaunchError(error.errno, 'Could not launch FFmpeg') from None

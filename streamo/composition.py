@@ -27,6 +27,12 @@ def ffmpeg_command(
         str(config.sample_rate if input_sample_rate is None else input_sample_rate),
         '-ac',
         '2',
+        # PCM's format is already known. Probing buffers live audio before
+        # opening the movie and ingest, which then blocks fresh audio writes.
+        '-probesize',
+        '32',
+        '-analyzeduration',
+        '1',
         '-i',
         'pipe:0',
     ]

@@ -83,6 +83,14 @@ def test_ffmpeg_command_streams_audio_pipe_and_video_loop() -> None:
         '-ac',
         '2',
     ]
+    assert command[13:19] == [
+        '-probesize',
+        '32',
+        '-analyzeduration',
+        '1',
+        '-i',
+        'pipe:0',
+    ]
     assert 'visual-bed.mp4' in command
     assert '-stream_loop' in command
 
