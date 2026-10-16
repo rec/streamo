@@ -47,7 +47,8 @@ Unexpected input loss produces paced silence while streamO reconnects, for at
 most 30 seconds; after that the broadcast fails, even with `recover_publish`
 enabled. Resume starts at the live edge, without replaying disconnected audio.
 
-The receiver retains at most five 20 ms packets and discards audio older than
+The receiver retains at most 100 ms of audio, independent of packet size, and
+batches queued packets for each encoder update. It discards audio older than
 250 ms, including pending encoder writes. A slow encoder cannot block recs or
 grow an unlimited backlog. Status includes `audio_input` with source, channel
 order, rate, capture clock, connection health, and intentional-pause state.
