@@ -1,6 +1,7 @@
 # streamO
 
-streamO sends a stereo audio-device pair to a live-streaming destination. It
+streamO sends a stereo audio-device pair, or a local recs audio subscription,
+to a live-streaming destination. It
 combines audio with a looping visual bed, title cards, participant photos, and
 an optional local HDMI display, or publishes audio-only to Icecast.
 
@@ -15,7 +16,7 @@ uv run streamo --help
 uv run streamo daemon preview --config ~/.config/streamo/config.toml
 ```
 
-Requires Python 3.13+, FFmpeg, FFprobe, an audio input device, and FFplay for
+Requires Python 3.13+, FFmpeg, FFprobe, an audio input device or recs, and FFplay for
 preview or local display. Live operation uses the same configuration:
 `uv run streamo --config ~/.config/streamo/config.toml`.
 

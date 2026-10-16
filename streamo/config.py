@@ -16,6 +16,7 @@ from .image_feed import ImageFeed, ImageFeedPoller
 from .images import image_paths
 from .provider_config import StreamingServiceConfiguration, pixel_resolution
 from .providers import GenericServiceAdapter, adapter_for
+from .recs_input import RecsInput
 from .runtime import HealthWarnings, RuntimeState
 
 STREAMO_SERVICE = load(Path(__file__).with_name('service.toml'))
@@ -29,6 +30,8 @@ class Streamo(Reccy, frozen=True):
     service_spec = STREAMO_SERVICE
     status_model = ReccyStatus
     rpc_enabled = True
+
+    recs_input: RecsInput | None = None
 
     device_name: str = 'X18'
     channel: int = Field(
@@ -190,6 +193,18 @@ class Streamo(Reccy, frozen=True):
         if value <= 0:
             raise ValueError('must be positive')
         return value
+
+    @model_validator(mode='after')
+    def validate_audio_input(self) -> Self:
+        if (
+            self.recs_input is not None
+            and {'device_name', 'channel', 'sample_rate'} & self.model_fields_set
+        ):
+            raise ValueError(
+                'recs_input cannot be combined with device_name, channel, or '
+                'sample_rate; the input format is negotiated'
+            )
+        return self
 
     @model_validator(mode='after')
     def validate_resource_limits(self) -> Self:

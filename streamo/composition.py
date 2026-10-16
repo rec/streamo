@@ -10,6 +10,7 @@ def ffmpeg_command(
     output: FfmpegOutput | None = None,
     image_pipe: int | None = None,
     preview: bool = False,
+    input_sample_rate: int | None = None,
 ) -> list[str]:
     encoding = config.streaming_service.encoding
     command = [
@@ -23,7 +24,7 @@ def ffmpeg_command(
         '-f',
         'f32le',
         '-ar',
-        str(config.sample_rate),
+        str(config.sample_rate if input_sample_rate is None else input_sample_rate),
         '-ac',
         '2',
         '-i',

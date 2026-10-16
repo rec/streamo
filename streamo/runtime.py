@@ -55,6 +55,7 @@ class RuntimeState:
             'error': None,
         }
         self.audio_error: str | None = None
+        self.audio_input: dict[str, object] = {}
         self.audio_dropped_frames = 0
         self.audio_error_count = 0
         self.audio_last_error: str | None = None
@@ -104,6 +105,7 @@ class RuntimeState:
                 'warnings': sorted(self.active_warnings),
                 'incident_sequence': self.incident_sequence,
                 'audio_error': self.audio_error,
+                'audio_input': dict(self.audio_input),
                 'audio_last_error': self.audio_last_error,
                 'audio_error_count': self.audio_error_count,
                 'audio_dropped_frames': self.audio_dropped_frames,
@@ -142,6 +144,10 @@ class RuntimeState:
             self.capabilities = [c.value for c in adapter.capabilities]
             self.health_enabled = 'health' in self.capabilities
             self.health_checked_at = time.monotonic()
+
+    def set_audio_input(self, details: dict[str, object]) -> None:
+        with self._lock:
+            self.audio_input = dict(details)
 
     def set_audio_health(self, error: str | None, dropped_frames: int) -> None:
         with self._lock:

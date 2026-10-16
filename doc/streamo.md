@@ -1,6 +1,7 @@
 # streamO operator guide
 
-streamO captures one stereo pair from an audio device and publishes it through
+streamO captures one stereo pair from an audio device, or receives it from local
+recs, and publishes it through
 FFmpeg to a live-streaming destination. A video stream combines the audio with
 a looping visual bed and optional title and participant-image overlays. Icecast
 streams are audio-only.
@@ -9,6 +10,53 @@ Use the local preview before publishing. During a show, control clients can mute
 stop, submit images, and read audio, FFmpeg, and provider health. Audio capture
 retries after device failures and drops old audio when FFmpeg falls behind,
 reporting those problems through status. No backup ingest or failover is provided.
+
+## Audio from recs
+
+When recs already owns the audio device, streamO can subscribe without opening
+the hardware a second time. Add this to the normal streamO configuration:
+
+```toml
+[recs_input]
+daemon = true
+source = "X18"
+channels = [17, 18]
+```
+
+Choose exactly one target: `daemon = true`, or `instance = 1234` for a specific
+running recs PID. A PID selection is pinned to that instance's identity and will
+not silently attach to a replacement process. The daemon selection can reconnect
+to a restarted daemon. `source` is the exact recs device key, and `channels` is
+two distinct one-based physical channel numbers, in left/right order.
+
+Omit top-level `device_name`, `channel`, and `sample_rate` in this mode. They
+cannot be combined with `recs_input`. The selected recs must already have audio
+forwarding enabled with `--forward-audio`. Only one subscriber may use each
+source. streamO never enables forwarding, changes recs settings, starts recs,
+or falls back to opening a device itself.
+
+The native input sample rate is negotiated with recs. FFmpeg resamples to the
+configured service encoding's audio rate. A native rate change rebuilds the
+encoder before accepting audio at the new rate, which can interrupt publishing.
+Until the input rate is known, startup silence uses the service encoding rate.
+
+Quiet audio is forwarded continuously, regardless of recs' file-writing silence
+threshold. streamO's existing mute, closing fade, and meters apply to this input.
+An intentional recs pause or microphone mute produces silence until resumed.
+Unexpected input loss produces paced silence while streamO reconnects, for at
+most 30 seconds; after that the broadcast fails, even with `recover_publish`
+enabled. Resume starts at the live edge, without replaying disconnected audio.
+
+The receiver retains at most five 20 ms packets and discards audio older than
+250 ms, including pending encoder writes. A slow encoder cannot block recs or
+grow an unlimited backlog. Status includes `audio_input` with source, channel
+order, rate, capture clock, connection health, and intentional-pause state.
+Existing dropped-frame and audio-error status also applies.
+
+Preflight inspects capabilities, instance identity, source availability, channel
+limits, and local endpoint permissions. It neither subscribes nor probes hardware,
+even with `--probe-device`. A busy subscription or intentional pause is reported
+as a warning. Preflight does not establish end-to-end audio or provider readiness.
 
 ## Start here
 

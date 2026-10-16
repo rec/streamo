@@ -26,6 +26,7 @@ from .ffmpeg_progress import update_progress
 from .overlays import LiveOverlays, write_overlay_frames
 from .provider_config import StreamingServiceConfiguration
 from .providers import FfmpegOutput, StreamingServiceAdapter, tee_escape
+from .recs_input import AudioFormatChanged, RecsAudio, RecsInputLost
 from .runtime import RuntimeState
 
 LOGGER = get_logger(__name__)
@@ -155,15 +156,32 @@ def stream(
                 prepared = service.prepare(config.streaming_service.metadata)
                 state.configure_service(service)
                 output = local_display_output(config, service.output(prepared))
-            audio = AudioCapture(
-                config.device_name,
-                config.channel,
-                config.sample_rate,
-                None,
-                state,
-                controller.closing,
+            recs_audio = (
+                None
+                if config.recs_input is None
+                else RecsAudio(
+                    config.recs_input,
+                    config.streaming_service.encoding.audio.sample_rate,
+                    None,
+                    state,
+                    controller.closing,
+                )
+            )
+            audio = (
+                AudioCapture(
+                    config.device_name,
+                    config.channel,
+                    config.sample_rate,
+                    None,
+                    state,
+                    controller.closing,
+                )
+                if recs_audio is None
+                else recs_audio
             )
             resources.callback(audio.close_capture)
+            if recs_audio is not None:
+                recs_audio.receiver.start()
             preview_process = None
             if preview:
                 preview_process = subprocess.Popen(
@@ -216,6 +234,10 @@ def stream(
                         local_display,
                         started,
                     )
+                except AudioFormatChanged:
+                    # The old encoder was closed by run_attempt's ExitStack. Do
+                    # not apply publish-failure backoff to an input format change.
+                    continue
                 except EncoderLaunchError as error:
                     returncode, stopped = 1, False
                     message = f'Could not launch FFmpeg (errno {error.errno})'
@@ -263,7 +285,7 @@ def stream(
     except (OSError, RuntimeError, ValueError) as error:
         message = (
             str(error)
-            if isinstance(error, OverlayWorkerError)
+            if isinstance(error, (OverlayWorkerError, RecsInputLost))
             else f'Stream failed ({type(error).__name__})'
         )
         state.publish_failed(message, None)
@@ -293,7 +315,7 @@ def run_attempt(
     config: Streamo,
     controller: ControlController,
     service: StreamingServiceAdapter,
-    audio: AudioCapture,
+    audio: AudioCapture | RecsAudio,
     producer: LiveOverlays | None,
     output: FfmpegOutput | None,
     preview_process: subprocess.Popen[bytes] | None,
@@ -315,6 +337,7 @@ def run_attempt(
             output=output,
             image_pipe=None if image_input is None else image_input.fileno(),
             preview=preview_process is not None,
+            input_sample_rate=audio.sample_rate,
         )
         try:
             ffmpeg = subprocess.Popen(
@@ -342,7 +365,13 @@ def run_attempt(
             )
             image_thread.start()
             threads.append(image_thread)
-        if preview_process is not None and preview_process.stdin is not None:
+        if (
+            preview_process is not None
+            and preview_process.stdin is not None
+            and config.recs_input is None
+        ):
+            # recs can change native rate. Keep the parent's preview pipe open
+            # across encoder replacement; stream() closes it on final shutdown.
             preview_process.stdin.close()
         if image_input is not None:
             image_input.close()

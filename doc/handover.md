@@ -7,6 +7,15 @@ audio/video alignment, repeatable rehearsal, and visual-bed planning preview.
 The [operator guide](streamo.md) describes implemented behavior, including
 closing credits and reccy's FFmpeg service logging.
 
+Local recs input is implemented and covered by unit tests. See the operator
+guide's audio-from-recs section for explicit instance/source/channel selection,
+bounded buffering, native-rate changes, and the 30-second unexpected-outage
+policy. Hardware capture remains the default when `recs_input` is absent.
+Target-machine acceptance is still required for simultaneous recording and
+broadcasting, unplug/replug, recs restart, deliberate pause/mic mute, slow encoder,
+and shutdown on each supported operating system. No deployment or service restart
+was performed as part of this implementation.
+
 Automated tests do not establish that a live provider, venue audio device, HDMI
 display, or browser upload works in the target environment. Long-render capacity
 also needs measurement on the target machine.
