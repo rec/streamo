@@ -446,6 +446,44 @@ YouTube supports `update_stream_info` with OAuth credentials.
 
 ## Overlays and participant images
 
+### Image transform descriptions
+
+`image_transforms` is an ordered list of `ImageTransform` descriptions, empty by
+default. Each entry requires a nonnegative `duration` in seconds and has optional
+`offset`, `zoom`, `opacity`, and `rotation` fields, all defaulting to `None`.
+These entries and their resolved defaults define configuration only; the live
+photo renderer does not apply the transform sequence yet.
+
+`offset` is an `(x, y)` pixel offset from the center of the rendered page to the
+center of the image. Positive values move right and down. Omitted offsets resolve
+to `(0, 0)`. Zoom resolves to `1` when omitted and has no upper limit, allowing
+photos larger than the screen to be cropped at its edges. Rotation resolves to
+`0` and uses clockwise radians, matching
+[FFmpeg's rotate filter](https://ffmpeg.org/ffmpeg-filters.html#rotate).
+
+When opacity is omitted, the first and last entries resolve to `0`; interior
+entries resolve to `default_opacity`, which defaults to `0.6` and must be between
+`0` and `1`. A single entry is both first and last, so its default opacity is `0`.
+Explicit values, including zero opacity, are preserved. Resolving defaults leaves
+the configured entries unchanged.
+
+```toml
+default_opacity = 0.6
+
+[[image_transforms]]
+duration = 0.0
+
+[[image_transforms]]
+duration = 12.0
+offset = [100, -20]
+zoom = 3.0
+
+[[image_transforms]]
+duration = 4.0
+```
+
+### Current live rendering
+
 Live overlays are enabled by default for video streams. Set `live_overlays = false`
 before starting to omit their RGBA pipe, disable all overlay display and skip
 remote image-feed polling. Changing this switch requires restarting streamO;

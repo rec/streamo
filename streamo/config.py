@@ -13,6 +13,7 @@ from reccy.services.spec import load
 
 from .closing import DEFAULT_CREDITS, ClosingCredits, ClosingSequence
 from .image_feed import ImageFeed, ImageFeedPoller
+from .image_transform import ImageTransform
 from .images import image_paths
 from .provider_config import StreamingServiceConfiguration, pixel_resolution
 from .providers import GenericServiceAdapter, adapter_for
@@ -68,6 +69,8 @@ class Streamo(Reccy, frozen=True):
     image_duration: units.Seconds = 20.0
     image_fade: units.Seconds = 12.0
     image_fade_out: units.Seconds = 4.0
+    image_transforms: list[ImageTransform] = Field(default_factory=list)
+    default_opacity: float = Field(default=0.6, ge=0, le=1, allow_inf_nan=False)
     _controller: 'ControlController | None' = PrivateAttr(default=None)
 
     def run(self, *, preview: bool = False) -> int:
@@ -253,6 +256,28 @@ class Streamo(Reccy, frozen=True):
             return list(range(len(self.image_dir), 0, -1))
         weights = parse_image_dir_weights(self.image_dir_weights)
         return weights + [weights[-1]] * (len(self.image_dir) - len(weights))
+
+    @property
+    def resolved_image_transforms(self) -> list[ImageTransform]:
+        transforms: list[ImageTransform] = []
+        for i, t in enumerate(self.image_transforms):
+            opacity = t.opacity
+            if opacity is None:
+                opacity = (
+                    0
+                    if i in {0, len(self.image_transforms) - 1}
+                    else self.default_opacity
+                )
+            transforms.append(
+                ImageTransform(
+                    duration=t.duration,
+                    offset=t.offset if t.offset is not None else (0, 0),
+                    zoom=t.zoom if t.zoom is not None else 1,
+                    opacity=opacity,
+                    rotation=t.rotation if t.rotation is not None else 0,
+                )
+            )
+        return transforms
 
     @field_validator(
         'title_interval',

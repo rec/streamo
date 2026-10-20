@@ -8,6 +8,7 @@ from reccy.reccy import Reccy
 from streamo.closing import CreditPage
 from streamo.config import Streamo
 from streamo.image_feed import ImageFeed
+from streamo.image_transform import ImageTransform
 from streamo.provider_config import (
     AudioEncoding,
     EncodingProfile,
@@ -104,6 +105,72 @@ def test_configuration_defaults_to_x18_main_mix_and_twitch() -> None:
     assert config.channel == 17
     assert config.required_channels == 18
     assert config.streaming_service.service == 'twitch'
+
+
+def test_image_transforms_are_loaded_from_configuration() -> None:
+    values = {'streaming_service': _service(), 'video': 'bed.mp4'}
+    default = Streamo.model_validate(values)
+    assert default.image_transforms == []
+    assert default.resolved_image_transforms == []
+    assert default.default_opacity == 0.6
+
+    configured = Streamo.model_validate(
+        {
+            **values,
+            'image_transforms': [{'duration': 3, 'offset': [100, -20], 'zoom': 4}],
+        }
+    )
+    assert configured.image_transforms == [
+        ImageTransform(duration=3, offset=(100, -20), zoom=4)
+    ]
+
+
+@pytest.mark.parametrize(
+    'count,expected', [(1, [0]), (2, [0, 0]), (4, [0, 0.4, 0.4, 0])]
+)
+def test_missing_transform_opacity_depends_on_position(
+    count: int, expected: list[float]
+) -> None:
+    config = Streamo(
+        streaming_service=_service(),
+        video=Path('bed.mp4'),
+        default_opacity=0.4,
+        image_transforms=[ImageTransform(duration=2) for _ in range(count)],
+    )
+
+    assert [t.opacity for t in config.resolved_image_transforms] == expected
+    assert all(t.opacity is None for t in config.image_transforms)
+    for transform in config.resolved_image_transforms:
+        assert transform.duration == 2
+        assert transform.offset == (0, 0)
+        assert transform.zoom == 1
+        assert transform.rotation == 0
+
+
+def test_explicit_transform_values_override_defaults_at_every_position() -> None:
+    first = ImageTransform(
+        duration=0, offset=(-120, 30), zoom=5, opacity=0.8, rotation=-1.5
+    )
+    middle = ImageTransform(duration=2, opacity=0)
+    last = ImageTransform(duration=3, opacity=1)
+    config = Streamo(
+        streaming_service=_service(),
+        video=Path('bed.mp4'),
+        image_transforms=[first, middle, last],
+    )
+
+    resolved = config.resolved_image_transforms
+    assert resolved[0] == first
+    assert resolved[1].opacity == 0
+    assert resolved[2].opacity == 1
+
+
+@pytest.mark.parametrize('opacity', [-0.1, 1.1, float('nan'), float('inf')])
+def test_default_opacity_must_be_between_zero_and_one(opacity: float) -> None:
+    with pytest.raises(ValidationError):
+        Streamo(
+            streaming_service=_service(), video=Path('bed.mp4'), default_opacity=opacity
+        )
 
 
 def test_missing_publishing_configuration_reports_required_twitch_settings() -> None:
