@@ -2,16 +2,16 @@ import io
 import random
 import threading
 from collections.abc import Callable, MutableSequence
+from math import pi
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-import numpy as np
 import pytest
 from PIL import Image
 
 import streamo.image_feed
-import streamo.images
 from streamo.image_feed import ImageFeed, ImageFeedPoller
+from streamo.image_transform import ImageTransform
 from streamo.images import ImageFrameProducer, ImageScheduler
 
 
@@ -54,8 +54,8 @@ def test_invalid_oversized_image_is_skipped(
 ) -> None:
     bad = tmp_path / 'bad.png'
     good = tmp_path / 'good.png'
-    bad.touch()
-    good.touch()
+    Image.new('RGBA', (4, 4), 'red').save(bad)
+    Image.new('RGBA', (1, 1), 'green').save(good)
     scheduler = ImageScheduler(tmp_path, NoShuffleRandom(), initial_paths=set())
     producer = ImageFrameProducer(
         scheduler,
@@ -68,14 +68,7 @@ def test_invalid_oversized_image_is_skipped(
         fade_out=0,
     )
 
-    def load(
-        path: Path, width: int, height: int, *, upscale: bool = False
-    ) -> np.ndarray:
-        if path == bad:
-            raise Image.DecompressionBombError('oversized')
-        return np.zeros((height, width, 4), dtype=np.uint8)
-
-    monkeypatch.setattr(streamo.images, 'load_image', load)
+    monkeypatch.setattr(Image, 'MAX_IMAGE_PIXELS', 1)
     assert producer.next_frame_image() is not None
     assert producer.current_path == good
 
@@ -201,6 +194,109 @@ def test_frame_producer_fades_and_then_emits_transparency(tmp_path: Path) -> Non
     alpha = [producer.frame()[3] for _ in range(12)]
 
     assert alpha == [0, 38, 76, 115, 153, 115, 76, 38, 0, 0, 0, 0]
+
+
+def test_photo_motion_interpolates_position_zoom_and_opacity(tmp_path: Path) -> None:
+    Image.new('RGBA', (8, 4), 'green').save(tmp_path / 'photo.png')
+    producer = ImageFrameProducer(
+        ImageScheduler(tmp_path),
+        width=16,
+        height=16,
+        frame_rate=4,
+        interval=3,
+        duration=20,
+        fade_in=12,
+        fade_out=4,
+        transforms=[
+            ImageTransform(duration=0, offset=(-4, -2), zoom=0.5, opacity=0.2),
+            ImageTransform(duration=1, offset=(0, 0), zoom=1, opacity=1),
+            ImageTransform(duration=1, offset=(0, 0), zoom=1, opacity=1),
+        ],
+    )
+    frames = [Image.frombytes('RGBA', (16, 16), producer.frame()) for _ in range(9)]
+
+    assert frames[0].getbbox() == (0, 4, 8, 8)
+    assert frames[0].getpixel((4, 6))[3] == 51
+    assert frames[2].getbbox() == (0, 4, 12, 10)
+    assert frames[2].getpixel((6, 7))[3] == 153
+    assert frames[4].getbbox() == (0, 4, 16, 12)
+    assert frames[4].getpixel((8, 8))[3] == 255
+    assert frames[8].getbbox() is None
+
+
+def test_rotation_interpolates_clockwise_in_radians(tmp_path: Path) -> None:
+    image = Image.new('RGBA', (8, 8), 'red')
+    image.paste('blue', (4, 0, 8, 8))
+    image.save(tmp_path / 'photo.png')
+    producer = ImageFrameProducer(
+        ImageScheduler(tmp_path),
+        width=8,
+        height=8,
+        frame_rate=2,
+        interval=3,
+        duration=2,
+        fade_in=0,
+        fade_out=0,
+        transforms=[
+            ImageTransform(duration=0, opacity=1, rotation=0),
+            ImageTransform(duration=1, opacity=1, rotation=pi),
+            ImageTransform(duration=1, opacity=1, rotation=pi),
+        ],
+    )
+    frames = [Image.frombytes('RGBA', (8, 8), producer.frame()) for _ in range(3)]
+
+    assert frames[0].getpixel((1, 1)) == (255, 0, 0, 255)
+    assert frames[1].getpixel((6, 1)) == (255, 0, 0, 255)
+    assert frames[1].getpixel((6, 6)) == (0, 0, 255, 255)
+    assert frames[2].getpixel((6, 1)) == (255, 0, 0, 255)
+    assert frames[2].getpixel((1, 1)) == (0, 0, 255, 255)
+
+
+def test_zero_duration_transforms_apply_instantly_before_a_hold(tmp_path: Path) -> None:
+    Image.new('RGBA', (4, 4), 'red').save(tmp_path / 'photo.png')
+    producer = ImageFrameProducer(
+        ImageScheduler(tmp_path),
+        width=4,
+        height=4,
+        frame_rate=2,
+        interval=3,
+        duration=2,
+        fade_in=0,
+        fade_out=0,
+        transforms=[
+            ImageTransform(duration=0, opacity=0),
+            ImageTransform(duration=0, opacity=1),
+            ImageTransform(duration=1, opacity=1),
+        ],
+    )
+
+    assert producer.frame() == bytes((255, 0, 0, 255)) * 16
+    assert producer.frame() == bytes((255, 0, 0, 255)) * 16
+    assert producer.frame() == bytes(64)
+
+
+def test_first_transform_holds_before_interpolating_to_the_next(tmp_path: Path) -> None:
+    Image.new('RGBA', (1, 1), 'red').save(tmp_path / 'photo.png')
+    producer = ImageFrameProducer(
+        ImageScheduler(tmp_path),
+        width=1,
+        height=1,
+        frame_rate=2,
+        interval=3,
+        duration=2,
+        fade_in=0,
+        fade_out=0,
+        transforms=[
+            ImageTransform(duration=1, opacity=0.4),
+            ImageTransform(duration=1, opacity=0),
+        ],
+    )
+
+    assert producer.frame()[3] == 102
+    assert producer.frame()[3] == 102
+    assert producer.frame()[3] == 102
+    assert producer.frame()[3] == 51
+    assert producer.frame()[3] == 0
 
 
 def test_frame_producer_skips_invalid_images(tmp_path: Path) -> None:

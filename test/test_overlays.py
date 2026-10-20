@@ -1,5 +1,6 @@
 import io
 import threading
+from math import pi
 from pathlib import Path
 from unittest import mock
 
@@ -13,6 +14,7 @@ from test_config import _service
 
 from streamo.config import Streamo
 from streamo.control import ControlController
+from streamo.image_transform import ImageTransform
 from streamo.overlays import LiveOverlays, SlateCue, TitleCue, write_overlay_frames
 from streamo.runtime import RuntimeState
 
@@ -113,6 +115,65 @@ def test_photos_fill_screen_with_slow_translucent_fades(
     contents = io.BytesIO()
     background.save(contents, format='PNG')
     image_regression.check(contents.getvalue())
+
+
+def test_transform_sequence_renders_crops_and_respects_pause_and_skip(
+    config: Streamo, image_regression: ImageRegressionFixture
+) -> None:
+    source = Image.new('RGBA', (320, 180), 'red')
+    source.paste('blue', (160, 0, 320, 90))
+    source.paste('yellow', (0, 90, 160, 180))
+    source.paste('green', (160, 90, 320, 180))
+    source.paste((0, 0, 0, 0), (145, 75, 175, 105))
+    source.save(config.primary_image_dir / 'photo.png')
+    configured = Streamo.model_validate(
+        {
+            **config.model_dump(),
+            'image_interval': 4,
+            'image_transforms': [
+                ImageTransform(duration=0),
+                ImageTransform(duration=1),
+                ImageTransform(duration=1, offset=(40, -20), zoom=2, rotation=pi / 4),
+                ImageTransform(duration=1, offset=(-20, 10), zoom=3, rotation=pi / 2),
+            ],
+        }
+    )
+    overlays = LiveOverlays(configured, set())
+    frames: list[Image.Image] = []
+    for i in range(13):
+        frame, visual = overlays.frame()
+        frames.append(Image.frombytes('RGBA', overlays.size, frame))
+        if i == 6:
+            overlays.control_images('image_pause', {'paused': True})
+            for _ in range(3):
+                assert overlays.frame()[0] == frame
+            overlays.control_images('image_pause', {'paused': False})
+        if i in {0, 12}:
+            assert visual['image_id'] is None
+        else:
+            assert visual['image_id'] == 'trusted/1/photo.png'
+
+    assert frames[0].getbbox() is None
+    assert frames[2].getchannel('A').getextrema()[1] == 76
+    assert frames[4].getchannel('A').getextrema()[1] == 153
+    assert frames[10].getbbox() == (0, 0, *overlays.size)
+    assert frames[12].getbbox() is None
+    preview = Image.new('RGBA', (480, 180))
+    for i, f in enumerate(frames[1:12:2]):
+        preview.paste(f.resize((160, 90)), ((i % 3) * 160, (i // 3) * 90))
+    contents = io.BytesIO()
+    preview.save(contents, format='PNG')
+    image_regression.check(contents.getvalue())
+
+    # A new interval restarts the same sequence; skipping keeps the gap empty.
+    for _ in range(4):
+        overlays.frame()
+    frame, _ = overlays.frame()
+    assert Image.frombytes('RGBA', overlays.size, frame).getbbox() is not None
+    overlays.control_images('image_skip', {})
+    frame, visual = overlays.frame()
+    assert Image.frombytes('RGBA', overlays.size, frame).getbbox() is None
+    assert visual['image_id'] is None
 
 
 def test_title_auto_fades_and_hides(config: Streamo, tmp_path: Path) -> None:

@@ -173,6 +173,29 @@ def test_default_opacity_must_be_between_zero_and_one(opacity: float) -> None:
         )
 
 
+@pytest.mark.parametrize('duration', [0, 3, 4])
+def test_transform_sequence_must_fit_inside_the_image_interval(duration: float) -> None:
+    with pytest.raises(ValidationError, match='image transform duration'):
+        Streamo(
+            streaming_service=_service(),
+            video=Path('bed.mp4'),
+            image_interval=3,
+            image_transforms=[ImageTransform(duration=duration)],
+        )
+
+
+def test_transform_sequence_replaces_legacy_duration_and_fades() -> None:
+    config = Streamo(
+        streaming_service=_service(),
+        video=Path('bed.mp4'),
+        image_interval=3,
+        image_duration=0,
+        image_fade=100,
+        image_transforms=[ImageTransform(duration=2, opacity=1)],
+    )
+    assert config.image_transforms[0].duration == 2
+
+
 def test_missing_publishing_configuration_reports_required_twitch_settings() -> None:
     with pytest.raises(ValidationError) as raised:
         Streamo.model_validate({})

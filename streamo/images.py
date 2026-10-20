@@ -1,10 +1,13 @@
 import random
+from math import cos, sin
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
 from PIL import Image, UnidentifiedImageError
 from reccy.runtime.logging import get_logger
+
+from .image_transform import ImageTransform
 
 LOGGER = get_logger(__name__)
 
@@ -140,18 +143,28 @@ class ImageFrameProducer:
         duration: float,
         fade_in: float,
         fade_out: float,
+        transforms: list[ImageTransform] | None = None,
+        default_opacity: float = 0.6,
+        fit_scale: float = 1.0,
     ) -> None:
         self.scheduler = scheduler
         self.width = width
         self.height = height
         self.frame_rate = frame_rate
-        self.duration = duration
-        self.fade_in = fade_in
-        self.fade_out = fade_out
+        # Configured transforms arrive with their optional values resolved.
+        self.transforms = transforms or [
+            ImageTransform(duration=0, opacity=0),
+            ImageTransform(duration=fade_in, opacity=default_opacity),
+            ImageTransform(
+                duration=duration - fade_in - fade_out, opacity=default_opacity
+            ),
+            ImageTransform(duration=fade_out, opacity=0),
+        ]
+        self.fit_scale = fit_scale
         self.interval_frames = max(1, round(interval * frame_rate))
         self.transparent = bytes(width * height * 4)
         self.current_path: Path | None = None
-        self.current_image: np.ndarray | None = None
+        self.current_image: Image.Image | None = None
         self.next_path: Path | None = None
         self.paused = False
         self.frame_index = -1
@@ -163,17 +176,67 @@ class ImageFrameProducer:
             if self.frame_index == 0:
                 self.current_image = self.next_frame_image()
                 self.next_path = self.scheduler.next_image()
-        opacity = self.opacity(self.frame_index)
-        if (
-            self.current_image is None
-            or opacity <= 0
-            or not self.eligible(self.current_path)
-        ):
+        if self.current_image is None or not self.eligible(self.current_path):
             self.visible_id = None
             return self.transparent
+        elapsed = self.frame_index / self.frame_rate
+        previous = self.transforms[0]
+        for transform in self.transforms:
+            if elapsed < transform.duration:
+                fraction = elapsed / transform.duration
+                break
+            elapsed -= transform.duration
+            previous = transform
+        else:
+            self.visible_id = None
+            return self.transparent
+
+        start_opacity = previous.opacity
+        end_opacity = transform.opacity
+        assert start_opacity is not None and end_opacity is not None
+        opacity = start_opacity + (end_opacity - start_opacity) * fraction
+        if opacity <= 0:
+            self.visible_id = None
+            return self.transparent
+        start_offset = previous.offset or (0, 0)
+        end_offset = transform.offset or (0, 0)
+        offset = tuple(
+            a + (b - a) * fraction
+            for a, b in zip(start_offset, end_offset, strict=True)
+        )
+        start_zoom = previous.zoom if previous.zoom is not None else 1
+        end_zoom = transform.zoom if transform.zoom is not None else 1
+        zoom = start_zoom + (end_zoom - start_zoom) * fraction
+        start_rotation = previous.rotation if previous.rotation is not None else 0
+        end_rotation = transform.rotation if transform.rotation is not None else 0
+        rotation = start_rotation + (end_rotation - start_rotation) * fraction
+        scale = (
+            min(
+                self.width / self.current_image.width,
+                self.height / self.current_image.height,
+            )
+            * self.fit_scale
+            * zoom
+        )
+        center_x = self.width / 2 + offset[0]
+        center_y = self.height / 2 + offset[1]
+        a, b = cos(rotation) / scale, sin(rotation) / scale
+        image = self.current_image.transform(
+            (self.width, self.height),
+            Image.Transform.AFFINE,
+            (
+                a,
+                b,
+                self.current_image.width / 2 - a * center_x - b * center_y,
+                -b,
+                a,
+                self.current_image.height / 2 + b * center_x - a * center_y,
+            ),
+            resample=Image.Resampling.BICUBIC,
+        )
         assert self.current_path is not None
         self.visible_id = self.scheduler.id_for(self.current_path)
-        return faded_frame(self.current_image, opacity)
+        return faded_frame(np.asarray(image, dtype=np.uint8), opacity)
 
     def skip(self) -> None:
         self.current_image = None
@@ -204,7 +267,7 @@ class ImageFrameProducer:
             )
         )
 
-    def next_frame_image(self) -> np.ndarray | None:
+    def next_frame_image(self) -> Image.Image | None:
         self.current_path = None
         attempted: set[Path] = set()
         path = (
@@ -218,7 +281,8 @@ class ImageFrameProducer:
                 return None
             attempted.add(path)
             try:
-                image = load_image(path, self.width, self.height, upscale=True)
+                with Image.open(path) as source:
+                    image = source.convert('RGBA')
                 self.current_path = path
                 return image
             except (
@@ -229,19 +293,6 @@ class ImageFrameProducer:
                 LOGGER.error('Could not load image %s: %s', path, error)
             path = self.scheduler.next_image()
         return None
-
-    def opacity(self, frame: int) -> float:
-        elapsed = frame / self.frame_rate
-        if elapsed >= self.duration:
-            return 0.0
-        return 0.6 * max(
-            0.0,
-            min(
-                1.0,
-                elapsed / self.fade_in if self.fade_in else 1.0,
-                (self.duration - elapsed) / self.fade_out if self.fade_out else 1.0,
-            ),
-        )
 
 
 def image_paths(image_dir: Path) -> list[Path]:

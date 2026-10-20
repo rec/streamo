@@ -4,7 +4,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ImageTransform(BaseModel, frozen=True):
-    """Offset is in pixels from page center; rotation is clockwise in radians."""
+    """Reach this state over duration seconds, holding the first state initially.
+
+    Offset is in pixels from page center; rotation is clockwise in radians.
+    """
 
     duration: float = Field(ge=0)
     offset: tuple[int, int] | None = None

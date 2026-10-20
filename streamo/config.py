@@ -316,6 +316,14 @@ class Streamo(Reccy, frozen=True):
             if self.image_feed is not None:
                 raise ValueError('image_interval must be positive with an image feed')
             return self
+        if self.image_transforms:
+            duration = sum(t.duration for t in self.image_transforms)
+            if duration <= 0 or duration >= self.image_interval:
+                raise ValueError(
+                    'image transform duration must be positive and shorter '
+                    'than image_interval'
+                )
+            return self
         if self.image_duration <= 0:
             raise ValueError('image_duration must be positive')
         if self.image_duration >= self.image_interval:

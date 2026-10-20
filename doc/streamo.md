@@ -451,8 +451,17 @@ YouTube supports `update_stream_info` with OAuth credentials.
 `image_transforms` is an ordered list of `ImageTransform` descriptions, empty by
 default. Each entry requires a nonnegative `duration` in seconds and has optional
 `offset`, `zoom`, `opacity`, and `rotation` fields, all defaulting to `None`.
-These entries and their resolved defaults define configuration only; the live
-photo renderer does not apply the transform sequence yet.
+Each photo plays this sequence from the beginning. Each entry's duration is the
+time taken to reach that transform from the preceding entry, interpolating offset,
+zoom, opacity, and rotation linearly at the overlay frame rate. The first entry
+defines the starting appearance and holds it for its duration; use `0` to start
+moving immediately. Zero-duration entries apply instantly.
+
+The sequence replaces `image_duration`, `image_fade`, and `image_fade_out` when
+the list is nonempty. Its total duration must be positive and shorter than
+`image_interval`. After the sequence ends, the photo is hidden until the next
+interval. Pause and slate freeze the sequence; skip hides the current photo for
+the remainder of its interval.
 
 `offset` is an `(x, y)` pixel offset from the center of the rendered page to the
 center of the image. Positive values move right and down. Omitted offsets resolve
@@ -460,6 +469,10 @@ to `(0, 0)`. Zoom resolves to `1` when omitted and has no upper limit, allowing
 photos larger than the screen to be cropped at its edges. Rotation resolves to
 `0` and uses clockwise radians, matching
 [FFmpeg's rotate filter](https://ffmpeg.org/ffmpeg-filters.html#rotate).
+Rotation interpolates the specified numeric angles directly; a full turn can be
+expressed as a change of `2 * pi` radians. Rendering samples the original decoded
+photo onto the output canvas, preserving source detail when zooming without
+allocating an enlarged off-screen image.
 
 When opacity is omitted, the first and last entries resolve to `0`; interior
 entries resolve to `default_opacity`, which defaults to `0.6` and must be between
@@ -469,6 +482,7 @@ the configured entries unchanged.
 
 ```toml
 default_opacity = 0.6
+image_interval = 30.0
 
 [[image_transforms]]
 duration = 0.0
@@ -480,6 +494,8 @@ zoom = 3.0
 
 [[image_transforms]]
 duration = 4.0
+offset = [100, -20]
+zoom = 3.0
 ```
 
 ### Current live rendering
@@ -495,12 +511,12 @@ even when transparent. At 1920×1080 and 10 fps that is approximately 83 MB/s
 through the local pipe, plus rendering/copying/compositing work, not extra network
 upload bandwidth. Target-machine performance has not been measured. Title and
 title assets retain their centered `overlay_resolution` working size. Participant
-photos are centered and scaled to fit 90% of the broadcast width and height,
-preserving their proportions and enlarging smaller images. Their opacity never
-exceeds 60%. By default they fade in over 12 seconds, hold at 60% for four
-seconds, then fade out over four seconds. `image_duration` includes both fades;
+photos initially fit 90% of the broadcast width and height, preserving their
+proportions and enlarging smaller images. With no transform list, photos remain
+centered and fade to `default_opacity` (60% by default): a 12-second fade in,
+four-second hold, and four-second fade out. `image_duration` includes both fades;
 the remaining time is the hold. Set `image_interval` above 20 seconds when using
-these defaults.
+these defaults. Explicit transform opacities can reach 100%.
 
 The `title` RPC requires `visibility`: `auto`, `show`, or `hide`. Optional `text`
 replaces the configured image with plain text (maximum 500 characters, wrapped
