@@ -384,7 +384,10 @@ separately and do not trigger connectivity checks.
 The checks run in the failed connection path, not during status reads. API errors
 and recognized ingest failures reach status and incident history without raw API
 response bodies or publish URLs. Successful recovery clears the current error
-while retaining failure history. If streamO exits during startup, showCo reads
+while retaining failure history. Background health query failures, including
+connectivity results, are written to the service log at warning level; recovery
+is logged at info level. Unchanged repeated results do not produce duplicate
+log entries. If streamO exits during startup, showCo reads
 the last failure from its existing saved status file and labels it as the last
 failure; an intentionally stopped service still reports stopped.
 `local_display.error` also creates an incident when player playback fails.
