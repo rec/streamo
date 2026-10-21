@@ -17,6 +17,7 @@ from .config import Streamo
 from .daemon import load_config
 from .providers import ServiceCapability, adapter_for
 from .recs_input import RecsConnection
+from .twitch_api import TwitchApiError
 
 
 class Check(BaseModel, frozen=True):
@@ -474,7 +475,7 @@ def check_remote(config: Streamo, *, probe_remote: bool) -> Check:
                 detail='No provider health probe available for this configuration',
             )
         health = adapter.health()
-    except (ValueError, OSError) as error:
+    except (ValueError, OSError, TwitchApiError) as error:
         return Check(
             name='provider_access',
             status='fail',
@@ -483,11 +484,13 @@ def check_remote(config: Streamo, *, probe_remote: bool) -> Check:
                 'credential and API details omitted'
             ),
         )
-    if health is None:
+    if health is None or health.state in {'unverified', 'testing'}:
         return Check(
             name='provider_access',
             status='skipped',
-            detail='No provider resource available to query',
+            detail=health.detail
+            if health is not None and health.detail
+            else 'No provider resource available to query',
         )
     return Check(
         name='provider_access',

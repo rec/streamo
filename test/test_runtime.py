@@ -152,6 +152,53 @@ def test_retry_error_is_retained_until_output_resumes(clock: list[float]) -> Non
     assert state.snapshot()['incident_sequence'] == 2
 
 
+def test_twitch_requires_fresh_remote_confirmation_even_when_encoder_advances(
+    clock: list[float],
+) -> None:
+    from test_config import _service
+
+    from streamo.providers import adapter_for
+
+    state = RuntimeState()
+    state.configure_service(adapter_for(_service()))
+    state.set_publish_requested(True)
+    state.begin_encoder_attempt()
+    state.set_remote_health({'state': 'live'})
+    assert state.snapshot()['state'] == 'starting'
+    state.begin_encoder_attempt()
+    state.record_output_progress(1000)
+    assert state.snapshot()['state'] == 'publishing'
+    state.set_muted(True)
+    assert state.snapshot()['state'] == 'publishing'
+    state.set_remote_health({'state': 'live'})
+    assert state.snapshot()['state'] == 'muted'
+    state.set_muted(False)
+    assert state.snapshot()['state'] == 'streaming'
+    state.set_remote_health({'state': 'offline'})
+    state.record_output_progress(2000)
+    assert state.snapshot()['state'] == 'publishing'
+    state.set_remote_health({'state': 'live'})
+    state.set_remote_health(None, 'Provider unavailable')
+    state.record_output_progress(3000)
+    assert state.snapshot()['state'] == 'publishing'
+    assert state.snapshot()['remote_health_error'] == 'Provider unavailable'
+    state.set_remote_health({'state': 'live'})
+    clock[0] += 90
+    state.record_output_progress(4000)
+    assert state.snapshot()['state'] == 'publishing'
+    state.evaluate_warnings()
+    assert 'twitch_unconfirmed' in state.snapshot()['warnings']
+    assert (
+        state.events_since(0)['events'][-1]['detail']
+        == 'Twitch live confirmation is stale'
+    )
+    state.set_remote_health({'state': 'live'})
+    assert state.snapshot()['state'] == 'streaming'
+    state.begin_encoder_attempt()
+    state.record_output_progress(1000)
+    assert state.snapshot()['state'] == 'publishing'
+
+
 def test_provider_staleness_is_separate_from_successful_query(
     clock: list[float],
 ) -> None:

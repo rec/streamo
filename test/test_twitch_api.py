@@ -125,6 +125,28 @@ def test_malformed_success_response_is_api_error() -> None:
         api.request('GET', 'channels')
 
 
+@pytest.mark.parametrize(
+    'data,expected',
+    [([], 'offline'), ([{'user_id': 'broadcaster', 'type': 'live'}], 'live')],
+)
+def test_health_identifies_the_configured_live_channel(
+    data: list[dict[str, str]], expected: str
+) -> None:
+    transport = FakeTransport([(200, {'data': data})])
+    assert _api(transport).health()[0] == expected
+    assert transport.requests[0].url.endswith('/streams?user_id=broadcaster')
+
+
+@pytest.mark.parametrize(
+    'response', [{}, {'data': None}, {'data': [{'user_id': 'other', 'type': 'live'}]}]
+)
+def test_invalid_health_response_cannot_confirm_a_broadcast(
+    response: dict[str, object],
+) -> None:
+    with pytest.raises(TwitchApiError):
+        _api(FakeTransport([(200, response)])).health()
+
+
 class FakeTransport:
     def __init__(self, responses: list[tuple[int, dict[str, object]]]) -> None:
         self.responses = responses

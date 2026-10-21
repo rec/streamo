@@ -440,8 +440,18 @@ def test_named_adapters_expose_only_configured_capabilities() -> None:
         broadcaster_id='broadcaster',
     )
 
-    assert adapter_for(without_api).capabilities == []
+    assert adapter_for(without_api).capabilities == [ServiceCapability.HEALTH]
     assert ServiceCapability.CHAT in adapter_for(with_api).capabilities
+
+
+def test_twitch_health_distinguishes_missing_credentials_and_bandwidth_testing() -> (
+    None
+):
+    service = TwitchService(service='twitch', ingest=rtmp())
+    health = adapter_for(service).health()
+    assert health is not None and health.state == 'unverified'
+    health = adapter_for(service.model_copy(update={'bandwidth_test': True})).health()
+    assert health is not None and health.state == 'testing'
 
 
 def test_twitch_adapter_prepares_configured_metadata() -> None:

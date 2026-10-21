@@ -83,6 +83,26 @@ class TwitchApi:
             return self.create_marker(payload)
         raise TwitchApiError(f'unsupported Twitch API command {command}')
 
+    def health(self) -> tuple[str, str]:
+        response = self.request(
+            'GET', 'streams', query={'user_id': self.broadcaster_id}
+        )
+        data = response.get('data')
+        if not isinstance(data, list):
+            raise TwitchApiError('Twitch streams response is missing data')
+        if not data:
+            return 'offline', 'Twitch reports that the configured channel is offline'
+        if not any(
+            isinstance(s, dict)
+            and s.get('user_id') == self.broadcaster_id
+            and s.get('type') == 'live'
+            for s in data
+        ):
+            raise TwitchApiError(
+                'Twitch streams response did not identify the live channel'
+            )
+        return 'live', 'Twitch confirms that the configured channel is live'
+
     def update_stream_info(self, payload: Mapping[str, object]) -> dict[str, object]:
         body = self.channel_update_body(payload)
         if not body:

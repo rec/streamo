@@ -162,6 +162,7 @@ class TwitchServiceAdapter(GenericServiceAdapter):
         assert isinstance(service, TwitchService)
         super().__init__(service)
         self.twitch = TwitchApi.from_service(service)
+        self.capabilities.append(ServiceCapability.HEALTH)
         if self.twitch is not None:
             self.capabilities.extend(
                 [
@@ -193,6 +194,27 @@ class TwitchServiceAdapter(GenericServiceAdapter):
         payload = twitch_metadata_payload(metadata)
         if payload:
             self.perform('update_stream_info', payload)
+
+    def health(self) -> RemoteStreamStatus:
+        assert isinstance(self.service, TwitchService)
+        if self.service.bandwidth_test:
+            return RemoteStreamStatus(
+                state='testing',
+                detail=(
+                    'Twitch bandwidth-test mode is enabled; '
+                    'this is not a public broadcast'
+                ),
+            )
+        if self.twitch is None:
+            return RemoteStreamStatus(
+                state='unverified',
+                detail=(
+                    'Twitch live status requires client_id, access_token '
+                    'and broadcaster_id'
+                ),
+            )
+        state, detail = self.twitch.health()
+        return RemoteStreamStatus(state=state, detail=detail)
 
 
 class YouTubeServiceAdapter(GenericServiceAdapter):

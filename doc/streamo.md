@@ -246,7 +246,7 @@ does not start the daemon, open an audio stream, or contact a provider by defaul
 
 `--probe-device` additionally opens and closes the input without starting
 capture; it can compete with an already running audio stream. `--probe-remote`
-queries provider health for supported YouTube/Kick configurations. That probe
+queries provider health for supported Twitch/YouTube/Kick configurations. That probe
 may refresh OAuth credentials, including writing a rotated Kick refresh token,
 but never prepares a stream or changes metadata. Other configurations report
 the provider probe as skipped. Successful health access does not prove publish
@@ -357,6 +357,19 @@ the service, a secret-free ingest hostname, adapter capabilities, and
 request. Health refreshes every 30 seconds, with `remote_health_error` and
 `remote_health_updated_at` (Unix seconds) distinguishing failures and stale data.
 Adapters without a health API report `null`.
+For Twitch, `publishing` means encoder output is advancing but a live broadcast
+has not been confirmed. `streaming` or `muted` requires a successful, fresh
+[Get Streams](https://dev.twitch.tv/docs/api/reference/#get-streams) response
+identifying the configured broadcaster as live. Offline responses, failed
+queries, and confirmations older than 90 seconds return the state to `publishing`.
+Each encoder attempt requires a new confirmation. The `twitch_unconfirmed`
+warning records the condition, and showCo displays its explanation while keeping
+Stop available.
+
+Verification uses the existing Twitch `client_id`, `access_token`, and
+`broadcaster_id` settings. Without them, remote health is `unverified` with a
+configuration explanation. Bandwidth-test mode reports `testing`, never a
+confirmed public broadcast. Neither condition stops the encoder automatically.
 `local_display.error` also creates an incident when player playback fails.
 
 `audio_error` reports a current problem; `audio_last_error`, `audio_error_count`,

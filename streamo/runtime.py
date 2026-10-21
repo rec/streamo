@@ -195,6 +195,7 @@ class RuntimeState:
             self.remote_health_error = error
             self.remote_health_updated_at = time.time()
             self.health_checked_at = time.monotonic()
+            self._update_output_state()
 
     def set_state(self, state: str) -> None:
         with self._lock:
@@ -215,6 +216,10 @@ class RuntimeState:
             self.output_time_us = 0
             self.state = 'starting'
             self.encoder_started_at = time.monotonic()
+            if self.service == 'twitch':
+                self.remote_health = None
+                self.remote_health_error = None
+                self.remote_health_updated_at = None
 
     def set_publish_requested(self, requested: bool) -> None:
         with self._lock:
@@ -250,7 +255,7 @@ class RuntimeState:
                     'Encoder output resumed; provider delivery is separate',
                 )
             self.publish_error = None
-            self.state = 'muted' if self.muted else 'streaming'
+            self._update_output_state()
 
     def output_is_stable(self) -> bool:
         with self._lock:
@@ -266,8 +271,7 @@ class RuntimeState:
             if muted != self.muted:
                 self.silence_since = self.clipping_since = None
             self.muted = muted
-            if self.state in {'streaming', 'muted'}:
-                self.state = 'muted' if muted else 'streaming'
+            self._update_output_state()
 
     def is_muted(self) -> bool:
         with self._lock:
@@ -373,10 +377,50 @@ class RuntimeState:
                 'Provider health has not refreshed for 90 seconds',
                 'Provider health freshness restored',
             )
+            self._update_output_state()
+
+            detail = self.remote_health_error or (
+                self.remote_health.get('detail') if self.remote_health else None
+            )
+            if (
+                self.remote_health is not None
+                and self.remote_health.get('state') == 'live'
+            ):
+                detail = 'Twitch live confirmation is stale'
+            self._warning(
+                'twitch_unconfirmed',
+                self.service == 'twitch'
+                and self.publish_requested
+                and self.state == 'publishing',
+                str(detail or 'Twitch broadcast has not been confirmed live'),
+                'Twitch live confirmation warning cleared',
+            )
 
     def set_output_bitrate(self, bitrate_kbps: float | None) -> None:
         with self._lock:
             self.output_bitrate_kbps = bitrate_kbps
+
+    def _update_output_state(self) -> None:
+        if self.progress_updated is None or self.state not in {
+            'starting',
+            'publishing',
+            'streaming',
+            'muted',
+        }:
+            return
+        if (
+            self.service == 'twitch'
+            and self.publish_requested
+            and (
+                self.remote_health is None
+                or self.remote_health.get('state') != 'live'
+                or self.remote_health_error is not None
+                or time.monotonic() - self.health_checked_at >= 90
+            )
+        ):
+            self.state = 'publishing'
+        else:
+            self.state = 'muted' if self.muted else 'streaming'
 
     def _warning(self, component: str, active: bool, detail: str, cleared: str) -> None:
         if active == (component in self.active_warnings):

@@ -61,7 +61,11 @@ class ControlController:
                 return ipc.Error(
                     type='error', message='Closing credits are unavailable'
                 )
-            if self.state.snapshot()['state'] not in {'streaming', 'muted'}:
+            if self.state.snapshot()['state'] not in {
+                'publishing',
+                'streaming',
+                'muted',
+            }:
                 return ipc.Error(type='error', message='A live stream is required')
             if set(request.params) != {'operation_id'} or not isinstance(
                 request.params['operation_id'], str
