@@ -302,6 +302,41 @@ def test_dead_overlay_worker_fails_attempt_without_waiting_for_ffmpeg(
             )
 
 
+def test_failed_encoder_reports_the_network_cause_in_status() -> None:
+    config = _config()
+    controller = ControlController(RuntimeState())
+    ffmpeg = mock.Mock(
+        stdin=mock.Mock(),
+        stderr=BytesIO(b'Failed to resolve hostname: private-key\n'),
+    )
+    ffmpeg.poll.return_value = 1
+    ffmpeg.wait.return_value = 1
+    with (
+        mock.patch.object(streamer.subprocess, 'Popen', return_value=ffmpeg),
+        mock.patch.object(streamer, 'close_encoder'),
+        mock.patch(
+            'streamo.network.socket.create_connection', side_effect=TimeoutError
+        ),
+    ):
+        code, stopped = streamer.run_attempt(
+            config,
+            controller,
+            providers.adapter_for(config.streaming_service),
+            mock.Mock(sample_rate=48000),
+            None,
+            ingest_output(config.streaming_service),
+            None,
+            None,
+            lambda: None,
+        )
+    assert code == 1 and not stopped
+    message = controller.state.snapshot()['publish_error']
+    assert isinstance(message, str)
+    assert 'Cannot resolve the Twitch hostname' in message
+    assert 'No internet connectivity detected' in message
+    assert 'private-key' not in message
+
+
 def test_overlay_worker_failure_is_reported_in_status() -> None:
     config = _config().model_copy(update={'local_display': False})
     controller = ControlController(RuntimeState())

@@ -118,7 +118,12 @@ class Streamo(Reccy, frozen=True):
                 preview=preview,
             )
             if returncode:
-                self.publish_error(f'ffmpeg exited with {returncode}')
+                self.publish_error(
+                    str(
+                        controller.state.snapshot()['last_error']
+                        or f'ffmpeg exited with {returncode}'
+                    )
+                )
             if controller.closing is not None and (
                 controller.closing.snapshot()['state'] == 'completed'
             ):

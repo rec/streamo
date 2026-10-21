@@ -19,6 +19,7 @@ from streamo.provider_config import (
 )
 from streamo.providers import adapter_for
 from streamo.runtime import RuntimeState
+from streamo.twitch_api import TwitchApiError
 
 
 def test_status_request_returns_runtime_snapshot() -> None:
@@ -68,6 +69,31 @@ def test_health_poller_close_waits_for_inflight_request() -> None:
     release.set()
     assert closed.wait(5)
     closer.join()
+
+
+def test_health_failure_explanation_survives_until_a_successful_query(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    state = RuntimeState()
+    service = mock.Mock()
+    message = 'Cannot resolve the Twitch hostname. Internet connectivity is available'
+    service.health.side_effect = TwitchApiError(message)
+    poller = HealthPoller(service, state)
+    with caplog.at_level('INFO', logger='streamo.runtime'):
+        poller.poll()
+        poller.poll()
+        assert state.snapshot()['remote_health_error'] == message
+        service.health.side_effect = None
+        service.health.return_value = None
+        poller.poll()
+        poller.poll()
+    assert state.snapshot()['remote_health_error'] is None
+    assert state.events_since(0)['events'][0]['detail'] == message
+    assert caplog.messages.count(f'Provider health query failed: {message}') == 1
+    assert caplog.messages.count('Provider health query recovered') == 1
+    assert len(caplog.records) == 2
+    assert caplog.records[0].levelname == 'WARNING'
+    assert caplog.records[1].levelname == 'INFO'
 
 
 def test_mute_and_unmute_requests_change_runtime_state() -> None:

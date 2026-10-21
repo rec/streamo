@@ -5,8 +5,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from reccy.configuration import units
+from reccy.runtime.logging import get_logger
 
 from .providers import StreamingServiceAdapter, endpoint_host
+
+LOGGER = get_logger(__name__)
 
 
 class HealthWarnings(BaseModel, frozen=True):
@@ -186,6 +189,10 @@ class RuntimeState:
     ) -> None:
         with self._lock:
             if error != self.remote_health_error:
+                if error is not None:
+                    LOGGER.warning('Provider health query failed: %s', error)
+                else:
+                    LOGGER.info('Provider health query recovered')
                 self._event(
                     'provider_health',
                     error is not None,
@@ -254,6 +261,8 @@ class RuntimeState:
                     False,
                     'Encoder output resumed; provider delivery is separate',
                 )
+                if self.last_error == self.publish_error:
+                    self.last_error = None
             self.publish_error = None
             self._update_output_state()
 

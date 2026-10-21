@@ -480,8 +480,12 @@ def check_remote(config: Streamo, *, probe_remote: bool) -> Check:
             name='provider_access',
             status='fail',
             detail=(
-                f'Provider health probe failed ({type(error).__name__}); '
-                'credential and API details omitted'
+                str(error)
+                if isinstance(error, TwitchApiError)
+                else (
+                    f'Provider health probe failed ({type(error).__name__}); '
+                    'credential and API details omitted'
+                )
             ),
         )
     if health is None or health.state in {'unverified', 'testing'}:

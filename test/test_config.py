@@ -293,6 +293,38 @@ def test_preview_does_not_initialize_provider(tmp_path: Path) -> None:
         assert config.run(preview=True) == 0
 
 
+def test_failed_run_persists_the_specific_error(tmp_path: Path) -> None:
+    from streamo.control import ControlController
+
+    video = tmp_path / 'bed.mp4'
+    video.touch()
+    config = Streamo(
+        video=video,
+        streaming_service=_service(),
+        closing_state_path=tmp_path / 'closing.json',
+        image_dir=[tmp_path],
+    )
+    message = 'Cannot resolve the Twitch hostname. No internet connectivity detected'
+
+    def fail(
+        config: Streamo,
+        controller: ControlController,
+        service: object,
+        **kwargs: object,
+    ) -> int:
+        controller.state.publish_failed(message, None)
+        return 1
+
+    with (
+        mock.patch.object(Streamo, 'start'),
+        mock.patch.object(Streamo, 'close'),
+        mock.patch.object(Streamo, 'publish_error') as published,
+        mock.patch('streamo.streamer.stream', side_effect=fail),
+    ):
+        assert config.run(preview=True) == 1
+    published.assert_called_once_with(message)
+
+
 def test_channel_must_be_positive() -> None:
     with pytest.raises(ValidationError, match='must be positive'):
         Streamo(

@@ -149,6 +149,8 @@ def test_retry_error_is_retained_until_output_resumes(clock: list[float]) -> Non
     assert state.snapshot()['publish_error'] is not None
     state.record_output_progress(1000)
     assert state.snapshot()['publish_error'] is None
+    assert state.snapshot()['last_error'] is None
+    assert state.snapshot()['last_publish_error'] == 'FFmpeg exited with 1'
     assert state.snapshot()['incident_sequence'] == 2
 
 
