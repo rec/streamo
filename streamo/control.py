@@ -201,7 +201,10 @@ class HealthPoller:
             ValueError,
         ) as error:
             self.state.set_remote_health(
-                None, f'Provider health unavailable ({type(error).__name__})'
+                None,
+                str(error)
+                if isinstance(error, TwitchApiError)
+                else f'Provider health unavailable ({type(error).__name__})',
             )
         else:
             self.state.set_remote_health(

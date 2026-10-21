@@ -23,11 +23,13 @@ from .composition import (
 from .config import Streamo
 from .control import ControlController, HealthPoller
 from .ffmpeg_progress import update_progress
+from .network import twitch_ingest_failure
 from .overlays import LiveOverlays, write_overlay_frames
 from .provider_config import StreamingServiceConfiguration
 from .providers import FfmpegOutput, StreamingServiceAdapter, tee_escape
 from .recs_input import AudioFormatChanged, RecsAudio, RecsInputLost
 from .runtime import RuntimeState
+from .twitch_api import TwitchApiError
 
 LOGGER = get_logger(__name__)
 DRM_STATUS_ROOT = Path('/sys/class/drm')
@@ -251,7 +253,10 @@ def stream(
                         if controller.closing is not None and controller.closing.tick():
                             controller.closing.complete()
                         return 0
-                    message = f'FFmpeg exited with {returncode}'
+                    message = (
+                        state.snapshot()['publish_error'] if returncode else None
+                    ) or f'FFmpeg exited with {returncode}'
+                    assert isinstance(message, str)
                     if controller.closing is not None:
                         controller.closing.fail(message)
                         if controller.closing.snapshot()['state'] == 'failed':
@@ -282,10 +287,10 @@ def stream(
             return 0
     except KeyboardInterrupt:
         return 0
-    except (OSError, RuntimeError, ValueError) as error:
+    except (OSError, RuntimeError, ValueError, TwitchApiError) as error:
         message = (
             str(error)
-            if isinstance(error, (OverlayWorkerError, RecsInputLost))
+            if isinstance(error, (OverlayWorkerError, RecsInputLost, TwitchApiError))
             else f'Stream failed ({type(error).__name__})'
         )
         state.publish_failed(message, None)
@@ -419,6 +424,12 @@ def run_attempt(
                     diagnostics, output, service.service
                 )
             process.report_failed_command(command, None, diagnostics)
+            message = (
+                twitch_ingest_failure(diagnostics)
+                if service.service.service == 'twitch'
+                else None
+            )
+            state.publish_failed(message or f'FFmpeg exited with {returncode}', None)
         return returncode, False
 
 

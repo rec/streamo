@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Protocol, Self, cast
 
+from .network import describe_twitch_connection_failure
 from .provider_config import TwitchService
 
 
@@ -37,10 +38,21 @@ def urllib_transport(request: TwitchRequest) -> tuple[int, bytes]:
         with urllib.request.urlopen(urllib_request, timeout=10) as response:
             return response.status, response.read()
     except urllib.error.HTTPError as error:
-        body = error.read().decode(errors='replace')
-        raise TwitchApiError(f'Twitch API {error.code}: {body}') from error
+        if error.code in {401, 403}:
+            message = (
+                'Twitch rejected the API credentials or permissions '
+                f'(HTTP {error.code})'
+            )
+        elif error.code == 429:
+            message = 'Twitch API rate limit reached (HTTP 429)'
+        else:
+            message = f'Twitch API request failed (HTTP {error.code})'
+        error.close()
+        raise TwitchApiError(message) from None
     except urllib.error.URLError as error:
-        raise TwitchApiError(f'Twitch API request failed: {error.reason}') from error
+        raise TwitchApiError(describe_twitch_connection_failure(error.reason)) from None
+    except OSError as error:
+        raise TwitchApiError(describe_twitch_connection_failure(error)) from None
 
 
 @dataclass
@@ -218,9 +230,7 @@ class TwitchApi:
             data = json.dumps(body, separators=(',', ':')).encode()
         status, response = self.transport(TwitchRequest(method, url, headers, data))
         if status >= 400:
-            raise TwitchApiError(
-                f'Twitch API {status}: {response.decode(errors="replace")}'
-            )
+            raise TwitchApiError(f'Twitch API request failed (HTTP {status})')
         if status == 204 or not response:
             return {}
         try:

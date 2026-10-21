@@ -370,6 +370,23 @@ Verification uses the existing Twitch `client_id`, `access_token`, and
 `broadcaster_id` settings. Without them, remote health is `unverified` with a
 configuration explanation. Bandwidth-test mode reports `testing`, never a
 confirmed public broadcast. Neither condition stops the encoder automatically.
+
+Twitch connection failures distinguish hostname resolution, timeout, unreachable
+route, refusal, reset, and TLS errors. After a network connection failure, streamO
+checks TCP connectivity to `1.1.1.1:443` and, if needed, `8.8.8.8:53`, with a
+two-second timeout per check. Numeric destinations keep these checks independent
+of DNS. A successful check reports that general internet connectivity is available
+despite the Twitch failure. If both fail, status reports no internet connectivity
+detected; this does not establish that the local network is down, and firewalls
+can block these checks. Authentication and permission rejections are reported
+separately and do not trigger connectivity checks.
+
+The checks run in the failed connection path, not during status reads. API errors
+and recognized ingest failures reach status and incident history without raw API
+response bodies or publish URLs. Successful recovery clears the current error
+while retaining failure history. If streamO exits during startup, showCo reads
+the last failure from its existing saved status file and labels it as the last
+failure; an intentionally stopped service still reports stopped.
 `local_display.error` also creates an incident when player playback fails.
 
 `audio_error` reports a current problem; `audio_last_error`, `audio_error_count`,

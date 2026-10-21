@@ -12,6 +12,7 @@ from streamo.control import ControlController
 from streamo.provider_config import CustomService
 from streamo.providers import GenericServiceAdapter
 from streamo.runtime import RuntimeState
+from streamo.twitch_api import TwitchApiError
 
 
 class Clock:
@@ -70,6 +71,22 @@ def config() -> Streamo:
             }
         ),
     )
+
+
+def test_startup_provider_error_is_retained_without_launching_the_encoder(
+    config: Streamo,
+) -> None:
+    controller = ControlController(RuntimeState())
+    service = GenericServiceAdapter(config.streaming_service)
+    message = 'Connection to Twitch timed out. No internet connectivity detected'
+    with (
+        mock.patch.object(service, 'prepare', side_effect=TwitchApiError(message)),
+        mock.patch.object(streamer, 'run_attempt') as attempt,
+    ):
+        result = streamer.stream(config, controller, service, initial_image_paths=set())
+    assert result == 1
+    assert controller.state.snapshot()['last_error'] == message
+    attempt.assert_not_called()
 
 
 def test_retries_preserve_session_and_clean_every_encoder(

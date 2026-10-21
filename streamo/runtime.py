@@ -254,6 +254,8 @@ class RuntimeState:
                     False,
                     'Encoder output resumed; provider delivery is separate',
                 )
+                if self.last_error == self.publish_error:
+                    self.last_error = None
             self.publish_error = None
             self._update_output_state()
 
