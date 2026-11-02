@@ -153,7 +153,7 @@ class RecsConnection:
                 source=self.settings.source,
                 subscription_id=subscription_id,
             )
-        except (OSError, ValueError):
+        except (rpc.RemoteError, OSError, ValueError):
             # The capture may already have exited. Its capability cannot be reused.
             pass
 
@@ -211,7 +211,13 @@ class RecsReceiver:
                     )
                 elif not self.stopped.is_set():
                     self.receive(inspection)
-            except (OSError, EOFError, ValueError, MemoryError) as error:
+            except (
+                rpc.RemoteError,
+                OSError,
+                EOFError,
+                ValueError,
+                MemoryError,
+            ) as error:
                 self.lost(
                     f'recs input unavailable ({type(error).__name__})',
                     intentional=False,
