@@ -968,7 +968,7 @@ wheels = [
 [[package]]
 name = "reccy"
 version = "0.2.0"
-source = { git = "https://github.com/rec/reccy.git?branch=main#a870022d5517dc8cf2dcc6c39db18fc497f8c38b" }
+source = { git = "https://github.com/rec/reccy.git?branch=main#8af4308f45417083a91b1c5982fa764a879dbaa7" }
 dependencies = [
     { name = "pint" },
     { name = "pydantic" },
