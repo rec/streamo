@@ -1,0 +1,2578 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="🚰 Stream audio to all services 🚰">
+      
+      
+      
+        <link rel="canonical" href="https://rec.github.io/streamo/streamo/">
+      
+      
+      
+        <link rel="prev" href="../handover/">
+      
+      
+        <link rel="next" href="../reference/streamo/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.0.73">
+    
+    
+      
+        <title>streamO operator guide - streamo</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.4ab2de0c.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-hidden="true"></label>
+    <div data-md-component="skip">
+      <a href="#__skip" class="md-skip">
+        Skip to content
+      </a>
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="./.." title="streamo" class="md-header__button md-logo" aria-label="streamo" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+      <span class="md-visually-hidden">Navigation</span>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            streamo
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              streamO operator guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+          <span class="md-visually-hidden">Search</span>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="./.." title="streamo" class="md-nav__button md-logo" aria-label="streamo" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    streamo
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  streamo
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../handover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Handover
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  streamO operator guide
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  streamO operator guide
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#audio-from-recs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Audio from recs
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#start-here" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Start here
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Configuration
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#destinations" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Destinations
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#service-operation" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Service operation
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#show-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Show control
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Show control">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#incident-history-and-warnings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Incident history and warnings
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#overlays-and-participant-images" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Overlays and participant images
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Overlays and participant images">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#image-transform-descriptions" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Image transform descriptions
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#current-live-rendering" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Current live rendering
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deploying-the-upload-page" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Deploying the upload page
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#youtube-and-kick-authorization" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        YouTube and Kick authorization
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#preparing-visual-media" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Preparing visual media
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#development" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Development
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Development">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#visual-bed-lifetime" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Visual-bed lifetime
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  API Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../reference/streamo/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  streamo
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4_1">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  streamo
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/__main__/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  __main__
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  audio
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/auth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  auth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/closing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  closing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/composition/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  composition
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  config
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/control/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  control
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/credentials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  credentials
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/daemon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  daemon
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/ffmpeg_progress/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ffmpeg_progress
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/image_feed/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  image_feed
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/image_transform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  image_transform
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  images
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/kick_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  kick_api
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/media_assets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  media_assets
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/moderation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  moderation
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/network/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  network
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  overlays
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/preflight/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  preflight
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/provider_config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  provider_config
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/providers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  providers
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/recs_input/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  recs_input
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/runtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  runtime
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/streamer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  streamer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/twitch_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  twitch_api
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/streamo/youtube_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  youtube_api
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#audio-from-recs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Audio from recs
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#start-here" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Start here
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Configuration
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#destinations" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Destinations
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#service-operation" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Service operation
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#show-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Show control
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Show control">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#incident-history-and-warnings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Incident history and warnings
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#overlays-and-participant-images" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Overlays and participant images
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Overlays and participant images">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#image-transform-descriptions" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Image transform descriptions
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#current-live-rendering" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Current live rendering
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deploying-the-upload-page" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Deploying the upload page
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#youtube-and-kick-authorization" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        YouTube and Kick authorization
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#preparing-visual-media" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Preparing visual media
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#development" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Development
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Development">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#visual-bed-lifetime" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Visual-bed lifetime
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                <a id="__skip" tabindex="-1"></a>
+                
+                  
+
+
+<h1 id="streamo-operator-guide">streamO operator guide<a class="headerlink" href="#streamo-operator-guide" title="Permanent link">&para;</a></h1>
+<p>streamO captures one stereo pair from an audio device, or receives it from local
+recs, and publishes it through
+FFmpeg to a live-streaming destination. A video stream combines the audio with
+a looping visual bed and optional title and participant-image overlays. Icecast
+streams are audio-only.</p>
+<p>Use the local preview before publishing. During a show, control clients can mute,
+stop, submit images, and read audio, FFmpeg, and provider health. Audio capture
+retries after device failures and drops old audio when FFmpeg falls behind,
+reporting those problems through status. No backup ingest or failover is provided.</p>
+<h2 id="audio-from-recs">Audio from recs<a class="headerlink" href="#audio-from-recs" title="Permanent link">&para;</a></h2>
+<p>When recs already owns the audio device, streamO can subscribe without opening
+the hardware a second time. Add this to the normal streamO configuration:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[recs_input]</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">daemon</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">source</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"X18"</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">channels</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">17</span><span class="p">,</span><span class="w"> </span><span class="mi">18</span><span class="p">]</span>
+</span></code></pre></div>
+<p>Choose exactly one target: <code>daemon = true</code>, or <code>instance = 1234</code> for a specific
+running recs PID. A PID selection is pinned to that instance's identity and will
+not silently attach to a replacement process. The daemon selection can reconnect
+to a restarted daemon. <code>source</code> is the exact recs device key, and <code>channels</code> is
+two distinct one-based physical channel numbers, in left/right order.</p>
+<p>Omit top-level <code>device_name</code>, <code>channel</code>, and <code>sample_rate</code> in this mode. They
+cannot be combined with <code>recs_input</code>. The selected recs must already have audio
+forwarding enabled with <code>--forward-audio</code>. Only one subscriber may use each
+source. streamO never enables forwarding, changes recs settings, starts recs,
+or falls back to opening a device itself.</p>
+<p>The native input sample rate is negotiated with recs. FFmpeg resamples to the
+configured service encoding's audio rate. A native rate change rebuilds the
+encoder before accepting audio at the new rate, which can interrupt publishing.
+Until the input rate is known, startup silence uses the service encoding rate.</p>
+<p>Quiet audio is forwarded continuously, regardless of recs' file-writing silence
+threshold. streamO's existing mute, closing fade, and meters apply to this input.
+An intentional recs pause or microphone mute produces silence until resumed.
+Unexpected input loss produces paced silence while streamO reconnects, for at
+most 30 seconds; after that the broadcast fails, even with <code>recover_publish</code>
+enabled. Resume starts at the live edge, without replaying disconnected audio.</p>
+<p>The receiver retains at most 100 ms of audio, independent of packet size, and
+batches queued packets for each encoder update. It discards audio older than
+250 ms before writing it into FFmpeg. On Linux, the encoder pipe holds at most
+1 MiB (2.73 seconds of stereo float PCM at 48 kHz), allowing bounded buffering
+during ingest startup and video processing. This pipe is separate from the
+receiver's freshness limit. PCM probing is minimized because its format is
+already known. Overlay frames follow a fixed schedule and catch up after a
+blocked write, keeping their media clock aligned with live audio. A slow encoder
+cannot block recs or grow an unlimited backlog. Status includes <code>audio_input</code>
+with source, channel order, rate, capture clock, connection health, and
+intentional-pause state.
+Existing dropped-frame and audio-error status also applies.</p>
+<p>Preflight inspects capabilities, instance identity, source availability, channel
+limits, and local endpoint permissions. It neither subscribes nor probes hardware,
+even with <code>--probe-device</code>. A busy subscription or intentional pause is reported
+as a warning. Preflight does not establish end-to-end audio or provider readiness.</p>
+<h2 id="start-here">Start here<a class="headerlink" href="#start-here" title="Permanent link">&para;</a></h2>
+<p>streamO needs Python 3.13 or later, FFmpeg, FFprobe, an audio input device, and
+FFplay for preview. Install the project environment with:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>sync
+</span></code></pre></div>
+<p>Create <code>~/.config/streamo/config.toml</code>. This Twitch configuration is a useful
+starting point:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">video</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"visual-bed.mp4"</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">[streaming_service.ingest]</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">stream_key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"replace-with-stream-key"</span>
+</span></code></pre></div>
+<p>Replace the movie path and stream key with your own values. The stream key is
+the secret that authorizes publishing to your Twitch account; it cannot have a
+shared default. The <code>ingest</code> section means the destination server and its key.
+Twitch's server address and protocol are filled in automatically.
+<code>encoding</code> means how the picture and sound are compressed: Twitch defaults to
+1280x720 H.264 video at 30 fps and 2.5 Mbps, with two-second keyframes, plus
+48 kHz stereo AAC audio at 160 kbps, in an FLV container. These settings can be
+overridden individually; see <a href="../../examples/twitch.toml">the full example</a>.</p>
+<p><code>device_name</code> selects the audio input device and defaults to <code>"X18"</code>.
+<code>channel</code> is one-based and selects the first channel in the stereo pair; its
+default, <code>17</code>, captures channels 17 and 18. Set both explicitly for a different
+device or USB routing. These defaults do not select the computer's microphone.
+The service choice defaults to <code>"twitch"</code> when <code>streaming_service.service</code> is
+omitted. For Twitch, only <code>streaming_service.ingest.stream_key</code> needs to be
+supplied; the other publishing settings have defaults.
+<code>video</code> is required whenever the encoding profile contains
+a video section. Relative media, image-directory, and provider-credential paths
+resolve from the configuration file’s directory. <code>~</code> expands to the user’s home
+directory, including for credential files.</p>
+<p>Run streamO with the default configuration:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>uv<span class="w"> </span>run<span class="w"> </span>streamo
+</span></code></pre></div>
+<p>Use another configuration file when needed:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>run<span class="w"> </span>streamo<span class="w"> </span>--config<span class="w"> </span>config.toml
+</span></code></pre></div>
+<p>Before a show, preview the local composition without contacting the destination:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>uv<span class="w"> </span>run<span class="w"> </span>streamo<span class="w"> </span>daemon<span class="w"> </span>preview<span class="w"> </span>--config<span class="w"> </span>~/.config/streamo/config.toml
+</span></code></pre></div>
+<p>Preview uses FFplay without loading provider credentials or calling provider APIs.
+The configured participant-image feed still polls when enabled.
+Close its window or send the <code>stop</code> control command to end it.</p>
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
+<p>The top-level settings control capture and the working format for overlays.
+The nested encoding settings control the published stream. Set both sets of
+audio values when they should agree. Overlay dimensions and frame rate affect
+the overlays only; the base video retains the published resolution and frame rate.
+Local media must be readable before any provider preparation begins. Timings must
+be finite, and working dimensions must be positive.</p>
+<p>Unit-bearing settings accept Pint quantities: for example, <code>"500ms"</code> for a
+duration, <code>"48kHz"</code> for a sample rate, <code>"30fps"</code> for a frame rate,
+<code>"160kbps"</code> for a bitrate, and <code>"-60dB"</code> for an audio level. Resolution
+dimensions can include pixel units, as in <code>"1280px x 720px"</code>. Plain numbers
+remain valid in the field's named unit: seconds for durations, milliseconds
+for <code>latency_ms</code>, kilobits per second for <code>max_bitrate_kbps</code>, and bits per
+second for encoding bitrates. Existing FFmpeg bitrate shorthand such as
+<code>"160k"</code> remains accepted in encoding profiles.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sample_rate</code></td>
+<td><code>48000</code></td>
+<td>Audio capture sample rate, up to 192000 Hz</td>
+</tr>
+<tr>
+<td><code>video</code></td>
+<td>none</td>
+<td>Looping visual-bed file</td>
+</tr>
+<tr>
+<td><code>overlay_resolution</code></td>
+<td><code>"640x360"</code></td>
+<td>Overlay working resolution, up to 1920x1080</td>
+</tr>
+<tr>
+<td><code>overlay_frame_rate</code></td>
+<td><code>10</code></td>
+<td>Overlay working frame rate, up to 60 fps</td>
+</tr>
+<tr>
+<td><code>live_overlays</code></td>
+<td><code>true</code></td>
+<td>Enable titles, participant images and slate; startup-only</td>
+</tr>
+<tr>
+<td><code>title_card</code></td>
+<td>none</td>
+<td>Title-card image</td>
+</tr>
+<tr>
+<td><code>title_interval</code></td>
+<td><code>180.0</code></td>
+<td>Seconds between title-card appearances</td>
+</tr>
+<tr>
+<td><code>title_duration</code></td>
+<td><code>8.0</code></td>
+<td>Seconds the title card remains visible</td>
+</tr>
+<tr>
+<td><code>title_fade</code></td>
+<td><code>2.0</code></td>
+<td>Fade-in and fade-out duration, in seconds</td>
+</tr>
+<tr>
+<td><code>local_display</code></td>
+<td><code>true</code></td>
+<td>Show the composed program on local HDMI</td>
+</tr>
+<tr>
+<td><code>image_dir</code></td>
+<td><code>["images"]</code></td>
+<td>Trusted image directories, in selection order</td>
+</tr>
+<tr>
+<td><code>image_dir_weights</code></td>
+<td>descending to <code>1</code></td>
+<td>Comma-separated or integer-list directory weights; repeats the final weight</td>
+</tr>
+<tr>
+<td><code>image_approval_required</code></td>
+<td><code>false</code></td>
+<td>Hold unreviewed internet images for approval</td>
+</tr>
+<tr>
+<td><code>image_interval</code></td>
+<td><code>0.0</code></td>
+<td>Seconds between participant images; zero disables them</td>
+</tr>
+<tr>
+<td><code>image_duration</code></td>
+<td><code>20.0</code></td>
+<td>Total seconds each participant image is visible, including fades</td>
+</tr>
+<tr>
+<td><code>image_fade</code></td>
+<td><code>12.0</code></td>
+<td>Participant-image fade-in duration, in seconds</td>
+</tr>
+<tr>
+<td><code>image_fade_out</code></td>
+<td><code>4.0</code></td>
+<td>Participant-image fade-out duration, in seconds</td>
+</tr>
+<tr>
+<td><code>current_session_image_weight</code></td>
+<td><code>3</code></td>
+<td>Current-session images per older image</td>
+</tr>
+</tbody>
+</table>
+<p>Encoding settings default to FLV and stereo AAC audio at 48 kHz and 160 kbps.
+Twitch also supplies the video defaults described above. Other video services
+need a video section; an empty section selects the H.264 video defaults.
+Audio codecs are <code>aac</code>, <code>mp3</code>, <code>opus</code>, and <code>vorbis</code>.
+Encoded video is limited to 3840x2160 at 60 fps.
+Video codecs are <code>h264</code>, <code>hevc</code>, and <code>av1</code>. Valid audio/container pairs are
+AAC/ADTS, AAC or MP3/FLV, MP3/MP3, AAC, MP3, or Opus/MPEG-TS, and Opus or
+Vorbis/Ogg. <code>pixel_format</code> defaults to <code>"yuv420p"</code>.</p>
+<p>MP3, ADTS, and Ogg are audio-only with the supported codecs.</p>
+<p>Keep stream keys, passwords, API tokens, and OAuth credential files private.
+Do not commit them.</p>
+<p>Ready-to-copy configurations are available for <a href="../../examples/twitch.toml">Twitch</a>,
+<a href="../../examples/generic-rtmps.toml">a generic RTMPS service</a>, and
+<a href="../../examples/icecast.toml">Icecast</a>.</p>
+<h2 id="destinations">Destinations<a class="headerlink" href="#destinations" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Allowed protocols</th>
+<th>Video</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Twitch</td>
+<td>RTMP, RTMPS</td>
+<td>required</td>
+</tr>
+<tr>
+<td>YouTube</td>
+<td>RTMP, RTMPS, HLS push</td>
+<td>required</td>
+</tr>
+<tr>
+<td>Facebook</td>
+<td>RTMP, RTMPS</td>
+<td>required</td>
+</tr>
+<tr>
+<td>Kick</td>
+<td>RTMPS</td>
+<td>required</td>
+</tr>
+<tr>
+<td>Vimeo</td>
+<td>RTMP, RTMPS, SRT</td>
+<td>required</td>
+</tr>
+<tr>
+<td>LinkedIn</td>
+<td>RTMP, RTMPS</td>
+<td>required</td>
+</tr>
+<tr>
+<td>Icecast</td>
+<td>Icecast</td>
+<td>not used</td>
+</tr>
+<tr>
+<td>Custom</td>
+<td>RTMP, RTMPS, SRT, HLS push, Icecast</td>
+<td>optional</td>
+</tr>
+</tbody>
+</table>
+<p>RTMP and RTMPS use the FLV container. Keep the stream key in <code>stream_key</code> and
+out of <code>server_url</code>. Backup URL/key settings are rejected. SRT and HLS push use MPEG-TS. An HLS <code>upload_url</code> must
+contain <code>{stream_key}</code>, which streamO substitutes while starting FFmpeg.
+YouTube HLS requires a one-to-four-second segment duration, AAC audio, and
+H.264 or HEVC video. SRT uses <code>url</code>, optional <code>passphrase</code>, and <code>latency_ms</code>
+(default 120). HLS uses <code>upload_url</code>, <code>stream_key</code>, and <code>segment_duration</code>.</p>
+<p>Icecast is audio-only. Its ingest settings use an <code>icecast://</code> server URL, a
+mountpoint beginning with <code>/</code>, source username and password, and optional TLS.
+Use one of AAC/ADTS, MP3/MP3, Opus/Ogg, or Vorbis/Ogg.</p>
+<p>For Twitch, provider API operations need <code>client_id</code>, <code>access_token</code>, and
+<code>broadcaster_id</code>. <code>sender_id</code> and <code>moderator_id</code> default to the broadcaster ID.
+Facebook, Vimeo, LinkedIn, and Icecast publish through the configured ingest
+only. Their service models have no provider API credentials or control fields.</p>
+<p>YouTube can use direct ingest, or OAuth credentials plus an existing
+<code>stream_id</code> and <code>broadcast_id</code>. With OAuth, streamO updates metadata, binds the
+broadcast to the stream, and obtains the ingest address. <code>auto_start</code> and
+<code>auto_stop</code> default to <code>true</code>. streamO does not create the stream or broadcast.</p>
+<p>Kick can use direct RTMPS ingest, or OAuth credentials and a channel slug. With
+OAuth, streamO updates the channel and retrieves its RTMPS URL and stream key.
+Its nested <code>channel</code> is the provider slug; the top-level <code>channel</code> remains the
+one-based audio input number. Metadata <code>category</code> is a name for Twitch and a
+numeric ID for YouTube or Kick. Other adapters publish ingest only and reject
+provider-specific control commands.</p>
+<h2 id="service-operation">Service operation<a class="headerlink" href="#service-operation" title="Permanent link">&para;</a></h2>
+<p>Check readiness before starting a show:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>uv<span class="w"> </span>run<span class="w"> </span>streamo<span class="w"> </span>preflight<span class="w"> </span>--config<span class="w"> </span>~/.config/streamo/config.toml
+</span></code></pre></div>
+<p>Preflight prints JSON containing <code>ok</code> and a list of checks, each with a <code>name</code>,
+<code>status</code> (<code>pass</code>, <code>fail</code>, <code>warning</code>, or <code>skipped</code>), and <code>detail</code>. Its exit code is
+one when any check fails, otherwise zero. Warnings and skipped checks do not
+mean that readiness has been established.</p>
+<p>The default checks inspect the selected device and stereo pair, capture-format
+support, FFmpeg encoders, video and title-card properties, image-storage access,
+and local-display prerequisites. Storage checking briefly creates and removes a
+temporary file in the directory or its nearest existing ancestor. Preflight
+does not start the daemon, open an audio stream, or contact a provider by default.</p>
+<p><code>--probe-device</code> additionally opens and closes the input without starting
+capture; it can compete with an already running audio stream. <code>--probe-remote</code>
+queries provider health for supported Twitch/YouTube/Kick configurations. That probe
+may refresh OAuth credentials, including writing a rotated Kick refresh token,
+but never prepares a stream or changes metadata. Other configurations report
+the provider probe as skipped. Successful health access does not prove publish
+permissions or delivery to viewers.</p>
+<p>A controller can request <code>preflight</code> with empty RPC parameters to get the same
+local report for the running configuration. Probes are available through the CLI
+only. Actual audio signal quality, SDL KMSDRM playback, and destination delivery
+still need an operational check.</p>
+<p>Install streamO as a background service with the configuration it should run:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>uv<span class="w"> </span>run<span class="w"> </span>streamo<span class="w"> </span>daemon<span class="w"> </span>install<span class="w"> </span>--config<span class="w"> </span>~/.config/streamo/config.toml
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>uv<span class="w"> </span>run<span class="w"> </span>streamo<span class="w"> </span>daemon<span class="w"> </span>start
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>uv<span class="w"> </span>run<span class="w"> </span>streamo<span class="w"> </span>daemon<span class="w"> </span>status
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>uv<span class="w"> </span>run<span class="w"> </span>streamo<span class="w"> </span>daemon<span class="w"> </span>stop
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>uv<span class="w"> </span>run<span class="w"> </span>streamo<span class="w"> </span>daemon<span class="w"> </span>restart
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>uv<span class="w"> </span>run<span class="w"> </span>streamo<span class="w"> </span>daemon<span class="w"> </span>uninstall
+</span></code></pre></div>
+<p>Video streams can show the already-composed program on a local HDMI display.
+This is enabled by default through <code>local_display = true</code>; it does not change
+the remote stream. It is ignored for audio-only streams. On a Pi, the service
+account normally needs access to <code>/dev/dri</code>, usually through the <code>video</code> group.
+The player uses SDL KMSDRM without a desktop session and receives the already
+encoded program over loopback-only MPEG-TS. A failed player retries after five
+seconds while HDMI remains connected; <code>status.local_display</code> reports whether it
+is requested, connected, playing, or failing. On non-Linux hosts it reports that
+automatic display requires Linux DRM. Inspect the service
+with <code>systemctl cat streamo</code> and device permissions with <code>ls -l /dev/dri</code>. Confirm
+the actual FFplay build and HDMI hot-plug behaviour on the target.</p>
+<p>For each show, confirm the selected stereo pair, preview the visual bed and
+overlays, then verify the encoded resolution and frame rate at the destination.
+After starting, check audio levels, output bitrate, and provider health through
+the <code>status</code> control command.</p>
+<h2 id="show-control">Show control<a class="headerlink" href="#show-control" title="Permanent link">&para;</a></h2>
+<p>streamO uses reccy's JSON Lines RPC transport. Its configuration is TOML, but
+each control message is one JSON object followed by a newline. Begin with:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"hello"</span><span class="p">,</span><span class="w"> </span><span class="nt">"role"</span><span class="p">:</span><span class="w"> </span><span class="s2">"show-control"</span><span class="p">,</span><span class="w"> </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">}</span>
+</span></code></pre></div>
+<p>Then send requests in this form:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"request"</span><span class="p">,</span><span class="w"> </span><span class="nt">"command"</span><span class="p">:</span><span class="w"> </span><span class="s2">"status"</span><span class="p">,</span><span class="w"> </span><span class="nt">"params"</span><span class="p">:</span><span class="w"> </span><span class="p">{}}</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="p">{</span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"request"</span><span class="p">,</span><span class="w"> </span><span class="nt">"command"</span><span class="p">:</span><span class="w"> </span><span class="s2">"mute"</span><span class="p">,</span><span class="w"> </span><span class="nt">"params"</span><span class="p">:</span><span class="w"> </span><span class="p">{}}</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="p">{</span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"request"</span><span class="p">,</span><span class="w"> </span><span class="nt">"command"</span><span class="p">:</span><span class="w"> </span><span class="s2">"unmute"</span><span class="p">,</span><span class="w"> </span><span class="nt">"params"</span><span class="p">:</span><span class="w"> </span><span class="p">{}}</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="p">{</span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"request"</span><span class="p">,</span><span class="w"> </span><span class="nt">"command"</span><span class="p">:</span><span class="w"> </span><span class="s2">"stop"</span><span class="p">,</span><span class="w"> </span><span class="nt">"params"</span><span class="p">:</span><span class="w"> </span><span class="p">{}}</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="p">{</span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"request"</span><span class="p">,</span><span class="w"> </span><span class="nt">"command"</span><span class="p">:</span><span class="w"> </span><span class="s2">"close_start"</span><span class="p">,</span><span class="w"> </span><span class="nt">"params"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"operation_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"unique-show-id"</span><span class="p">}}</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="p">{</span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"request"</span><span class="p">,</span><span class="w"> </span><span class="nt">"command"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ping"</span><span class="p">,</span><span class="w"> </span><span class="nt">"params"</span><span class="p">:</span><span class="w"> </span><span class="p">{}}</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="p">{</span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"request"</span><span class="p">,</span><span class="w"> </span><span class="nt">"command"</span><span class="p">:</span><span class="w"> </span><span class="s2">"image"</span><span class="p">,</span><span class="w"> </span><span class="nt">"params"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"urls"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"file:///tmp/guest.png"</span><span class="p">]}}</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="p">{</span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"request"</span><span class="p">,</span><span class="w"> </span><span class="nt">"command"</span><span class="p">:</span><span class="w"> </span><span class="s2">"remove_last_image"</span><span class="p">,</span><span class="w"> </span><span class="nt">"params"</span><span class="p">:</span><span class="w"> </span><span class="p">{}}</span>
+</span></code></pre></div>
+<p>The server returns a raw JSON result or an error object. <code>image</code> accepts one or
+more <code>file:</code>, HTTP, or HTTPS URLs and publishes valid images into the incoming inbox
+with atomic publication of each file after the entire batch validates. A failed
+validation publishes nothing; a publication error rolls back files from that batch.</p>
+<p><code>close_start</code> starts the closing-credits sequence for a live video stream and
+returns its operation ID. A second request while closing is rejected. The
+<code>status.closing</code> object reports its ID, state, page, timing, black interval, and
+error. A control connection may reconnect and observe that operation without
+starting another. Once the final two seconds of black and silence have been
+encoded, streamO stops the broadcast but keeps its control endpoint available
+for the completion report. <code>stop</code> still ends the service immediately. If
+streamO restarts during credits, the saved operation reports <code>failed</code> with an
+uncertain broadcast outcome rather than pretending the closing sequence finished.</p>
+<p>For a video stream with overlays, the default is one card reading “Thank you”
+and “for watching” on separate lines. showCo's closing action uses these same
+streamO credits. To replace the default, configure pages in streamO:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">[closing_credits]</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">audio_fade_curve</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"linear"</span><span class="w"> </span><span class="c1"># or "equal_power"</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="k">[[closing_credits.pages]]</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">text</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Performers and guests"</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="n">visible_seconds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="n">fade_in_seconds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="n">fade_out_seconds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="k">[[closing_credits.pages]]</span>
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="n">image</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"final-card.png"</span>
+</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="n">visible_seconds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span>
+</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="n">fade_in_seconds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span>
+</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="n">fade_out_seconds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span>
+</span></code></pre></div>
+<p>Each page has exactly one text or image source. Media and text are checked
+before the broadcast starts. Each page fades in, remains visible, then fades
+out. The program audio reaches silence two seconds after the final
+page; video reaches black at the same point and remains black and silent for
+two more seconds. The local room mix is independent of this fade.
+Each image is limited to 8 MiB and 2048 pixels per side. Supported formats are
+GIF, JPEG, PNG, and WebP.</p>
+<p><code>status</code> reports audio levels and timing, FFmpeg state and bitrate, mute state,
+the service, a secret-free ingest hostname, adapter capabilities, and
+<code>remote_health</code>. Status reads local cached state and never waits for a provider
+request. Health refreshes every 30 seconds, with <code>remote_health_error</code> and
+<code>remote_health_updated_at</code> (Unix seconds) distinguishing failures and stale data.
+Adapters without a health API report <code>null</code>.
+For Twitch, <code>publishing</code> means encoder output is advancing but a live broadcast
+has not been confirmed. <code>streaming</code> or <code>muted</code> requires a successful, fresh
+<a href="https://dev.twitch.tv/docs/api/reference/#get-streams">Get Streams</a> response
+identifying the configured broadcaster as live. Offline responses, failed
+queries, and confirmations older than 90 seconds return the state to <code>publishing</code>.
+Each encoder attempt requires a new confirmation. The <code>twitch_unconfirmed</code>
+warning records the condition, and showCo displays its explanation while keeping
+Stop available.</p>
+<p>Verification uses the existing Twitch <code>client_id</code>, <code>access_token</code>, and
+<code>broadcaster_id</code> settings. Without them, remote health is <code>unverified</code> with a
+configuration explanation. Bandwidth-test mode reports <code>testing</code>, never a
+confirmed public broadcast. Neither condition stops the encoder automatically.</p>
+<p>Twitch connection failures distinguish hostname resolution, timeout, unreachable
+route, refusal, reset, and TLS errors. After a network connection failure, streamO
+checks TCP connectivity to <code>1.1.1.1:443</code> and, if needed, <code>8.8.8.8:53</code>, with a
+two-second timeout per check. Numeric destinations keep these checks independent
+of DNS. A successful check reports that general internet connectivity is available
+despite the Twitch failure. If both fail, status reports no internet connectivity
+detected; this does not establish that the local network is down, and firewalls
+can block these checks. Authentication and permission rejections are reported
+separately and do not trigger connectivity checks.</p>
+<p>The checks run in the failed connection path, not during status reads. API errors
+and recognized ingest failures reach status and incident history without raw API
+response bodies or publish URLs. Successful recovery clears the current error
+while retaining failure history. Background health query failures, including
+connectivity results, are written to the service log at warning level; recovery
+is logged at info level. Unchanged repeated results do not produce duplicate
+log entries. If streamO exits during startup, showCo reads
+the last failure from its existing saved status file and labels it as the last
+failure; an intentionally stopped service still reports stopped.
+<code>local_display.error</code> also creates an incident when player playback fails.</p>
+<p><code>audio_error</code> reports a current problem; <code>audio_last_error</code>, <code>audio_error_count</code>,
+and <code>audio_dropped_frames</code> retain the history after recovery. Capture retries
+unavailable devices every five seconds and inactive capture after one second.
+Controllers should monitor these fields as well as <code>last_audio_at</code>, rather than
+treating a running FFmpeg process as proof of healthy audio. An FFmpeg process
+exit is reported as failure. Set <code>recover_publish = true</code> to keep the session
+alive and retry unexpected encoder exits, including exit code zero. Recovery is
+disabled by default and does not apply to preview. Retry delays are 1, 2, 5, 10,
+then 30 seconds indefinitely; 60 seconds of advancing output progress resets
+the delay. Mute state, capture, image history, and control access survive retries.
+Audio that cannot be delivered is discarded and counted, not replayed later.</p>
+<p>Status includes <code>publish_requested</code>, <code>encoder_attempts</code>, <code>next_retry_at</code> (Unix
+seconds), <code>publish_error</code>, <code>last_publish_error</code>, and <code>last_output_progress_at</code>.
+<code>starting</code> means the encoder has not yet reported advancing output; <code>recovering</code>
+means a retry is pending. Local progress marks encoding as resumed, not confirmed
+delivery. Stop cancels pending retries.</p>
+<p>The provider is prepared once per session. Recovery reuses that destination and
+does not change remote auto-stop settings; an ended broadcast can still require
+operator intervention. Initial configuration, media, and authorization failures
+are not replayed. Temporary encoder-launch resource errors retry; missing or
+inaccessible executables fail. The service manager supervises the application,
+while streamO owns these encoder retries.</p>
+<h3 id="incident-history-and-warnings">Incident history and warnings<a class="headerlink" href="#incident-history-and-warnings" title="Permanent link">&para;</a></h3>
+<p>The <code>incidents</code> RPC returns the latest 100 incident/recovery events from the
+current process. Request events after the last sequence number you received:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"request"</span><span class="p">,</span><span class="w"> </span><span class="nt">"command"</span><span class="p">:</span><span class="w"> </span><span class="s2">"incidents"</span><span class="p">,</span><span class="w"> </span><span class="nt">"params"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"after"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">}}</span>
+</span></code></pre></div>
+<p>The response contains <code>events</code>, <code>oldest_sequence</code>, <code>latest_sequence</code>, and
+<code>history_lost</code>. Each event includes a sequence, Unix timestamp, component,
+<code>incident</code> or <code>recovery</code> state, explanation, and cumulative dropped-audio count.
+Repeated polling does not create events. <code>history_lost</code> reports an expired cursor
+or one beyond the current sequence. History is in memory; after an application
+restart, clients should reset their cursor to zero. This is not a persistent
+show log.</p>
+<p>FFmpeg encoder output, including progress lines, is written to reccy's service
+log with ingest credentials redacted. Programs can read the log at
+<code>~/Library/Logs/streamo/streamo.log</code> on macOS or
+<code>~/.local/state/streamo/streamo.log</code> on Linux. On Windows it is
+<code>%LOCALAPPDATA%/streamo/logs/streamo.log</code>. reccy rotates these logs.</p>
+<p>Status includes active <code>warnings</code> and the latest <code>incident_sequence</code>. Audio
+errors, drops, encoder failures, and provider-query failures produce transitions.
+Provider health becomes stale after 90 seconds without a completed query;
+freshness and query success are reported separately.</p>
+<p>Configure sustained-signal warnings with this optional TOML section:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">[health_warnings]</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">silence_seconds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.0</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">silence_level_db</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">-60.0</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">clipping_seconds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">2.0</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="n">output_stall_seconds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">10.0</span>
+</span></code></pre></div>
+<p>These are the defaults. Zero disables the corresponding duration-based warning.
+Silence is disabled by default and suppressed while muted. It requires both
+channels at or below the threshold; clipping uses the captured peak indication.
+Stale audio does not count as sustained silence or clipping. Output-stall
+warnings require FFmpeg's media timestamp to advance, not merely a running
+process or repeated progress messages. A warning reports a condition; it does
+not automatically mute or restart the encoder.</p>
+<p>Capabilities describe available provider commands and health queries. Lifecycle
+steps and the always-available local <code>stop</code> command are not provider capabilities.
+Status and failure diagnostics
+do not include stream keys, passwords, passphrases, access tokens, or complete
+publish URLs.</p>
+<p>Twitch supports <code>update_stream_info</code>, <code>chat</code>, <code>announce</code>, <code>clip</code>, and <code>marker</code>
+when the relevant credentials and token scopes are present. Required scopes are
+<code>channel:manage:broadcast</code> for stream information and markers,
+<code>user:write:chat</code> for chat, <code>moderator:manage:announcements</code> for announcements,
+and <code>clips:edit</code> for clips. Kick supports <code>update_stream_info</code> and <code>chat</code> with
+OAuth credentials. Its categories are numeric IDs.
+YouTube supports <code>update_stream_info</code> with OAuth credentials.</p>
+<h2 id="overlays-and-participant-images">Overlays and participant images<a class="headerlink" href="#overlays-and-participant-images" title="Permanent link">&para;</a></h2>
+<h3 id="image-transform-descriptions">Image transform descriptions<a class="headerlink" href="#image-transform-descriptions" title="Permanent link">&para;</a></h3>
+<p><code>image_transforms</code> is an ordered list of <code>ImageTransform</code> descriptions, empty by
+default. Each entry requires a nonnegative <code>duration</code> in seconds and has optional
+<code>offset</code>, <code>zoom</code>, <code>opacity</code>, and <code>rotation</code> fields, all defaulting to <code>None</code>.
+Each photo plays this sequence from the beginning. Each entry's duration is the
+time taken to reach that transform from the preceding entry, interpolating offset,
+zoom, opacity, and rotation linearly at the overlay frame rate. The first entry
+defines the starting appearance and holds it for its duration; use <code>0</code> to start
+moving immediately. Zero-duration entries apply instantly.</p>
+<p>The sequence replaces <code>image_duration</code>, <code>image_fade</code>, and <code>image_fade_out</code> when
+the list is nonempty. Its total duration must be positive and shorter than
+<code>image_interval</code>. After the sequence ends, the photo is hidden until the next
+interval. Pause and slate freeze the sequence; skip hides the current photo for
+the remainder of its interval.</p>
+<p><code>offset</code> is an <code>(x, y)</code> pixel offset from the center of the rendered page to the
+center of the image. Positive values move right and down. Omitted offsets resolve
+to <code>(0, 0)</code>. Zoom resolves to <code>1</code> when omitted and has no upper limit, allowing
+photos larger than the screen to be cropped at its edges. Rotation resolves to
+<code>0</code> and uses clockwise radians, matching
+<a href="https://ffmpeg.org/ffmpeg-filters.html#rotate">FFmpeg's rotate filter</a>.
+Rotation interpolates the specified numeric angles directly; a full turn can be
+expressed as a change of <code>2 * pi</code> radians. Rendering samples the original decoded
+photo onto the output canvas, preserving source detail when zooming without
+allocating an enlarged off-screen image.</p>
+<p>When opacity is omitted, the first and last entries resolve to <code>0</code>; interior
+entries resolve to <code>default_opacity</code>, which defaults to <code>0.6</code> and must be between
+<code>0</code> and <code>1</code>. A single entry is both first and last, so its default opacity is <code>0</code>.
+Explicit values, including zero opacity, are preserved. Resolving defaults leaves
+the configured entries unchanged.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">default_opacity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.6</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">image_interval</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">30.0</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="k">[[image_transforms]]</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="n">duration</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.0</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="k">[[image_transforms]]</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="n">duration</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">12.0</span>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="n">offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">-20</span><span class="p">]</span>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="n">zoom</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">3.0</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>
+</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="k">[[image_transforms]]</span>
+</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="n">duration</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">4.0</span>
+</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="n">offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">-20</span><span class="p">]</span>
+</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="n">zoom</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">3.0</span>
+</span></code></pre></div>
+<h3 id="current-live-rendering">Current live rendering<a class="headerlink" href="#current-live-rendering" title="Permanent link">&para;</a></h3>
+<p>Live overlays are enabled by default for video streams. Set <code>live_overlays = false</code>
+before starting to omit their RGBA pipe, disable all overlay display and skip
+remote image-feed polling. Changing this switch requires restarting streamO;
+there is no runtime command to enable it. Audio-only streams have no overlay pipe.
+Disabled overlays do not require the configured title file to exist.</p>
+<p>The compositor sends a full output-resolution RGBA frame at <code>overlay_frame_rate</code>,
+even when transparent. At 1920×1080 and 10 fps that is approximately 83 MB/s
+through the local pipe, plus rendering/copying/compositing work, not extra network
+upload bandwidth. Target-machine performance has not been measured. Title and
+title assets retain their centered <code>overlay_resolution</code> working size. Participant
+photos initially fit 90% of the broadcast width and height, preserving their
+proportions and enlarging smaller images. With no transform list, photos remain
+centered and fade to <code>default_opacity</code> (60% by default): a 12-second fade in,
+four-second hold, and four-second fade out. <code>image_duration</code> includes both fades;
+the remaining time is the hold. Set <code>image_interval</code> above 20 seconds when using
+these defaults. Explicit transform opacities can reach 100%.</p>
+<p>The <code>title</code> RPC requires <code>visibility</code>: <code>auto</code>, <code>show</code>, or <code>hide</code>. Optional <code>text</code>
+replaces the configured image with plain text (maximum 500 characters, wrapped
+to fit). <code>show</code> holds the title; <code>hide</code> hides it; <code>auto</code> restores the automatic
+schedule. Invalid or oversized replacement text leaves the previous title intact.</p>
+<p>The <code>slate</code> RPC requires Boolean <code>visible</code> and accepts optional replacement
+<code>text</code>. Its initial text is “Intermission.” A visible slate covers the entire
+video with an opaque background and pauses photo rotation and automatic title
+timing. Hiding it resumes them. Neither RPC changes audio mute.</p>
+<p>Status includes <code>overlays.enabled</code>, <code>overlays.requested</code>, and <code>overlays.applied</code>.
+Requested state contains a revision, title visibility/text, slate visibility/text.
+Applied state is null until a complete frame has been written to the current
+encoder pipe, then identifies the applied revision and cue state. This does not
+prove viewer delivery. Recovery retains requested cues and reapplies them to the
+new encoder. Audio-only streams and disabled overlays reject both visual RPCs.</p>
+<p>Set <code>title_card</code> for a video stream to show a title image at startup and every
+<code>title_interval</code> seconds. A title card requires a positive interval and
+duration; its duration must be shorter than its interval, and both fades must
+fit within its duration.</p>
+<p>Set <code>image_interval</code> to a positive value to enable participant images. streamO
+rescans each <code>image_dir</code> entry as it selects the next interval. It reserves one upcoming
+photo so the controller can report that choice. After the reserved choice,
+images added since startup take priority and appear once before older images
+repeat. Afterwards,
+<code>current_session_image_weight = 3</code> means three current-session images for each
+older image. Set it to <code>0</code> to show older images whenever no new image remains.
+Invalid files are logged and skipped; deleted paths leave the cycle.</p>
+<p>Set <code>image_approval_required = true</code> before startup to require approval of
+images received from the internet. Every configured <code>image_dir</code> is trusted and
+never needs moderation. Keep <code>live_overlays = true</code> and a positive
+<code>image_interval</code> to display approved images. Automatic acceptance remains the
+default, but explicitly rejected images stay excluded even with approval disabled.</p>
+<p>The controller uses these RPCs (operator UI remains in showCo):</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Parameters</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>image_queue</code></td>
+<td>Optional <code>after</code> image ID and <code>limit</code> (default 50, maximum 100)</td>
+<td><code>approval_required</code>, <code>images</code> with <code>id</code> and <code>state</code>, and <code>next_after</code></td>
+</tr>
+<tr>
+<td><code>image_preview</code></td>
+<td>Incoming image <code>id</code></td>
+<td><code>id</code> and a <code>data_url</code> containing a 320×180 PNG thumbnail</td>
+</tr>
+<tr>
+<td><code>image_review</code></td>
+<td>Incoming image <code>id</code> and <code>decision</code>: <code>approved</code> or <code>rejected</code></td>
+<td>Saved <code>id</code> and <code>state</code></td>
+</tr>
+</tbody>
+</table>
+<p>The queue lists incoming images in filename order with states <code>pending</code>, <code>approved</code>,
+or <code>rejected</code>. Pass <code>next_after</code> as <code>after</code> for the next page; null means the end.
+Refresh from the beginning to discover new filenames earlier in the order.
+Approvals enter the normal rotation at a subsequent image interval. Rejection
+suppresses a cached photo starting with the next generated frame; already buffered
+frames cannot be withdrawn from the encoder or destination. Files are retained.</p>
+<p>Internet uploads and feed images go into <code>incoming/</code> under the first trusted
+directory. That subdirectory must not also be configured as a trusted <code>image_dir</code>.
+Decisions are saved atomically there at <code>.streamo-image-approval.json</code> and
+survive restarts. A failed save returns an error without applying the decision;
+an unreadable or malformed saved file prevents startup rather than bypassing
+moderation. Incoming IDs use <code>incoming/filename</code>; trusted IDs use
+<code>trusted/N/filename</code>, where N is the configured directory's one-based position.
+Two directories can therefore contain the same filename without sharing an ID
+or decision. Renaming an incoming file creates a new identity, and replacing
+one at the same name inherits its previous decision. Use one streamO session
+per incoming folder. The remote-feed cursor lives in that folder, so rejecting a
+downloaded image does not download it again. These RPCs require live overlays.</p>
+<p>Image playback controls also require a positive <code>image_interval</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Parameters</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>image_skip</code></td>
+<td>None</td>
+<td>Hide the current photo for the rest of its interval without changing approval</td>
+</tr>
+<tr>
+<td><code>image_pause</code></td>
+<td>Boolean <code>paused</code></td>
+<td>Hold or resume the photo and its timing, including fades and gaps</td>
+</tr>
+<tr>
+<td><code>image_next</code></td>
+<td>Trusted or approved incoming image <code>id</code></td>
+<td>Replace the reserved choice for the next interval</td>
+</tr>
+</tbody>
+</table>
+<p>Skipping while paused leaves the photo hidden until rotation resumes and reaches
+the next interval. Choosing a photo does not interrupt the current interval or
+resume a paused rotation. Malformed IDs return an error immediately. File checks
+and decoding happen on the frame worker. A missing, unreadable, or unapproved
+image is not reserved; status then reports the reason in
+<code>overlays.images.error</code>. Deleted or subsequently rejected choices are skipped
+when the interval begins. A skipped photo remains eligible for later selection.</p>
+<p>Status reports <code>overlays.images.paused</code> and <code>overlays.images.next_id</code> (null when
+there is no eligible reservation). A newly requested ID may appear until the
+next frame checks it. <code>overlays.applied.image_id</code> identifies the
+photo in the last complete frame written to the encoder, or null during a gap,
+slate, or skipped appearance. <code>overlays.applied</code> itself is null while no frame
+has reached the current encoder. These values describe local output, not viewer
+delivery. Playback controls preserve state across encoder recovery but reset on
+a streamO restart. The slate additionally freezes photo timing; hiding it respects
+the operator's pause setting. No image command changes audio mute.</p>
+<p><code>image_dir</code> is a repeating trusted-source setting. In TOML, list its values in
+one array in selection order. streamO gives these directories descending
+default weights: four
+directories receive weights <code>4,3,2,1</code>. Set <code>image_dir_weights</code> to a
+comma-separated or integer list when another balance suits the show. streamO
+chooses a directory for every image, including new images, according to these
+relative weights, then chooses an image from that directory. Empty directories
+are skipped. When there are fewer weights than directories, the final weight
+applies to every remaining trusted directory. The incoming inbox has weight 1.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">image_dir</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"images/live"</span><span class="p">,</span><span class="w"> </span><span class="s2">"images/archive"</span><span class="p">,</span><span class="w"> </span><span class="s2">"images/favourites"</span><span class="p">]</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">image_dir_weights</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"6,2,1"</span>
+</span></code></pre></div>
+<p>The equivalent integer-list form is <code>image_dir_weights = [6, 2, 1]</code>.</p>
+<p>An optional feed downloads uploaded images into the incoming inbox. Operator
+uploads use the same inbox. All configured directories are trusted image sources.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">image_dir</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"images"</span><span class="p">]</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="n">image_interval</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">30.0</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="n">image_duration</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">20.0</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="n">image_fade</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">12.0</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="n">image_fade_out</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">4.0</span>
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="k">[image_feed]</span>
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="n">url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"https://example.com/foto.php"</span>
+</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="n">token</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"replace-with-the-room-token"</span>
+</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="n">poll_interval</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">2.0</span>
+</span></code></pre></div>
+<h3 id="deploying-the-upload-page">Deploying the upload page<a class="headerlink" href="#deploying-the-upload-page" title="Permanent link">&para;</a></h3>
+<p>The upload application in <code>web/foto.php</code> lets participants submit
+photos without joining the showCo network. Their browser prepares each photo as
+a JPEG no larger than 2048 pixels on either side, then sends it to <code>ax.to</code>.
+streamO polls the server over outbound HTTPS and stores each new JPEG in
+the incoming inbox.</p>
+<p>The page uses French when the browser's primary language begins with <code>fr</code> and
+English for every other browser. Browsers that support HEIC can prepare those
+photos without a server-side converter. There is no WebAssembly fallback. If a
+browser cannot decode a selected HEIC photo, the page explains that limitation
+and asks the participant to contact Tom.</p>
+<p>On the Virtualmin server, copy the PHP file into the virtual server's document
+root, create a private data directory writable by its PHP-FPM user, and expose
+these two environment variables to that PHP-FPM pool:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>STREAMO_IMAGE_TOKEN=&lt;a new random secret of at least 20 characters&gt;
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>STREAMO_IMAGE_DATA_DIR=/home/example/streamo-image-data
+</span></code></pre></div>
+<p>The data directory must remain outside the document root. The PHP installation
+needs the normally enabled <code>fileinfo</code> extension and must allow uploads of at
+least 8 MiB. The application accepts only JPEG files whose dimensions and size
+fit the same limits enforced by the browser.</p>
+<p>From the repository, run
+<code>scripts/copy-server.sh --dry-run USER@HOST:DESTINATION</code> to inspect the upload,
+then omit <code>--dry-run</code> to copy it.
+The target is required and displayed before transfer. On the server, run
+<code>scripts/set-secret.sh</code> as root to enter the room token at a private prompt,
+or use <code>scripts/set-secret.sh --token-file PRIVATE_FILE</code> with a file readable
+only by its owner.</p>
+<p>If the PHP file is available at <code>https://ax.to/show/foto.php</code>, put this URL in
+streamO's TOML configuration using the same token:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="n">image_dir</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"images"</span><span class="p">]</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="n">current_session_image_weight</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="n">image_interval</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">30.0</span>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="n">image_duration</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">20.0</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="n">image_fade</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">12.0</span>
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="n">image_fade_out</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">4.0</span>
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="k">[image_feed]</span>
+</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="n">url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"https://ax.to/show/foto.php"</span>
+</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="n">token</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"replace-with-the-room-token"</span>
+</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a><span class="n">poll_interval</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">2.0</span>
+</span></code></pre></div>
+<p>The participant URL, suitable for a room-only QR code, is:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>https://ax.to/show/foto.php?token=replace-with-the-room-token
+</span></code></pre></div>
+<p>Treat the URL as a capability: anyone who receives it can submit images. streamO
+keeps a per-feed cursor inside the incoming inbox, so restarting streamO or removing a
+local image does not download it again. After the show, remove the uploaded JPEGs
+and <code>images.jsonl</code> from <code>STREAMO_IMAGE_DATA_DIR</code>. Use an empty data directory and
+a new token for the next show.</p>
+<p>The server returns at most 1000 entries per poll. streamO logs and skips entries
+whose images are missing (HTTP 404/410), too large, or invalid. Transient download
+failures retain the cursor for retry. The cursor persists across restarts.</p>
+<h2 id="youtube-and-kick-authorization">YouTube and Kick authorization<a class="headerlink" href="#youtube-and-kick-authorization" title="Permanent link">&para;</a></h2>
+<p>For YouTube, enable the YouTube Data API, create a Desktop OAuth client, and
+download its client-secrets JSON file. Authorize on a machine with a browser:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>uv<span class="w"> </span>run<span class="w"> </span>streamo<span class="w"> </span>auth<span class="w"> </span>youtube<span class="w"> </span>--client-secrets<span class="w"> </span>client-secret.json
+</span></code></pre></div>
+<p>streamO stores reusable credentials in <code>~/.config/streamo/youtube-auth.toml</code>
+with restrictive permissions. It requests the <code>youtube.force-ssl</code> scope. A
+Google consent screen in Testing can issue refresh tokens that expire after
+seven days; use Production for a persistent installation.</p>
+<p>For Kick, create an application, register <code>http://127.0.0.1:8765/</code> as its
+redirect URL, and create a private TOML file containing <code>client_id</code> and
+<code>client_secret</code>. Then run:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>uv<span class="w"> </span>run<span class="w"> </span>streamo<span class="w"> </span>auth<span class="w"> </span>kick<span class="w"> </span>--client-secrets<span class="w"> </span>kick-client.toml
+</span></code></pre></div>
+<p>streamO stores reusable credentials in <code>~/.config/streamo/kick-auth.toml</code> and
+rotates Kick refresh tokens. It requests <code>channel:read</code>, <code>channel:write</code>,
+<code>chat:write</code>, and <code>streamkey:read</code>.</p>
+<p>For either provider on a machine without a browser, tunnel the callback port
+from a machine with one, then use <code>--no-browser</code> and <code>--callback-port 8765</code>:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>ssh<span class="w"> </span>-L<span class="w"> </span><span class="m">8765</span>:127.0.0.1:8765<span class="w"> </span>target
+</span></code></pre></div>
+<p>Open the authorization URL printed by streamO in the local browser. The
+provider's redirect URL and the configured callback port must match.</p>
+<p>For OAuth, keep the encoding sections from the initial example and replace the
+provider section with one of these:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="k">[streaming_service]</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="n">service</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"youtube"</span>
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="n">credentials</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"~/.config/streamo/youtube-auth.toml"</span>
+</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="n">stream_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"replace-with-live-stream-id"</span>
+</span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="n">broadcast_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"replace-with-live-broadcast-id"</span>
+</span><span id="__span-22-6"><a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="n">auto_start</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+</span><span id="__span-22-7"><a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="n">auto_stop</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+</span><span id="__span-22-8"><a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>
+</span><span id="__span-22-9"><a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a><span class="k">[streaming_service.metadata]</span>
+</span><span id="__span-22-10"><a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a><span class="n">title</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Live show"</span>
+</span><span id="__span-22-11"><a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a><span class="n">category</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"10"</span>
+</span><span id="__span-22-12"><a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a><span class="n">privacy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"unlisted"</span>
+</span></code></pre></div>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="k">[streaming_service]</span>
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="n">service</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"kick"</span>
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="n">credentials</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"~/.config/streamo/kick-auth.toml"</span>
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="n">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"replace-with-channel-slug"</span>
+</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>
+</span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="k">[streaming_service.metadata]</span>
+</span><span id="__span-23-7"><a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="n">title</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Live show"</span>
+</span><span id="__span-23-8"><a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a><span class="n">category</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"15"</span>
+</span><span id="__span-23-9"><a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a><span class="n">tags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"music"</span><span class="p">,</span><span class="w"> </span><span class="s2">"live"</span><span class="p">]</span>
+</span></code></pre></div>
+<p>An optional <code>scheduled_start</code> is a TOML datetime with a timezone. YouTube also
+accepts <code>description</code>, <code>tags</code>, and <code>privacy</code> (<code>public</code>, <code>unlisted</code>, or <code>private</code>).
+Kick chat accepts a <code>message</code> string; updates accept <code>title</code>, <code>category</code> or
+<code>category_id</code>, and <code>tags</code>. Provider operations require their corresponding scopes.</p>
+<h2 id="preparing-visual-media">Preparing visual media<a class="headerlink" href="#preparing-visual-media" title="Permanent link">&para;</a></h2>
+<p>The scripts use FFmpeg, FFprobe, and, where noted, FFplay.</p>
+<p>Preview a video's loop point interactively:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>scripts.preview_loops<span class="w"> </span>videos/*.mp4
+</span></code></pre></div>
+<p>Enter <code>r</code> to replay, <code>l</code> to create and accept a forward/backward loop, <code>m</code> to
+mark the original as already looping, or return to leave the file in place.
+Accepted loops go to <code>loops/</code>; source files used to create a loop go to
+<code>originals/</code>. Files whose names contain <code>looped</code> are moved to <code>loops/</code>
+unchanged.</p>
+<p>Automatically convert files whose first and near-final frames differ by at
+least the configured threshold:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>scripts.auto_loop<span class="w"> </span>videos/*.mp4
+</span></code></pre></div>
+<p>Files that might already loop remain in place. Converted loops go to <code>loops/</code>
+and their source files go to <code>originals/</code>.</p>
+<p>Build a visual bed from looped videos and still images:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>scripts.render<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="w">  </span>--inputs<span class="w"> </span>a-looped.mp4<span class="w"> </span>b-looped.mp4<span class="w"> </span>still.png<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-26-3"><a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="w">  </span>--output<span class="w"> </span>visual-bed.mp4<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-26-4"><a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="w">  </span>--duration<span class="w"> </span>1h<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-26-5"><a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a><span class="w">  </span>--seed<span class="w"> </span><span class="m">1234</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-26-6"><a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a><span class="w">  </span>--title-card<span class="w"> </span>title.md
+</span></code></pre></div>
+<p>The renderer starts from black, selects randomly from all media except the immediate predecessor, crossfades
+between scenes, and can overlay a PNG, other supported still image, or rendered
+Markdown title card.</p>
+<p>The complete composition fades to black over the final <code>--title-fade</code> seconds
+(default four), including any title overlay. The last frame is black so playback
+can loop back to the opening black without a cut to a lit image. The fade stays
+within the requested movie duration and applies at the end of the whole movie,
+including when rendering in segments. Setting <code>--title-fade 0</code> disables it.
+Existing movies need to be rendered again to include the final fade.</p>
+<p>Add <code>--plan</code> (or <code>-p</code>) to print the generated render plan as TOML before
+rendering. Add <code>--plan-only</code> (or <code>-P</code>) to print it without rendering:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>scripts.render<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="w">  </span>--inputs<span class="w"> </span>a-looped.mp4<span class="w"> </span>b-looped.mp4<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="w">  </span>--output<span class="w"> </span>visual-bed.mp4<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-27-4"><a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="w">  </span>--plan-only<span class="w"> </span>&gt;<span class="w"> </span>visual-bed.toml
+</span></code></pre></div>
+<p>Run a saved plan without rebuilding its randomized scene selection:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>scripts.render<span class="w"> </span>--inputs<span class="w"> </span>visual-bed.toml
+</span></code></pre></div>
+<p>A plan includes its render settings and is the sole input. <code>--plan</code> and
+<code>--plan-only</code> are only for creating plans, so they cannot be used when running
+one.</p>
+<p>The automatic loop check is a heuristic: it compares the first frame with a
+sample 0.25 seconds before the end, not the exact loop boundary. It does not
+prove that a source loops seamlessly. Random scene selection prevents immediate
+repeats when distinct inputs are available; it does not guarantee each source
+appears once per cycle.</p>
+<p>To create a forward/backward loop without moving the original, use
+<code>uv run python -m scripts.loop_videos videos/*.mp4</code>. To prepare smaller 720p
+H.264 sources, use <code>uv run python -m scripts.reencode_videos output/ videos/*.mp4</code>.
+Its default bitrate is capped at 1200 kbps and 80% of the source bitrate;
+<code>--max-bitrate-kbps</code> accepts values such as <code>1.5Mbps</code>, and <code>--source-ratio</code>
+adjusts the proportional limit. The renderer's time, frame-rate, and dimension
+options likewise accept units, and hand-written saved plans accept unit-bearing
+durations.</p>
+<p>Media outputs are published only after a successful render. Existing outputs,
+archive collisions, and duplicate re-encoding stems are rejected. Choose a new
+output path if the target already exists. New render plans contain absolute
+paths; relative paths in hand-written plans resolve from the plan’s directory.
+Saved plans reject empty/short timelines, invalid durations, missing transitions,
+and excessive overlaps before rendering. Filter graphs are passed through a file
+to avoid oversized command arguments. Long renders are composed from bounded
+segments and concatenated after each segment succeeds. Segment joins preserve
+the output frame count, though transition and title fades can differ around a
+join.</p>
+<h2 id="development">Development<a class="headerlink" href="#development" title="Permanent link">&para;</a></h2>
+<p>The public help is recorded with reccy’s <code>cli_help</code> pytest fixture.
+Behavior tests separately cover lifecycle, routing, recovery, and media handling.</p>
+<p>Run the test suite with:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest
+</span></code></pre></div>
+<p>Source responsibilities are separated into <code>provider_config.py</code> (configuration),
+<code>providers.py</code> (adapters and ingest output), <code>composition.py</code> (live FFmpeg graph),
+<code>streamer.py</code> (process lifecycle), and <code>audio.py</code> (capture). Offline media uses
+<code>scripts/render_plan.py</code> for planning, <code>scripts/title_card.py</code> for Markdown cards,
+and <code>scripts/render.py</code> for execution. See <a href="https://github.com/rec/streamo/blob/main/plan/features.md">the feature plan</a>
+for remaining proposals and <a href="../handover/">the handover</a> for decisions and
+verification limits.</p>
+<h3 id="visual-bed-lifetime">Visual-bed lifetime<a class="headerlink" href="#visual-bed-lifetime" title="Permanent link">&para;</a></h3>
+<p>Before preparing the publishing service or opening audio, streamO copies the
+selected local movie into a private verified temporary asset store. FFmpeg reads
+that immutable snapshot for the whole streaming session, including encoder
+retries. Replacing the original file cannot change a running session. The leased
+snapshot is removed after the encoder has stopped, including on failure.
+Allow temporary disk space for one complete movie; a missing or growing source
+fails preparation before publishing starts. Audience photo ingestion remains a
+separate live workflow.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["navigation.indexes","content.code.copy"],"redirect":null,"search":"../assets/javascripts/workers/search.c47bb847.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.77dd0ce9.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,1879 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="🚰 Stream audio to all services 🚰">
+      
+      
+      
+        <link rel="canonical" href="https://rec.github.io/streamo/reference/streamo/composition/">
+      
+      
+      
+        <link rel="prev" href="../closing/">
+      
+      
+        <link rel="next" href="../config/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.0.73">
+    
+    
+      
+        <title>composition - streamo</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../../assets/stylesheets/modern/main.4ab2de0c.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-hidden="true"></label>
+    <div data-md-component="skip">
+      <a href="#__skip" class="md-skip">
+        Skip to content
+      </a>
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="streamo" class="md-header__button md-logo" aria-label="streamo" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+      <span class="md-visually-hidden">Navigation</span>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            streamo
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              composition
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+          <span class="md-visually-hidden">Search</span>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="streamo" class="md-nav__button md-logo" aria-label="streamo" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    streamo
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  streamo
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../handover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Handover
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../streamo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  streamO operator guide
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  API Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  streamo
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_4_1">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  streamo
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../__main__/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  __main__
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  audio
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../auth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  auth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../closing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  closing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  composition
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  composition
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#streamo.composition" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        composition
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#streamo.composition.LOCAL_DISPLAY_URL" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        LOCAL_DISPLAY_URL
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#streamo.composition.AUDIO_CODECS" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        AUDIO_CODECS
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#streamo.composition.VIDEO_CODECS" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        VIDEO_CODECS
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#streamo.composition.ffmpeg_command" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        ffmpeg_command
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#streamo.composition.local_display_output" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        local_display_output
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#streamo.composition.overlay_filter" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        overlay_filter
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  config
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../control/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  control
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../credentials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  credentials
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../daemon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  daemon
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ffmpeg_progress/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ffmpeg_progress
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../image_feed/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  image_feed
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../image_transform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  image_transform
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  images
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../kick_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  kick_api
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../media_assets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  media_assets
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../moderation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  moderation
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../network/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  network
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  overlays
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../preflight/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  preflight
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../provider_config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  provider_config
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../providers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  providers
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../recs_input/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  recs_input
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../runtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  runtime
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../streamer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  streamer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../twitch_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  twitch_api
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../youtube_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  youtube_api
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#streamo.composition" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        composition
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#streamo.composition.LOCAL_DISPLAY_URL" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        LOCAL_DISPLAY_URL
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#streamo.composition.AUDIO_CODECS" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        AUDIO_CODECS
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#streamo.composition.VIDEO_CODECS" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        VIDEO_CODECS
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#streamo.composition.ffmpeg_command" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        ffmpeg_command
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#streamo.composition.local_display_output" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        local_display_output
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#streamo.composition.overlay_filter" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        overlay_filter
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                <a id="__skip" tabindex="-1"></a>
+                
+                  
+
+
+  <h1>composition</h1>
+
+<div class="doc doc-object doc-module">
+
+
+
+<a id="streamo.composition"></a>
+    <div class="doc doc-contents first">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h2 id="streamo.composition.LOCAL_DISPLAY_URL" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">LOCAL_DISPLAY_URL</span> <span class="o">=</span> <span class="s1">'udp://127.0.0.1:23000?pkt_size=1316'</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#streamo.composition.LOCAL_DISPLAY_URL" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h2 id="streamo.composition.AUDIO_CODECS" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">AUDIO_CODECS</span> <span class="o">=</span> <span class="p">{</span><span class="s1">'aac'</span><span class="p">:</span> <span class="s1">'aac'</span><span class="p">,</span> <span class="s1">'mp3'</span><span class="p">:</span> <span class="s1">'libmp3lame'</span><span class="p">,</span> <span class="s1">'opus'</span><span class="p">:</span> <span class="s1">'libopus'</span><span class="p">,</span> <span class="s1">'vorbis'</span><span class="p">:</span> <span class="s1">'libvorbis'</span><span class="p">}</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#streamo.composition.AUDIO_CODECS" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h2 id="streamo.composition.VIDEO_CODECS" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">VIDEO_CODECS</span> <span class="o">=</span> <span class="p">{</span><span class="s1">'h264'</span><span class="p">:</span> <span class="s1">'libx264'</span><span class="p">,</span> <span class="s1">'hevc'</span><span class="p">:</span> <span class="s1">'libx265'</span><span class="p">,</span> <span class="s1">'av1'</span><span class="p">:</span> <span class="s1">'libaom-av1'</span><span class="p">}</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#streamo.composition.VIDEO_CODECS" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="streamo.composition.ffmpeg_command" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">ffmpeg_command</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">Streamo</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">output</span><span class="p">:</span> <span class="n">FfmpegOutput</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">image_pipe</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">preview</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">input_sample_rate</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span></code>
+
+<a href="#streamo.composition.ffmpeg_command" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>streamo/composition.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-7">  7</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-8">  8</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-9">  9</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-10"> 10</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-11"> 11</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-12"> 12</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-13"> 13</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-14"> 14</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-15"> 15</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-16"> 16</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-17"> 17</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-18"> 18</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-19"> 19</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-20"> 20</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-21"> 21</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-22"> 22</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-23"> 23</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-24"> 24</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-25"> 25</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-26"> 26</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-27"> 27</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-28"> 28</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-29"> 29</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-30"> 30</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-31"> 31</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-32"> 32</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-33"> 33</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-34"> 34</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-35"> 35</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-36"> 36</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-37"> 37</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-38"> 38</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-39"> 39</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-40"> 40</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-41"> 41</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-42"> 42</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-43"> 43</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-44"> 44</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-45"> 45</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-46"> 46</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-47"> 47</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-48"> 48</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-49"> 49</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-50"> 50</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-51"> 51</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-52"> 52</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-53"> 53</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-54"> 54</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-55"> 55</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-56"> 56</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-57"> 57</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-58"> 58</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-59"> 59</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-60"> 60</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-61"> 61</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-62"> 62</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-63"> 63</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-64"> 64</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-65"> 65</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-66"> 66</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-67"> 67</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-68"> 68</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-69"> 69</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-70"> 70</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-71"> 71</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-72"> 72</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-73"> 73</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-74"> 74</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-75"> 75</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-76"> 76</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-77"> 77</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-78"> 78</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-79"> 79</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-80"> 80</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-81"> 81</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-82"> 82</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-83"> 83</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-84"> 84</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-85"> 85</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-86"> 86</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-87"> 87</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-88"> 88</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-89"> 89</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-90"> 90</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-91"> 91</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-92"> 92</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-93"> 93</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-94"> 94</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-95"> 95</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-96"> 96</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-97"> 97</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-98"> 98</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-99"> 99</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-100">100</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-101">101</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-102">102</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-103">103</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-104">104</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-105">105</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-106">106</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-107">107</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-108">108</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-109">109</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-110">110</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-111">111</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-112">112</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-113">113</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-114">114</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-115">115</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-116">116</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-117">117</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-118">118</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-119">119</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-120">120</a></span>
+<span class="normal"><a href="#streamo.composition.ffmpeg_command--source--__codelineno-0-121">121</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="streamo.composition.ffmpeg_command--source--__span-0-7"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-7" name="streamo.composition.ffmpeg_command--source--__codelineno-0-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">ffmpeg_command</span><span class="p">(</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-8"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-8" name="streamo.composition.ffmpeg_command--source--__codelineno-0-8"></a>    <span class="n">config</span><span class="p">:</span> <span class="n">Streamo</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-9"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-9" name="streamo.composition.ffmpeg_command--source--__codelineno-0-9"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-10"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-10" name="streamo.composition.ffmpeg_command--source--__codelineno-0-10"></a>    <span class="n">output</span><span class="p">:</span> <span class="n">FfmpegOutput</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-11"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-11" name="streamo.composition.ffmpeg_command--source--__codelineno-0-11"></a>    <span class="n">image_pipe</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-12"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-12" name="streamo.composition.ffmpeg_command--source--__codelineno-0-12"></a>    <span class="n">preview</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-13"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-13" name="streamo.composition.ffmpeg_command--source--__codelineno-0-13"></a>    <span class="n">input_sample_rate</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-14"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-14" name="streamo.composition.ffmpeg_command--source--__codelineno-0-14"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-15"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-15" name="streamo.composition.ffmpeg_command--source--__codelineno-0-15"></a>    <span class="n">encoding</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">streaming_service</span><span class="o">.</span><span class="n">encoding</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-16"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-16" name="streamo.composition.ffmpeg_command--source--__codelineno-0-16"></a>    <span class="n">command</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-17"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-17" name="streamo.composition.ffmpeg_command--source--__codelineno-0-17"></a>        <span class="s1">'ffmpeg'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-18"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-18" name="streamo.composition.ffmpeg_command--source--__codelineno-0-18"></a>        <span class="s1">'-hide_banner'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-19"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-19" name="streamo.composition.ffmpeg_command--source--__codelineno-0-19"></a>        <span class="s1">'-loglevel'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-20"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-20" name="streamo.composition.ffmpeg_command--source--__codelineno-0-20"></a>        <span class="s1">'warning'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-21"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-21" name="streamo.composition.ffmpeg_command--source--__codelineno-0-21"></a>        <span class="s1">'-nostats'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-22"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-22" name="streamo.composition.ffmpeg_command--source--__codelineno-0-22"></a>        <span class="s1">'-progress'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-23"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-23" name="streamo.composition.ffmpeg_command--source--__codelineno-0-23"></a>        <span class="s1">'pipe:2'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-24"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-24" name="streamo.composition.ffmpeg_command--source--__codelineno-0-24"></a>        <span class="s1">'-f'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-25"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-25" name="streamo.composition.ffmpeg_command--source--__codelineno-0-25"></a>        <span class="s1">'f32le'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-26"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-26" name="streamo.composition.ffmpeg_command--source--__codelineno-0-26"></a>        <span class="s1">'-ar'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-27"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-27" name="streamo.composition.ffmpeg_command--source--__codelineno-0-27"></a>        <span class="nb">str</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">sample_rate</span> <span class="k">if</span> <span class="n">input_sample_rate</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">input_sample_rate</span><span class="p">),</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-28"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-28" name="streamo.composition.ffmpeg_command--source--__codelineno-0-28"></a>        <span class="s1">'-ac'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-29"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-29" name="streamo.composition.ffmpeg_command--source--__codelineno-0-29"></a>        <span class="s1">'2'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-30"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-30" name="streamo.composition.ffmpeg_command--source--__codelineno-0-30"></a>        <span class="c1"># PCM's format is already known. Probing buffers live audio before</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-31"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-31" name="streamo.composition.ffmpeg_command--source--__codelineno-0-31"></a>        <span class="c1"># opening the movie and ingest, which then blocks fresh audio writes.</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-32"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-32" name="streamo.composition.ffmpeg_command--source--__codelineno-0-32"></a>        <span class="s1">'-probesize'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-33"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-33" name="streamo.composition.ffmpeg_command--source--__codelineno-0-33"></a>        <span class="s1">'32'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-34"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-34" name="streamo.composition.ffmpeg_command--source--__codelineno-0-34"></a>        <span class="s1">'-analyzeduration'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-35"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-35" name="streamo.composition.ffmpeg_command--source--__codelineno-0-35"></a>        <span class="s1">'1'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-36"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-36" name="streamo.composition.ffmpeg_command--source--__codelineno-0-36"></a>        <span class="s1">'-i'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-37"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-37" name="streamo.composition.ffmpeg_command--source--__codelineno-0-37"></a>        <span class="s1">'pipe:0'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-38"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-38" name="streamo.composition.ffmpeg_command--source--__codelineno-0-38"></a>    <span class="p">]</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-39"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-39" name="streamo.composition.ffmpeg_command--source--__codelineno-0-39"></a>    <span class="k">if</span> <span class="n">encoding</span><span class="o">.</span><span class="n">video</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-40"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-40" name="streamo.composition.ffmpeg_command--source--__codelineno-0-40"></a>        <span class="k">assert</span> <span class="n">config</span><span class="o">.</span><span class="n">video</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-41"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-41" name="streamo.composition.ffmpeg_command--source--__codelineno-0-41"></a>        <span class="n">command</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-42"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-42" name="streamo.composition.ffmpeg_command--source--__codelineno-0-42"></a>            <span class="p">[</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-43"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-43" name="streamo.composition.ffmpeg_command--source--__codelineno-0-43"></a>                <span class="s1">'-re'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-44"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-44" name="streamo.composition.ffmpeg_command--source--__codelineno-0-44"></a>                <span class="s1">'-stream_loop'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-45"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-45" name="streamo.composition.ffmpeg_command--source--__codelineno-0-45"></a>                <span class="s1">'-1'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-46"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-46" name="streamo.composition.ffmpeg_command--source--__codelineno-0-46"></a>                <span class="s1">'-i'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-47"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-47" name="streamo.composition.ffmpeg_command--source--__codelineno-0-47"></a>                <span class="n">config</span><span class="o">.</span><span class="n">video</span><span class="o">.</span><span class="n">as_posix</span><span class="p">(),</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-48"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-48" name="streamo.composition.ffmpeg_command--source--__codelineno-0-48"></a>            <span class="p">]</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-49"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-49" name="streamo.composition.ffmpeg_command--source--__codelineno-0-49"></a>        <span class="p">)</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-50"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-50" name="streamo.composition.ffmpeg_command--source--__codelineno-0-50"></a>    <span class="k">if</span> <span class="n">encoding</span><span class="o">.</span><span class="n">video</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">config</span><span class="o">.</span><span class="n">live_overlays</span><span class="p">:</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-51"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-51" name="streamo.composition.ffmpeg_command--source--__codelineno-0-51"></a>        <span class="k">if</span> <span class="n">image_pipe</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-52"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-52" name="streamo.composition.ffmpeg_command--source--__codelineno-0-52"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'overlay pipe is required when live_overlays is enabled'</span><span class="p">)</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-53"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-53" name="streamo.composition.ffmpeg_command--source--__codelineno-0-53"></a>        <span class="n">command</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-54"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-54" name="streamo.composition.ffmpeg_command--source--__codelineno-0-54"></a>            <span class="p">[</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-55"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-55" name="streamo.composition.ffmpeg_command--source--__codelineno-0-55"></a>                <span class="s1">'-f'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-56"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-56" name="streamo.composition.ffmpeg_command--source--__codelineno-0-56"></a>                <span class="s1">'rawvideo'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-57"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-57" name="streamo.composition.ffmpeg_command--source--__codelineno-0-57"></a>                <span class="s1">'-pixel_format'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-58"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-58" name="streamo.composition.ffmpeg_command--source--__codelineno-0-58"></a>                <span class="s1">'rgba'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-59"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-59" name="streamo.composition.ffmpeg_command--source--__codelineno-0-59"></a>                <span class="s1">'-video_size'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-60"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-60" name="streamo.composition.ffmpeg_command--source--__codelineno-0-60"></a>                <span class="n">encoding</span><span class="o">.</span><span class="n">video</span><span class="o">.</span><span class="n">resolution</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-61"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-61" name="streamo.composition.ffmpeg_command--source--__codelineno-0-61"></a>                <span class="s1">'-framerate'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-62"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-62" name="streamo.composition.ffmpeg_command--source--__codelineno-0-62"></a>                <span class="nb">str</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">overlay_frame_rate</span><span class="p">),</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-63"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-63" name="streamo.composition.ffmpeg_command--source--__codelineno-0-63"></a>                <span class="s1">'-i'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-64"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-64" name="streamo.composition.ffmpeg_command--source--__codelineno-0-64"></a>                <span class="sa">f</span><span class="s1">'pipe:</span><span class="si">{</span><span class="n">image_pipe</span><span class="si">}</span><span class="s1">'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-65"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-65" name="streamo.composition.ffmpeg_command--source--__codelineno-0-65"></a>                <span class="s1">'-filter_complex'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-66"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-66" name="streamo.composition.ffmpeg_command--source--__codelineno-0-66"></a>                <span class="n">overlay_filter</span><span class="p">(</span><span class="n">config</span><span class="p">),</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-67"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-67" name="streamo.composition.ffmpeg_command--source--__codelineno-0-67"></a>                <span class="s1">'-map'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-68"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-68" name="streamo.composition.ffmpeg_command--source--__codelineno-0-68"></a>                <span class="s1">'[video]'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-69"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-69" name="streamo.composition.ffmpeg_command--source--__codelineno-0-69"></a>            <span class="p">]</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-70"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-70" name="streamo.composition.ffmpeg_command--source--__codelineno-0-70"></a>        <span class="p">)</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-71"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-71" name="streamo.composition.ffmpeg_command--source--__codelineno-0-71"></a>    <span class="k">elif</span> <span class="n">encoding</span><span class="o">.</span><span class="n">video</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-72"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-72" name="streamo.composition.ffmpeg_command--source--__codelineno-0-72"></a>        <span class="n">command</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s1">'-map'</span><span class="p">,</span> <span class="s1">'1:v:0'</span><span class="p">])</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-73"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-73" name="streamo.composition.ffmpeg_command--source--__codelineno-0-73"></a>    <span class="n">command</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s1">'-map'</span><span class="p">,</span> <span class="s1">'0:a:0'</span><span class="p">])</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-74"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-74" name="streamo.composition.ffmpeg_command--source--__codelineno-0-74"></a>    <span class="k">if</span> <span class="n">encoding</span><span class="o">.</span><span class="n">video</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-75"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-75" name="streamo.composition.ffmpeg_command--source--__codelineno-0-75"></a>        <span class="n">command</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-76"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-76" name="streamo.composition.ffmpeg_command--source--__codelineno-0-76"></a>            <span class="p">[</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-77"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-77" name="streamo.composition.ffmpeg_command--source--__codelineno-0-77"></a>                <span class="s1">'-c:v'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-78"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-78" name="streamo.composition.ffmpeg_command--source--__codelineno-0-78"></a>                <span class="n">VIDEO_CODECS</span><span class="p">[</span><span class="n">encoding</span><span class="o">.</span><span class="n">video</span><span class="o">.</span><span class="n">codec</span><span class="p">],</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-79"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-79" name="streamo.composition.ffmpeg_command--source--__codelineno-0-79"></a>                <span class="s1">'-b:v'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-80"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-80" name="streamo.composition.ffmpeg_command--source--__codelineno-0-80"></a>                <span class="nb">str</span><span class="p">(</span><span class="n">encoding</span><span class="o">.</span><span class="n">video</span><span class="o">.</span><span class="n">bitrate</span><span class="p">),</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-81"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-81" name="streamo.composition.ffmpeg_command--source--__codelineno-0-81"></a>                <span class="s1">'-pix_fmt'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-82"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-82" name="streamo.composition.ffmpeg_command--source--__codelineno-0-82"></a>                <span class="n">encoding</span><span class="o">.</span><span class="n">video</span><span class="o">.</span><span class="n">pixel_format</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-83"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-83" name="streamo.composition.ffmpeg_command--source--__codelineno-0-83"></a>                <span class="s1">'-r'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-84"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-84" name="streamo.composition.ffmpeg_command--source--__codelineno-0-84"></a>                <span class="nb">str</span><span class="p">(</span><span class="n">encoding</span><span class="o">.</span><span class="n">video</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">),</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-85"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-85" name="streamo.composition.ffmpeg_command--source--__codelineno-0-85"></a>                <span class="s1">'-s'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-86"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-86" name="streamo.composition.ffmpeg_command--source--__codelineno-0-86"></a>                <span class="n">encoding</span><span class="o">.</span><span class="n">video</span><span class="o">.</span><span class="n">resolution</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-87"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-87" name="streamo.composition.ffmpeg_command--source--__codelineno-0-87"></a>                <span class="s1">'-g'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-88"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-88" name="streamo.composition.ffmpeg_command--source--__codelineno-0-88"></a>                <span class="nb">str</span><span class="p">(</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-89"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-89" name="streamo.composition.ffmpeg_command--source--__codelineno-0-89"></a>                    <span class="nb">round</span><span class="p">(</span><span class="n">encoding</span><span class="o">.</span><span class="n">video</span><span class="o">.</span><span class="n">frame_rate</span> <span class="o">*</span> <span class="n">encoding</span><span class="o">.</span><span class="n">video</span><span class="o">.</span><span class="n">keyframe_interval</span><span class="p">)</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-90"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-90" name="streamo.composition.ffmpeg_command--source--__codelineno-0-90"></a>                <span class="p">),</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-91"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-91" name="streamo.composition.ffmpeg_command--source--__codelineno-0-91"></a>            <span class="p">]</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-92"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-92" name="streamo.composition.ffmpeg_command--source--__codelineno-0-92"></a>        <span class="p">)</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-93"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-93" name="streamo.composition.ffmpeg_command--source--__codelineno-0-93"></a>        <span class="k">if</span> <span class="n">encoding</span><span class="o">.</span><span class="n">video</span><span class="o">.</span><span class="n">codec</span> <span class="ow">in</span> <span class="p">{</span><span class="s1">'h264'</span><span class="p">,</span> <span class="s1">'hevc'</span><span class="p">}:</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-94"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-94" name="streamo.composition.ffmpeg_command--source--__codelineno-0-94"></a>            <span class="n">command</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s1">'-preset'</span><span class="p">,</span> <span class="s1">'veryfast'</span><span class="p">])</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-95"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-95" name="streamo.composition.ffmpeg_command--source--__codelineno-0-95"></a>        <span class="k">if</span> <span class="n">encoding</span><span class="o">.</span><span class="n">video</span><span class="o">.</span><span class="n">codec</span> <span class="o">==</span> <span class="s1">'h264'</span><span class="p">:</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-96"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-96" name="streamo.composition.ffmpeg_command--source--__codelineno-0-96"></a>            <span class="n">command</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s1">'-tune'</span><span class="p">,</span> <span class="s1">'animation'</span><span class="p">])</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-97"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-97" name="streamo.composition.ffmpeg_command--source--__codelineno-0-97"></a>    <span class="n">command</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-98"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-98" name="streamo.composition.ffmpeg_command--source--__codelineno-0-98"></a>        <span class="p">[</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-99"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-99" name="streamo.composition.ffmpeg_command--source--__codelineno-0-99"></a>            <span class="s1">'-c:a'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-100"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-100" name="streamo.composition.ffmpeg_command--source--__codelineno-0-100"></a>            <span class="n">AUDIO_CODECS</span><span class="p">[</span><span class="n">encoding</span><span class="o">.</span><span class="n">audio</span><span class="o">.</span><span class="n">codec</span><span class="p">],</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-101"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-101" name="streamo.composition.ffmpeg_command--source--__codelineno-0-101"></a>            <span class="s1">'-b:a'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-102"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-102" name="streamo.composition.ffmpeg_command--source--__codelineno-0-102"></a>            <span class="nb">str</span><span class="p">(</span><span class="n">encoding</span><span class="o">.</span><span class="n">audio</span><span class="o">.</span><span class="n">bitrate</span><span class="p">),</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-103"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-103" name="streamo.composition.ffmpeg_command--source--__codelineno-0-103"></a>            <span class="s1">'-ar'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-104"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-104" name="streamo.composition.ffmpeg_command--source--__codelineno-0-104"></a>            <span class="nb">str</span><span class="p">(</span><span class="n">encoding</span><span class="o">.</span><span class="n">audio</span><span class="o">.</span><span class="n">sample_rate</span><span class="p">),</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-105"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-105" name="streamo.composition.ffmpeg_command--source--__codelineno-0-105"></a>            <span class="s1">'-ac'</span><span class="p">,</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-106"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-106" name="streamo.composition.ffmpeg_command--source--__codelineno-0-106"></a>            <span class="nb">str</span><span class="p">(</span><span class="n">encoding</span><span class="o">.</span><span class="n">audio</span><span class="o">.</span><span class="n">channels</span><span class="p">),</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-107"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-107" name="streamo.composition.ffmpeg_command--source--__codelineno-0-107"></a>        <span class="p">]</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-108"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-108" name="streamo.composition.ffmpeg_command--source--__codelineno-0-108"></a>    <span class="p">)</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-109"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-109" name="streamo.composition.ffmpeg_command--source--__codelineno-0-109"></a>    <span class="k">if</span> <span class="n">preview</span><span class="p">:</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-110"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-110" name="streamo.composition.ffmpeg_command--source--__codelineno-0-110"></a>        <span class="n">command</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s1">'-f'</span><span class="p">,</span> <span class="s1">'nut'</span><span class="p">,</span> <span class="s1">'pipe:1'</span><span class="p">])</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-111"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-111" name="streamo.composition.ffmpeg_command--source--__codelineno-0-111"></a>    <span class="k">else</span><span class="p">:</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-112"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-112" name="streamo.composition.ffmpeg_command--source--__codelineno-0-112"></a>        <span class="n">command</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-113"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-113" name="streamo.composition.ffmpeg_command--source--__codelineno-0-113"></a>            <span class="p">(</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-114"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-114" name="streamo.composition.ffmpeg_command--source--__codelineno-0-114"></a>                <span class="n">output</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-115"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-115" name="streamo.composition.ffmpeg_command--source--__codelineno-0-115"></a>                <span class="k">if</span> <span class="n">output</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-116"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-116" name="streamo.composition.ffmpeg_command--source--__codelineno-0-116"></a>                <span class="k">else</span> <span class="n">local_display_output</span><span class="p">(</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-117"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-117" name="streamo.composition.ffmpeg_command--source--__codelineno-0-117"></a>                    <span class="n">config</span><span class="p">,</span> <span class="n">ingest_output</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">streaming_service</span><span class="p">)</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-118"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-118" name="streamo.composition.ffmpeg_command--source--__codelineno-0-118"></a>                <span class="p">)</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-119"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-119" name="streamo.composition.ffmpeg_command--source--__codelineno-0-119"></a>            <span class="p">)</span><span class="o">.</span><span class="n">arguments</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-120"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-120" name="streamo.composition.ffmpeg_command--source--__codelineno-0-120"></a>        <span class="p">)</span>
+</span><span id="streamo.composition.ffmpeg_command--source--__span-0-121"><a id="streamo.composition.ffmpeg_command--source--__codelineno-0-121" name="streamo.composition.ffmpeg_command--source--__codelineno-0-121"></a>    <span class="k">return</span> <span class="n">command</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="streamo.composition.local_display_output" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">local_display_output</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">Streamo</span><span class="p">,</span> <span class="n">output</span><span class="p">:</span> <span class="n">FfmpegOutput</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FfmpegOutput</span></code>
+
+<a href="#streamo.composition.local_display_output" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>streamo/composition.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#streamo.composition.local_display_output--source--__codelineno-0-124">124</a></span>
+<span class="normal"><a href="#streamo.composition.local_display_output--source--__codelineno-0-125">125</a></span>
+<span class="normal"><a href="#streamo.composition.local_display_output--source--__codelineno-0-126">126</a></span>
+<span class="normal"><a href="#streamo.composition.local_display_output--source--__codelineno-0-127">127</a></span>
+<span class="normal"><a href="#streamo.composition.local_display_output--source--__codelineno-0-128">128</a></span>
+<span class="normal"><a href="#streamo.composition.local_display_output--source--__codelineno-0-129">129</a></span>
+<span class="normal"><a href="#streamo.composition.local_display_output--source--__codelineno-0-130">130</a></span>
+<span class="normal"><a href="#streamo.composition.local_display_output--source--__codelineno-0-131">131</a></span>
+<span class="normal"><a href="#streamo.composition.local_display_output--source--__codelineno-0-132">132</a></span>
+<span class="normal"><a href="#streamo.composition.local_display_output--source--__codelineno-0-133">133</a></span>
+<span class="normal"><a href="#streamo.composition.local_display_output--source--__codelineno-0-134">134</a></span>
+<span class="normal"><a href="#streamo.composition.local_display_output--source--__codelineno-0-135">135</a></span>
+<span class="normal"><a href="#streamo.composition.local_display_output--source--__codelineno-0-136">136</a></span>
+<span class="normal"><a href="#streamo.composition.local_display_output--source--__codelineno-0-137">137</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="streamo.composition.local_display_output--source--__span-0-124"><a id="streamo.composition.local_display_output--source--__codelineno-0-124" name="streamo.composition.local_display_output--source--__codelineno-0-124"></a><span class="k">def</span><span class="w"> </span><span class="nf">local_display_output</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">Streamo</span><span class="p">,</span> <span class="n">output</span><span class="p">:</span> <span class="n">FfmpegOutput</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FfmpegOutput</span><span class="p">:</span>
+</span><span id="streamo.composition.local_display_output--source--__span-0-125"><a id="streamo.composition.local_display_output--source--__codelineno-0-125" name="streamo.composition.local_display_output--source--__codelineno-0-125"></a>    <span class="n">output</span> <span class="o">=</span> <span class="n">output</span> <span class="ow">or</span> <span class="n">ingest_output</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">streaming_service</span><span class="p">)</span>
+</span><span id="streamo.composition.local_display_output--source--__span-0-126"><a id="streamo.composition.local_display_output--source--__codelineno-0-126" name="streamo.composition.local_display_output--source--__codelineno-0-126"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">config</span><span class="o">.</span><span class="n">local_display</span> <span class="ow">or</span> <span class="n">config</span><span class="o">.</span><span class="n">streaming_service</span><span class="o">.</span><span class="n">encoding</span><span class="o">.</span><span class="n">video</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="streamo.composition.local_display_output--source--__span-0-127"><a id="streamo.composition.local_display_output--source--__codelineno-0-127" name="streamo.composition.local_display_output--source--__codelineno-0-127"></a>        <span class="k">return</span> <span class="n">output</span>
+</span><span id="streamo.composition.local_display_output--source--__span-0-128"><a id="streamo.composition.local_display_output--source--__codelineno-0-128" name="streamo.composition.local_display_output--source--__codelineno-0-128"></a>    <span class="k">return</span> <span class="n">output</span><span class="o">.</span><span class="n">model_copy</span><span class="p">(</span>
+</span><span id="streamo.composition.local_display_output--source--__span-0-129"><a id="streamo.composition.local_display_output--source--__codelineno-0-129" name="streamo.composition.local_display_output--source--__codelineno-0-129"></a>        <span class="n">update</span><span class="o">=</span><span class="p">{</span>
+</span><span id="streamo.composition.local_display_output--source--__span-0-130"><a id="streamo.composition.local_display_output--source--__codelineno-0-130" name="streamo.composition.local_display_output--source--__codelineno-0-130"></a>            <span class="s1">'destinations'</span><span class="p">:</span> <span class="p">[</span>
+</span><span id="streamo.composition.local_display_output--source--__span-0-131"><a id="streamo.composition.local_display_output--source--__codelineno-0-131" name="streamo.composition.local_display_output--source--__codelineno-0-131"></a>                <span class="o">*</span><span class="n">output</span><span class="o">.</span><span class="n">destinations</span><span class="p">,</span>
+</span><span id="streamo.composition.local_display_output--source--__span-0-132"><a id="streamo.composition.local_display_output--source--__codelineno-0-132" name="streamo.composition.local_display_output--source--__codelineno-0-132"></a>                <span class="n">FfmpegDestination</span><span class="p">(</span>
+</span><span id="streamo.composition.local_display_output--source--__span-0-133"><a id="streamo.composition.local_display_output--source--__codelineno-0-133" name="streamo.composition.local_display_output--source--__codelineno-0-133"></a>                    <span class="n">muxer</span><span class="o">=</span><span class="s1">'mpegts'</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">LOCAL_DISPLAY_URL</span><span class="p">,</span> <span class="n">secret_url</span><span class="o">=</span><span class="kc">False</span>
+</span><span id="streamo.composition.local_display_output--source--__span-0-134"><a id="streamo.composition.local_display_output--source--__codelineno-0-134" name="streamo.composition.local_display_output--source--__codelineno-0-134"></a>                <span class="p">),</span>
+</span><span id="streamo.composition.local_display_output--source--__span-0-135"><a id="streamo.composition.local_display_output--source--__codelineno-0-135" name="streamo.composition.local_display_output--source--__codelineno-0-135"></a>            <span class="p">]</span>
+</span><span id="streamo.composition.local_display_output--source--__span-0-136"><a id="streamo.composition.local_display_output--source--__codelineno-0-136" name="streamo.composition.local_display_output--source--__codelineno-0-136"></a>        <span class="p">}</span>
+</span><span id="streamo.composition.local_display_output--source--__span-0-137"><a id="streamo.composition.local_display_output--source--__codelineno-0-137" name="streamo.composition.local_display_output--source--__codelineno-0-137"></a>    <span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="streamo.composition.overlay_filter" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">overlay_filter</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">Streamo</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span></code>
+
+<a href="#streamo.composition.overlay_filter" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>streamo/composition.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#streamo.composition.overlay_filter--source--__codelineno-0-140">140</a></span>
+<span class="normal"><a href="#streamo.composition.overlay_filter--source--__codelineno-0-141">141</a></span>
+<span class="normal"><a href="#streamo.composition.overlay_filter--source--__codelineno-0-142">142</a></span>
+<span class="normal"><a href="#streamo.composition.overlay_filter--source--__codelineno-0-143">143</a></span>
+<span class="normal"><a href="#streamo.composition.overlay_filter--source--__codelineno-0-144">144</a></span>
+<span class="normal"><a href="#streamo.composition.overlay_filter--source--__codelineno-0-145">145</a></span>
+<span class="normal"><a href="#streamo.composition.overlay_filter--source--__codelineno-0-146">146</a></span>
+<span class="normal"><a href="#streamo.composition.overlay_filter--source--__codelineno-0-147">147</a></span>
+<span class="normal"><a href="#streamo.composition.overlay_filter--source--__codelineno-0-148">148</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="streamo.composition.overlay_filter--source--__span-0-140"><a id="streamo.composition.overlay_filter--source--__codelineno-0-140" name="streamo.composition.overlay_filter--source--__codelineno-0-140"></a><span class="k">def</span><span class="w"> </span><span class="nf">overlay_filter</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">Streamo</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="streamo.composition.overlay_filter--source--__span-0-141"><a id="streamo.composition.overlay_filter--source--__codelineno-0-141" name="streamo.composition.overlay_filter--source--__codelineno-0-141"></a>    <span class="n">encoding</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">streaming_service</span><span class="o">.</span><span class="n">encoding</span><span class="o">.</span><span class="n">video</span>
+</span><span id="streamo.composition.overlay_filter--source--__span-0-142"><a id="streamo.composition.overlay_filter--source--__codelineno-0-142" name="streamo.composition.overlay_filter--source--__codelineno-0-142"></a>    <span class="k">assert</span> <span class="n">encoding</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span id="streamo.composition.overlay_filter--source--__span-0-143"><a id="streamo.composition.overlay_filter--source--__codelineno-0-143" name="streamo.composition.overlay_filter--source--__codelineno-0-143"></a>    <span class="n">width</span><span class="p">,</span> <span class="n">height</span> <span class="o">=</span> <span class="n">encoding</span><span class="o">.</span><span class="n">resolution</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">'x'</span><span class="p">)</span>
+</span><span id="streamo.composition.overlay_filter--source--__span-0-144"><a id="streamo.composition.overlay_filter--source--__codelineno-0-144" name="streamo.composition.overlay_filter--source--__codelineno-0-144"></a>    <span class="k">return</span> <span class="p">(</span>
+</span><span id="streamo.composition.overlay_filter--source--__span-0-145"><a id="streamo.composition.overlay_filter--source--__codelineno-0-145" name="streamo.composition.overlay_filter--source--__codelineno-0-145"></a>        <span class="sa">f</span><span class="s1">'[1:v]scale=</span><span class="si">{</span><span class="n">width</span><span class="si">}</span><span class="s1">:</span><span class="si">{</span><span class="n">height</span><span class="si">}</span><span class="s1">,fps=</span><span class="si">{</span><span class="n">encoding</span><span class="o">.</span><span class="n">frame_rate</span><span class="si">}</span><span class="s1">,format=yuv420p[base];'</span>
+</span><span id="streamo.composition.overlay_filter--source--__span-0-146"><a id="streamo.composition.overlay_filter--source--__codelineno-0-146" name="streamo.composition.overlay_filter--source--__codelineno-0-146"></a>        <span class="s1">'[2:v]setpts=PTS-STARTPTS[live];'</span>
+</span><span id="streamo.composition.overlay_filter--source--__span-0-147"><a id="streamo.composition.overlay_filter--source--__codelineno-0-147" name="streamo.composition.overlay_filter--source--__codelineno-0-147"></a>        <span class="s1">'[base][live]overlay=0:0:eof_action=pass[video]'</span>
+</span><span id="streamo.composition.overlay_filter--source--__span-0-148"><a id="streamo.composition.overlay_filter--source--__codelineno-0-148" name="streamo.composition.overlay_filter--source--__codelineno-0-148"></a>    <span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../../..","features":["navigation.indexes","content.code.copy"],"redirect":null,"search":"../../../assets/javascripts/workers/search.c47bb847.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.77dd0ce9.min.js"></script>
+      
+    
+  </body>
+</html>
