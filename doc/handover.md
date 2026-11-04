@@ -2,7 +2,7 @@
 
 ## Project state
 
-The [feature plan](../plan/features.md) contains the remaining proposals:
+The [feature plan](https://github.com/rec/streamo/blob/main/plan/features.md) contains the remaining proposals:
 audio/video alignment, repeatable rehearsal, and visual-bed planning preview.
 The [operator guide](streamo.md) describes implemented behavior, including
 closing credits and reccy's FFmpeg service logging.

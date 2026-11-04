@@ -926,7 +926,7 @@ Source responsibilities are separated into `provider_config.py` (configuration),
 `providers.py` (adapters and ingest output), `composition.py` (live FFmpeg graph),
 `streamer.py` (process lifecycle), and `audio.py` (capture). Offline media uses
 `scripts/render_plan.py` for planning, `scripts/title_card.py` for Markdown cards,
-and `scripts/render.py` for execution. See [the feature plan](../plan/features.md)
+and `scripts/render.py` for execution. See [the feature plan](https://github.com/rec/streamo/blob/main/plan/features.md)
 for remaining proposals and [the handover](handover.md) for decisions and
 verification limits.
 
