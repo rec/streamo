@@ -23,6 +23,7 @@ from .composition import (
 from .config import Streamo
 from .control import ControlController, HealthPoller
 from .ffmpeg_progress import update_progress
+from .media_assets import prepare_video
 from .network import twitch_ingest_failure
 from .overlays import LiveOverlays, write_overlay_frames
 from .provider_config import StreamingServiceConfiguration
@@ -144,6 +145,10 @@ def stream(
     )
     try:
         with ExitStack() as resources:
+            if config.streaming_service.encoding.video is not None:
+                assert config.video is not None
+                video = resources.enter_context(prepare_video(config.video))
+                config = config.model_copy(update={'video': video})
             producer = (
                 LiveOverlays(config, initial_image_paths, controller.closing)
                 if config.streaming_service.encoding.video is not None

@@ -33,6 +33,12 @@ from streamo.streamer import (
 )
 
 
+@pytest.fixture(autouse=True)
+def local_video(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'visual-bed.mp4').write_bytes(b'video supplied to mocked FFmpeg')
+
+
 def _config() -> Streamo:
     return Streamo(
         live_overlays=False,

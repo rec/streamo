@@ -929,3 +929,14 @@ Source responsibilities are separated into `provider_config.py` (configuration),
 and `scripts/render.py` for execution. See [the feature plan](../plan/features.md)
 for remaining proposals and [the handover](handover.md) for decisions and
 verification limits.
+
+### Visual-bed lifetime
+
+Before preparing the publishing service or opening audio, streamO copies the
+selected local movie into a private verified temporary asset store. FFmpeg reads
+that immutable snapshot for the whole streaming session, including encoder
+retries. Replacing the original file cannot change a running session. The leased
+snapshot is removed after the encoder has stopped, including on failure.
+Allow temporary disk space for one complete movie; a missing or growing source
+fails preparation before publishing starts. Audience photo ingestion remains a
+separate live workflow.
