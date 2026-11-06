@@ -1,0 +1,41 @@
+service = "custom"
+name = "Custom"
+
+[ingest]
+
+protocol = "rtmps"
+server_url = "rtmps://stream.example.com/live"
+stream_key = "**********"
+
+[encoding]
+
+container = "flv"
+
+[encoding.audio]
+
+codec = "aac"
+bitrate = 160000
+sample_rate = 48000
+channels = 2
+
+[encoding.video]
+
+codec = "h264"
+bitrate = 2500000
+resolution = "1280x720"
+frame_rate = 30
+keyframe_interval = 2.0
+pixel_format = "yuv420p"
+
+[metadata]
+
+title = "sample"
+description = "sample"
+
+# Twitch category name; YouTube or Kick numeric category ID.
+category = "sample"
+
+tags = []
+language = "sample"
+privacy = "unlisted"
+scheduled_start = "2026-08-12T20:00:00Z"
