@@ -7,7 +7,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-10-30T16:37:36.652275Z"
+exclude-newer = "2026-11-18T18:26:12.953073Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -968,7 +968,7 @@ wheels = [
 [[package]]
 name = "reccy"
 version = "0.2.0"
-source = { git = "https://github.com/rec/reccy.git?branch=main#e23e4261f352b635ab33fdba6f3d9d548e7e826b" }
+source = { git = "https://github.com/rec/reccy.git?branch=main#0b62e26c5deb7236dbbf8b4b5ff88f4a8ab4479a" }
 dependencies = [
     { name = "pint" },
     { name = "pydantic" },
@@ -980,7 +980,7 @@ dependencies = [
 [[package]]
 name = "recs"
 version = "0.13.1"
-source = { git = "https://github.com/rec/recs.git?branch=main#304c11ef258168466ad55a7286b87dc19894b568" }
+source = { git = "https://github.com/rec/recs.git?branch=main#0072957a743c5ed04a72d330fa3c849604026405" }
 dependencies = [
     { name = "dvice" },
     { name = "humanfriendly" },
