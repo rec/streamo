@@ -2,34 +2,34 @@ $ python -m scripts.render --help
 usage: python -m scripts.render [-h] [OPTIONS]
 
  options
- -----------------------------------------------------
-  -h, --help          show this help message and exit
+ --------------------------------------------------------------------------
+  -h, --help            show this help message and exit
   --inputs [PATH [PATH ...]]
-                      (required)
-  --output {None}|PATH
-                      (default: None)
-  --duration SECONDS  (default: 3600.0)
-  --seed {None}|INT   (default: None)
+                        (required)
+  --output {None}|PATH  (default: None)
+  --duration SECONDS    (default: 3600.0)
+  --seed {None}|INT     (default: None)
   --title-card {None}|PATH
-                      (default: None)
-  --width PIXELS      (default: 640)
-  --height PIXELS     (default: 360)
-  --fps FPS           (default: 24)
-  --work-scale INT    (default: 2)
-  --work-fps FPS      (default: 30)
+                        (default: None)
+  --width PIXELS        (default: 640)
+  --height PIXELS       (default: 360)
+  --fps FPS             (default: 24)
+  --work-scale INT      (default: 2)
+  --work-fps FPS        (default: 30)
   --still-duration SECONDS
-                      (default: 30.0)
+                        (default: 30.0)
   --start-black-duration SECONDS
-                      (default: 8.0)
+                        (default: 8.0)
   --title-interval SECONDS
-                      (default: 180.0)
+                        (default: 180.0)
   --title-jitter SECONDS
-                      (default: 30.0)
+                        (default: 30.0)
   --title-duration SECONDS
-                      (default: 8.0)
-  --title-fade SECONDS
-                      (default: 4.0)
+                        (default: 8.0)
+  --title-fade SECONDS  (default: 4.0)
   -p, --plan, --no-plan
-                      (default: False)
+                        (default: False)
   -P, --plan-only, --no-plan-only
-                      (default: False)
+                        (default: False)
+  --progress, --no-progress
+                        Report rendered seconds on stdout (default: False)

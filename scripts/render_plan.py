@@ -54,6 +54,9 @@ class Render(BaseModel, frozen=True):
     title_fade: Annotated[units.Seconds, TIME_SPEC] = 4.0
     plan: Annotated[bool, tyro.conf.arg(aliases=['-p'])] = False
     plan_only: Annotated[bool, tyro.conf.arg(aliases=['-P'])] = False
+    progress: bool = Field(
+        default=False, exclude=True, description='Report rendered seconds on stdout'
+    )
 
     @field_validator(
         'duration',

@@ -186,7 +186,7 @@ def test_segmented_render_preserves_scene_timing(
 
 
 def test_segmented_render_meets_strict_movie_cadence(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     inputs = [tmp_path / 'red.png', tmp_path / 'blue.png']
     for path in inputs:
@@ -205,9 +205,18 @@ def test_segmented_render_meets_strict_movie_cadence(
         start_black_duration=1.1,
         still_duration=1.37,
         title_fade=0,
+        progress=True,
     )
     monkeypatch.setattr(render, 'MAX_RENDER_INPUTS', 4)
     render.render(config)
+    times = [
+        float(line.removeprefix('rendered_seconds='))
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith('rendered_seconds=')
+    ]
+    assert len(set(times)) > 1
+    assert times == sorted(times)
+    assert times[-1] == config.duration
     expected = VideoEncoding(resolution='160x90', frame_rate=30)
     video = VideoProbe.read(output).video()
     video.validate_format(output, expected)

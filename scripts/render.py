@@ -5,7 +5,7 @@ import tempfile
 import tomllib
 from math import ceil, isfinite
 from pathlib import Path
-from subprocess import CalledProcessError
+from subprocess import PIPE, CalledProcessError, Popen
 from typing import cast
 
 import tyro
@@ -60,6 +60,7 @@ def render_plan_file(config: Render) -> None:
     settings = plan.render
     plan.render = settings.model_copy(
         update={
+            'progress': config.progress,
             'inputs': [(base / p.expanduser()).resolve() for p in settings.inputs],
             'output': None
             if settings.output is None
@@ -107,7 +108,8 @@ def execute_plan(config: Render, plan: RenderPlan) -> None:
 
 
 def execute_prepared_plan(config: Render, plan: RenderPlan) -> None:
-    print_render_schedule(config, plan)
+    if not config.progress:
+        print_render_schedule(config, plan)
     assert config.output is not None
     with new_media_output(config.output) as temporary:
         if len(plan.scenes) + len(plan.title_events) <= MAX_RENDER_INPUTS:
@@ -213,7 +215,32 @@ def run_render_command(
     graph = config.output.with_suffix('.filters')
     graph.write_text(command[index + 1])
     command[index : index + 2] = ['-filter_complex_script', str(graph)]
-    run_silent(command)
+    if config.progress:
+        run_with_progress(command, first_frame / config.fps, config.duration)
+    else:
+        run_silent(command)
+
+
+def run_with_progress(command: list[str], offset: float, duration: float) -> None:
+    command[1:1] = ['-progress', 'pipe:1', '-nostats']
+    with (
+        tempfile.TemporaryFile(mode='w+') as errors,
+        Popen(command, stdout=PIPE, stderr=errors, text=True) as process,
+    ):
+        assert process.stdout is not None
+        try:
+            for line in process.stdout:
+                key, _, value = line.strip().partition('=')
+                if key == 'out_time_us' and value.isdecimal():
+                    seconds = min(int(value) / 1_000_000, duration)
+                    print(f'rendered_seconds={offset + seconds:.6f}', flush=True)
+            if status := process.wait():
+                errors.seek(0)
+                raise CalledProcessError(status, command, stderr=errors.read())
+        finally:
+            if process.poll() is None:
+                process.kill()
+    print(f'rendered_seconds={offset + duration:.6f}', flush=True)
 
 
 def validate_config(config: Render) -> None:
