@@ -32,6 +32,8 @@ from scripts.render_plan import (
     title_schedule,
 )
 from scripts.title_card import render_markdown_title_card
+from streamo.provider_config import VideoEncoding
+from streamo.video_probe import VideoProbe, validate_cadence
 
 
 @pytest.mark.parametrize('duration', [0, -1, float('nan'), float('inf')])
@@ -181,6 +183,35 @@ def test_segmented_render_preserves_scene_timing(
     assert expected[-1].max() <= 2
     assert actual[-2].mean() > actual[-1].mean()
     assert np.abs(actual.astype(int) - expected.astype(int)).mean() < 5
+
+
+def test_segmented_render_meets_strict_movie_cadence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = [tmp_path / 'red.png', tmp_path / 'blue.png']
+    for path in inputs:
+        Image.new('RGB', (160, 90), path.stem).save(path)
+    output = tmp_path / 'segmented.mp4'
+    config = Render(
+        inputs=inputs,
+        output=output,
+        duration=6,
+        seed=1,
+        width=160,
+        height=90,
+        fps=30,
+        work_scale=1,
+        work_fps=30,
+        start_black_duration=1.1,
+        still_duration=1.37,
+        title_fade=0,
+    )
+    monkeypatch.setattr(render, 'MAX_RENDER_INPUTS', 4)
+    render.render(config)
+    expected = VideoEncoding(resolution='160x90', frame_rate=30)
+    video = VideoProbe.read(output).video()
+    video.validate_format(output, expected)
+    validate_cadence(output, video, expected)
 
 
 def test_segmented_render_preserves_title_across_segments(
