@@ -1,3 +1,4 @@
+import hashlib
 import sys
 import tomllib
 from pathlib import Path
@@ -8,6 +9,7 @@ from pydantic import BaseModel, ValidationError
 from reccy.services.controller import print_service_status
 
 from .config import STREAMO_SERVICE, Streamo
+from .managed import read_launch_permit
 from .video_probe import VideoProbeError
 
 
@@ -53,8 +55,17 @@ def run(options: DaemonOptions) -> int:
         sys.exit('--managed requires daemon run')
     streamo = Streamo.model_construct()
     if options.action in {'run', 'preview', 'validate'}:
+        permit = None
         try:
-            config = load_config(options.config)
+            if options.managed:
+                permit = read_launch_permit()
+                config = load_config(
+                    options.config, expected_sha256=permit.config_sha256
+                )
+                if config.recs_input is None or not config.recs_input.daemon:
+                    sys.exit('Managed publishing requires audio from the recs daemon')
+            else:
+                config = load_config(options.config)
         except FileNotFoundError as error:
             sys.exit(f'streamO configuration file does not exist: {error.filename}')
         except ValidationError as error:
@@ -78,6 +89,8 @@ def run(options: DaemonOptions) -> int:
             sys.exit(f'Invalid streamO configuration {path}:\n' + '\n'.join(details))
         except (OSError, tomllib.TOMLDecodeError) as error:
             sys.exit(f'Cannot read streamO configuration {options.config}: {error}')
+        except ValueError as error:
+            sys.exit(str(error))
         if options.action == 'validate':
             try:
                 config.validate_media(check_cadence=True)
@@ -85,9 +98,7 @@ def run(options: DaemonOptions) -> int:
                 sys.exit(f'Invalid streamO configuration {options.config}: {error}')
             return 0
         try:
-            return config.run(
-                preview=options.action == 'preview', managed=options.managed
-            )
+            return config.run(preview=options.action == 'preview', permit=permit)
         except VideoProbeError as error:
             sys.exit(f'Invalid streamO configuration {options.config}: {error}')
     if options.action == 'install':
@@ -116,9 +127,15 @@ def run(options: DaemonOptions) -> int:
     return int(result.running is not True)
 
 
-def load_config(path: Path) -> Streamo:
+def load_config(path: Path, *, expected_sha256: str | None = None) -> Streamo:
     path = path.expanduser().resolve()
-    values = tomllib.loads(path.read_text())
+    content = path.read_bytes()
+    if (
+        expected_sha256 is not None
+        and hashlib.sha256(content).hexdigest() != expected_sha256
+    ):
+        raise ValueError('streamO configuration changed after readiness was checked')
+    values = tomllib.loads(content.decode())
     for name in ('video', 'title_card'):
         if (value := values.get(name)) is not None and isinstance(value, str):
             values[name] = resolve_path(path.parent, value)

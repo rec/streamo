@@ -1,3 +1,4 @@
+import hashlib
 import tomllib
 from pathlib import Path
 from unittest import mock
@@ -7,6 +8,7 @@ from reccy.services.models import StatusResult
 
 from streamo import daemon
 from streamo.config import Streamo
+from streamo.managed import LaunchPermit
 
 
 @pytest.mark.parametrize(
@@ -119,7 +121,26 @@ keyframe_interval = 2
         result = daemon.run(daemon.DaemonOptions(action='preview', config=config))
 
     assert result == 0
-    assert run.call_args.kwargs == {'preview': True, 'managed': False}
+    assert run.call_args.kwargs == {'preview': True, 'permit': None}
+
+
+def test_managed_daemon_rejects_configuration_changed_after_readiness(
+    tmp_path: Path,
+) -> None:
+    config = tmp_path / 'streamo.toml'
+    config.write_text('channel = 1\n')
+    permit = LaunchPermit(
+        config_sha256=hashlib.sha256(config.read_bytes()).hexdigest(),
+        expires_at=100,
+    )
+    config.write_text('channel = 2\n')
+    with (
+        mock.patch.object(daemon, 'read_launch_permit', return_value=permit),
+        mock.patch.object(Streamo, 'run') as run,
+        pytest.raises(SystemExit, match='changed after readiness'),
+    ):
+        daemon.run(daemon.DaemonOptions(action='run', config=config, managed=True))
+    run.assert_not_called()
 
 
 def test_example_configs_parse() -> None:

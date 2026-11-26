@@ -23,6 +23,7 @@ from .composition import (
 from .config import Streamo
 from .control import ControlController, HealthPoller
 from .ffmpeg_progress import update_progress
+from .managed import LaunchPermit, ManagedLaunchError, read_launch_permit
 from .network import twitch_ingest_failure
 from .overlays import LiveOverlays, write_overlay_frames
 from .provider_config import StreamingServiceConfiguration
@@ -124,9 +125,10 @@ def stream(
     *,
     initial_image_paths: set[Path],
     preview: bool = False,
-    managed: bool = False,
+    permit: LaunchPermit | None = None,
 ) -> int:
     state = controller.state
+    managed = permit is not None
     recover = config.recover_publish and not preview and not managed
     retry: RetrySchedule | None = None
     state.set_publish_requested(not preview)
@@ -144,6 +146,10 @@ def stream(
         else None,
     )
     try:
+        if managed and (config.recs_input is None or not config.recs_input.daemon):
+            raise ManagedLaunchError(
+                'Managed publishing requires audio from the recs daemon'
+            )
         with ExitStack() as resources:
             producer = (
                 LiveOverlays(config, initial_image_paths, controller.closing)
@@ -185,6 +191,8 @@ def stream(
                     recs_audio, controller
                 ):
                     return 0
+                if permit is not None and read_launch_permit() != permit:
+                    raise ManagedLaunchError('Managed publishing authorization changed')
                 resources.callback(service.finish)
                 prepared = service.prepare(config.streaming_service.metadata)
                 state.configure_service(service)
@@ -235,6 +243,8 @@ def stream(
                 )
                 retry.begin_attempt()
                 state.begin_encoder_attempt()
+                if permit is not None and read_launch_permit() != permit:
+                    raise ManagedLaunchError('Managed publishing authorization changed')
                 try:
                     returncode, stopped = run_attempt(
                         config,
@@ -304,7 +314,10 @@ def stream(
     except (OSError, RuntimeError, ValueError, TwitchApiError) as error:
         message = (
             str(error)
-            if isinstance(error, (OverlayWorkerError, RecsInputLost, TwitchApiError))
+            if isinstance(
+                error,
+                (ManagedLaunchError, OverlayWorkerError, RecsInputLost, TwitchApiError),
+            )
             else f'Stream failed ({type(error).__name__})'
         )
         state.publish_failed(message, None)

@@ -15,6 +15,7 @@ from .closing import DEFAULT_CREDITS, ClosingCredits, ClosingSequence
 from .image_feed import ImageFeed, ImageFeedPoller
 from .image_transform import ImageTransform
 from .images import image_paths
+from .managed import LaunchPermit
 from .provider_config import StreamingServiceConfiguration, pixel_resolution
 from .providers import GenericServiceAdapter, adapter_for
 from .recs_input import RecsInput
@@ -75,7 +76,7 @@ class Streamo(Reccy, frozen=True):
     default_opacity: float = Field(default=0.6, ge=0, le=1, allow_inf_nan=False)
     _controller: 'ControlController | None' = PrivateAttr(default=None)
 
-    def run(self, *, preview: bool = False, managed: bool = False) -> int:
+    def run(self, *, preview: bool = False, permit: LaunchPermit | None = None) -> int:
         from . import control, streamer
 
         self.validate_media()
@@ -118,7 +119,7 @@ class Streamo(Reccy, frozen=True):
                 service_adapter,
                 initial_image_paths=initial_image_paths,
                 preview=preview,
-                managed=managed,
+                permit=permit,
             )
             if returncode:
                 self.publish_error(

@@ -12,6 +12,7 @@ from streamo.composition import (
 )
 from streamo.config import Streamo
 from streamo.control import ControlController
+from streamo.managed import LaunchPermit
 from streamo.provider_config import (
     AudioEncoding,
     EncodingProfile,
@@ -22,6 +23,7 @@ from streamo.provider_config import (
     VideoEncoding,
 )
 from streamo.providers import ingest_output
+from streamo.recs_input import RecsInput
 from streamo.runtime import RuntimeState
 from streamo.streamer import (
     LocalDisplayController,
@@ -90,24 +92,62 @@ def test_managed_publisher_leaves_encoder_recovery_to_showco(
     format_changed: bool,
 ) -> None:
     config = _config().model_copy(
-        update={'recover_publish': True, 'local_display': False}
+        update={
+            'recover_publish': True,
+            'local_display': False,
+            'recs_input': RecsInput(
+                daemon=True,
+                source='X18',
+                channels=[17, 18],
+            ),
+        }
     )
     controller = ControlController(RuntimeState())
     service = providers.GenericServiceAdapter(config.streaming_service)
+    permit = LaunchPermit(config_sha256='0' * 64, expires_at=100)
     with (
-        mock.patch.object(streamer, 'AudioCapture'),
+        mock.patch.object(streamer, 'RecsAudio'),
+        mock.patch.object(streamer, 'wait_for_recs_audio', return_value=True),
+        mock.patch.object(streamer, 'read_launch_permit', return_value=permit),
         mock.patch.object(streamer, 'run_attempt', return_value=(0, False)) as attempt,
     ):
         if format_changed:
             attempt.side_effect = streamer.AudioFormatChanged
         assert (
             streamer.stream(
-                config, controller, service, initial_image_paths=set(), managed=True
+                config, controller, service, initial_image_paths=set(), permit=permit
             )
             == 1
         )
     attempt.assert_called_once()
     assert controller.state.snapshot()['state'] == 'failed'
+
+
+def test_managed_publisher_stays_off_if_permission_is_revoked() -> None:
+    config = _config().model_copy(
+        update={
+            'recs_input': RecsInput(daemon=True, source='X18', channels=[17, 18]),
+        }
+    )
+    controller = ControlController(RuntimeState())
+    service = mock.Mock()
+    permit = LaunchPermit(config_sha256='0' * 64, expires_at=100)
+    with (
+        mock.patch.object(streamer, 'RecsAudio'),
+        mock.patch.object(streamer, 'wait_for_recs_audio', return_value=True),
+        mock.patch.object(
+            streamer, 'read_launch_permit', side_effect=ValueError('Revoked')
+        ),
+        mock.patch.object(streamer, 'run_attempt') as attempt,
+    ):
+        assert (
+            streamer.stream(
+                config, controller, service, initial_image_paths=set(), permit=permit
+            )
+            == 1
+        )
+    service.prepare.assert_not_called()
+    attempt.assert_not_called()
 
 
 def test_ffmpeg_command_streams_audio_pipe_and_video_loop() -> None:
