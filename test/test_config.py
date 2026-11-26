@@ -279,7 +279,11 @@ def test_preview_does_not_initialize_provider(tmp_path: Path) -> None:
     video = tmp_path / 'bed.mp4'
     video.touch()
     config = Streamo(
-        device_name='X18', channel=1, video=video, streaming_service=_service()
+        device_name='X18',
+        channel=1,
+        video=video,
+        allow_scaling=True,
+        streaming_service=_service(),
     )
     with (
         mock.patch(
@@ -300,6 +304,7 @@ def test_failed_run_persists_the_specific_error(tmp_path: Path) -> None:
     video.touch()
     config = Streamo(
         video=video,
+        allow_scaling=True,
         streaming_service=_service(),
         closing_state_path=tmp_path / 'closing.json',
         image_dir=[tmp_path],
@@ -522,6 +527,7 @@ def test_disabling_overlays_skips_title_and_remote_feed(tmp_path: Path) -> None:
         device_name='unused',
         channel=1,
         video=video,
+        allow_scaling=True,
         streaming_service=_service(),
         live_overlays=False,
         title_card=tmp_path / 'missing.png',

@@ -8,6 +8,7 @@ from pydantic import BaseModel, ValidationError
 from reccy.services.controller import print_service_status
 
 from .config import STREAMO_SERVICE, Streamo
+from .video_probe import VideoProbeError
 
 
 class DaemonOptions(BaseModel, frozen=True):
@@ -17,12 +18,14 @@ class DaemonOptions(BaseModel, frozen=True):
     `streamo auth youtube --help` / `streamo auth kick --help` to authorize
     provider access. Without a command, streamO runs in the foreground.
     Use `streamo preflight --help` to check readiness without publishing.
+    Use `streamo daemon validate` to validate configuration and movie cadence.
     """
 
     action: Annotated[
         Literal[
             'run',
             'preview',
+            'validate',
             'install',
             'uninstall',
             'start',
@@ -42,7 +45,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def run(options: DaemonOptions) -> int:
     streamo = Streamo.model_construct()
-    if options.action in {'run', 'preview'}:
+    if options.action in {'run', 'preview', 'validate'}:
         try:
             config = load_config(options.config)
         except FileNotFoundError as error:
@@ -66,7 +69,18 @@ def run(options: DaemonOptions) -> int:
                         f'{".".join(str(p) for p in location)}: {item["msg"]}'
                     )
             sys.exit(f'Invalid streamO configuration {path}:\n' + '\n'.join(details))
-        return config.run(preview=options.action == 'preview')
+        except (OSError, tomllib.TOMLDecodeError) as error:
+            sys.exit(f'Cannot read streamO configuration {options.config}: {error}')
+        if options.action == 'validate':
+            try:
+                config.validate_media(check_cadence=True)
+            except (OSError, ValueError) as error:
+                sys.exit(f'Invalid streamO configuration {options.config}: {error}')
+            return 0
+        try:
+            return config.run(preview=options.action == 'preview')
+        except VideoProbeError as error:
+            sys.exit(f'Invalid streamO configuration {options.config}: {error}')
     if options.action == 'install':
         streamo.install_service(
             [

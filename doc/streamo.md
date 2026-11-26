@@ -149,6 +149,7 @@ second for encoding bitrates. Existing FFmpeg bitrate shorthand such as
 | --- | --- | --- |
 | `sample_rate` | `48000` | Audio capture sample rate, up to 192000 Hz |
 | `video` | none | Looping visual-bed file |
+| `allow_scaling` | `false` | Allow FFmpeg to resize the movie and convert its frame rate live |
 | `overlay_resolution` | `"640x360"` | Overlay working resolution, up to 1920x1080 |
 | `overlay_frame_rate` | `10` | Overlay working frame rate, up to 60 fps |
 | `live_overlays` | `true` | Enable titles, participant images and slate; startup-only |
@@ -232,6 +233,12 @@ Check readiness before starting a show:
 ```bash
 uv run streamo preflight --config ~/.config/streamo/config.toml
 ```
+
+Run `streamo daemon validate --config PATH` before installing the service.
+With `allow_scaling = false`, the movie must match the configured output size
+and have the exact constant output frame rate. Validation decodes every movie
+frame to verify its dimensions and timing. showCo runs this check on the Pi
+before changing the service. Normal startup checks the stream metadata only.
 
 Preflight prints JSON containing `ok` and a list of checks, each with a `name`,
 `status` (`pass`, `fail`, `warning`, or `skipped`), and `detail`. Its exit code is

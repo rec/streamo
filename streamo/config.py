@@ -19,6 +19,7 @@ from .provider_config import StreamingServiceConfiguration, pixel_resolution
 from .providers import GenericServiceAdapter, adapter_for
 from .recs_input import RecsInput
 from .runtime import HealthWarnings, RuntimeState
+from .video_probe import VideoProbe, VideoProbeError, validate_cadence
 
 STREAMO_SERVICE = load(Path(__file__).with_name('service.toml'))
 
@@ -41,6 +42,7 @@ class Streamo(Reccy, frozen=True):
     )
     streaming_service: StreamingServiceConfiguration
     video: Path | None = None
+    allow_scaling: bool = False
     title_card: Path | None = None
     closing_credits: ClosingCredits | None = None
     closing_state_path: Path = Field(
@@ -135,12 +137,18 @@ class Streamo(Reccy, frozen=True):
                 image_feed_poller.stop()
             self.close()
 
-    def validate_media(self) -> None:
-        if self.streaming_service.encoding.video is not None:
+    def validate_media(self, *, check_cadence: bool = False) -> None:
+        if (expected := self.streaming_service.encoding.video) is not None:
             if self.video is None or not self.video.is_file():
-                raise ValueError(f'Video file is unavailable: {self.video}')
-            with self.video.open('rb'):
-                pass
+                raise VideoProbeError(f'Video file is unavailable: {self.video}')
+            if self.allow_scaling:
+                with self.video.open('rb'):
+                    pass
+            else:
+                video = VideoProbe.read(self.video).video()
+                video.validate_format(self.video, expected)
+                if check_cadence:
+                    validate_cadence(self.video, video, expected)
         if self.live_overlays and self.title_card is not None:
             with Image.open(self.title_card) as image:
                 image.load()

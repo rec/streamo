@@ -1,4 +1,3 @@
-import json
 import os
 import shutil
 import subprocess
@@ -18,6 +17,7 @@ from .daemon import load_config
 from .providers import ServiceCapability, adapter_for
 from .recs_input import RecsConnection
 from .twitch_api import TwitchApiError
+from .video_probe import VideoProbe, VideoProbeError
 
 
 class Check(BaseModel, frozen=True):
@@ -253,50 +253,20 @@ def check_recs_audio(config: Streamo) -> list[Check]:
 
 def check_media(config: Streamo) -> list[Check]:
     checks: list[Check] = []
-    if config.streaming_service.encoding.video is None:
+    if (expected := config.streaming_service.encoding.video) is None:
         checks.append(Check(name='video', status='skipped', detail='Audio-only output'))
     else:
         assert config.video is not None
         try:
-            result = subprocess.run(
-                [
-                    'ffprobe',
-                    '-v',
-                    'error',
-                    '-select_streams',
-                    'v:0',
-                    '-show_entries',
-                    'stream=codec_name,width,height,avg_frame_rate:format=duration',
-                    '-of',
-                    'json',
-                    str(config.video),
-                ],
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=10,
-            )
-            media = json.loads(result.stdout)
-            streams = media.get('streams', [])
-            if not streams:
-                checks.append(
-                    Check(
-                        name='video',
-                        status='fail',
-                        detail='Visual bed has no video stream',
-                    )
-                )
-            else:
-                checks.append(
-                    Check(name='video', status='pass', detail=json.dumps(media))
-                )
-        except (OSError, subprocess.SubprocessError, ValueError) as error:
+            media = VideoProbe.read(config.video)
+            video = media.video()
+            if not config.allow_scaling:
+                video.validate_format(config.video, expected)
+        except VideoProbeError as error:
+            checks.append(Check(name='video', status='fail', detail=str(error)))
+        else:
             checks.append(
-                Check(
-                    name='video',
-                    status='fail',
-                    detail=f'Could not probe visual bed ({type(error).__name__})',
-                )
+                Check(name='video', status='pass', detail=media.model_dump_json())
             )
     if not config.live_overlays or config.streaming_service.encoding.video is None:
         checks.append(

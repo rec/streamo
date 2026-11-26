@@ -142,9 +142,16 @@ def test_overlay_preserves_encoded_base_resolution_and_frame_rate() -> None:
             ),
         }
     )
-    config = config.model_copy(update={'streaming_service': service})
+    config = config.model_copy(
+        update={'streaming_service': service, 'allow_scaling': True}
+    )
     graph = composition.overlay_filter(config)
-    assert '[1:v]scale=1920:1080,fps=30' in graph
+    assert '[1:v:0]scale=1920:1080,fps=30' in graph
+    command = ffmpeg_command(
+        config.model_copy(update={'live_overlays': True}), image_pipe=7
+    )
+    assert command[command.index('-r') + 1] == '30'
+    assert command[command.index('-s') + 1] == '1920x1080'
 
 
 def test_ffmpeg_command_can_disable_local_display() -> None:
@@ -161,6 +168,11 @@ def test_live_overlay_input_uses_output_resolution() -> None:
     assert command[command.index('-video_size') + 1] == '640x360'
     assert 'pipe:7' in command
     assert '[base][live]overlay=0:0' in command[command.index('-filter_complex') + 1]
+    assert 'scale=' not in command[command.index('-filter_complex') + 1]
+    assert 'fps=' not in command[command.index('-filter_complex') + 1]
+    assert '-s' not in command
+    assert '-r' not in command
+    assert command[command.index('-fps_mode') + 1] == 'passthrough'
     with pytest.raises(ValueError, match='overlay pipe'):
         ffmpeg_command(config)
 

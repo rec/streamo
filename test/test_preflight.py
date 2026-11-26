@@ -188,6 +188,7 @@ def test_secondary_image_directory_must_be_readable_directory(
 
 
 def test_media_without_video_stream_fails(config: Streamo, tmp_path: Path) -> None:
+    (tmp_path / 'audio.mp4').touch()
     encoding = config.streaming_service.encoding.model_copy(
         update={
             'video': VideoEncoding(

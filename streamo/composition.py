@@ -80,16 +80,23 @@ def ffmpeg_command(
                 str(encoding.video.bitrate),
                 '-pix_fmt',
                 encoding.video.pixel_format,
-                '-r',
-                str(encoding.video.frame_rate),
-                '-s',
-                encoding.video.resolution,
                 '-g',
                 str(
                     round(encoding.video.frame_rate * encoding.video.keyframe_interval)
                 ),
             ]
         )
+        if config.allow_scaling:
+            command.extend(
+                [
+                    '-r',
+                    str(encoding.video.frame_rate),
+                    '-s',
+                    encoding.video.resolution,
+                ]
+            )
+        else:
+            command.extend(['-fps_mode', 'passthrough'])
         if encoding.video.codec in {'h264', 'hevc'}:
             command.extend(['-preset', 'veryfast'])
         if encoding.video.codec == 'h264':
@@ -140,9 +147,12 @@ def local_display_output(config: Streamo, output: FfmpegOutput | None) -> Ffmpeg
 def overlay_filter(config: Streamo) -> str:
     encoding = config.streaming_service.encoding.video
     assert encoding is not None
-    width, height = encoding.resolution.lower().split('x')
+    conversion = ''
+    if config.allow_scaling:
+        width, height = encoding.resolution.split('x')
+        conversion = f'scale={width}:{height},fps={encoding.frame_rate},'
     return (
-        f'[1:v]scale={width}:{height},fps={encoding.frame_rate},format=yuv420p[base];'
+        f'[1:v:0]{conversion}format=yuv420p[base];'
         '[2:v]setpts=PTS-STARTPTS[live];'
         '[base][live]overlay=0:0:eof_action=pass[video]'
     )
