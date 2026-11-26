@@ -932,11 +932,6 @@ verification limits.
 
 ### Visual-bed lifetime
 
-Before preparing the publishing service or opening audio, streamO copies the
-selected local movie into a private verified temporary asset store. FFmpeg reads
-that immutable snapshot for the whole streaming session, including encoder
-retries. Replacing the original file cannot change a running session. The leased
-snapshot is removed after the encoder has stopped, including on failure.
-Allow temporary disk space for one complete movie; a missing or growing source
-fails preparation before publishing starts. Audience photo ingestion remains a
-separate live workflow.
+FFmpeg reads the configured movie directly, including on encoder retries.
+Keep that file available and unchanged throughout the stream. Audience photo
+ingestion remains a separate live workflow.

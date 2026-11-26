@@ -69,6 +69,22 @@ def _config() -> Streamo:
     )
 
 
+def test_stream_passes_the_original_movie_to_the_encoder() -> None:
+    config = _config().model_copy(update={'local_display': False})
+    controller = ControlController(RuntimeState())
+    service = providers.GenericServiceAdapter(config.streaming_service)
+    with (
+        mock.patch.object(streamer, 'AudioCapture'),
+        mock.patch.object(streamer, 'run_attempt', return_value=(0, True)) as attempt,
+    ):
+        assert (
+            streamer.stream(config, controller, service, initial_image_paths=set()) == 0
+        )
+
+    encoder_config = attempt.call_args.args[0]
+    assert 'visual-bed.mp4' in ffmpeg_command(encoder_config)
+
+
 def test_ffmpeg_command_streams_audio_pipe_and_video_loop() -> None:
     command = ffmpeg_command(_config())
 
