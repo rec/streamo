@@ -85,6 +85,31 @@ def test_stream_passes_the_original_movie_to_the_encoder() -> None:
     assert 'visual-bed.mp4' in ffmpeg_command(encoder_config)
 
 
+@pytest.mark.parametrize('format_changed', [False, True])
+def test_managed_publisher_leaves_encoder_recovery_to_showco(
+    format_changed: bool,
+) -> None:
+    config = _config().model_copy(
+        update={'recover_publish': True, 'local_display': False}
+    )
+    controller = ControlController(RuntimeState())
+    service = providers.GenericServiceAdapter(config.streaming_service)
+    with (
+        mock.patch.object(streamer, 'AudioCapture'),
+        mock.patch.object(streamer, 'run_attempt', return_value=(0, False)) as attempt,
+    ):
+        if format_changed:
+            attempt.side_effect = streamer.AudioFormatChanged
+        assert (
+            streamer.stream(
+                config, controller, service, initial_image_paths=set(), managed=True
+            )
+            == 1
+        )
+    attempt.assert_called_once()
+    assert controller.state.snapshot()['state'] == 'failed'
+
+
 def test_ffmpeg_command_streams_audio_pipe_and_video_loop() -> None:
     command = ffmpeg_command(_config())
 

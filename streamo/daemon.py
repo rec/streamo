@@ -38,6 +38,7 @@ class DaemonOptions(BaseModel, frozen=True):
     config: Path = Path('~/.config/streamo/config.toml')
     # Install the Linux service without starting it or enabling automatic restarts.
     manual: bool = False
+    managed: bool = False
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -48,6 +49,8 @@ def main(argv: list[str] | None = None) -> int:
 def run(options: DaemonOptions) -> int:
     if options.manual and options.action != 'install':
         sys.exit('--manual requires daemon install')
+    if options.managed and options.action != 'run':
+        sys.exit('--managed requires daemon run')
     streamo = Streamo.model_construct()
     if options.action in {'run', 'preview', 'validate'}:
         try:
@@ -82,7 +85,9 @@ def run(options: DaemonOptions) -> int:
                 sys.exit(f'Invalid streamO configuration {options.config}: {error}')
             return 0
         try:
-            return config.run(preview=options.action == 'preview')
+            return config.run(
+                preview=options.action == 'preview', managed=options.managed
+            )
         except VideoProbeError as error:
             sys.exit(f'Invalid streamO configuration {options.config}: {error}')
     if options.action == 'install':
@@ -92,6 +97,7 @@ def run(options: DaemonOptions) -> int:
                 'run',
                 '--config',
                 str(options.config.expanduser().resolve()),
+                *(['--managed'] if options.manual else []),
             ],
             manual=options.manual,
         )

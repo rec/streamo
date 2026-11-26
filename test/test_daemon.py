@@ -63,6 +63,7 @@ def test_install_creates_service_with_requested_start_policy(manual: bool) -> No
             'run',
             '--config',
             str(config.resolve()),
+            *(['--managed'] if manual else []),
         ],
         manual=manual,
     )
@@ -118,7 +119,7 @@ keyframe_interval = 2
         result = daemon.run(daemon.DaemonOptions(action='preview', config=config))
 
     assert result == 0
-    assert run.call_args.kwargs == {'preview': True}
+    assert run.call_args.kwargs == {'preview': True, 'managed': False}
 
 
 def test_example_configs_parse() -> None:

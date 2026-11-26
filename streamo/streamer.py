@@ -124,9 +124,10 @@ def stream(
     *,
     initial_image_paths: set[Path],
     preview: bool = False,
+    managed: bool = False,
 ) -> int:
     state = controller.state
-    recover = config.recover_publish and not preview
+    recover = config.recover_publish and not preview and not managed
     retry: RetrySchedule | None = None
     state.set_publish_requested(not preview)
     display_requested = (
@@ -247,6 +248,9 @@ def stream(
                         started,
                     )
                 except AudioFormatChanged:
+                    if managed:
+                        state.publish_failed('recs audio format changed', None)
+                        return 1
                     # The old encoder was closed by run_attempt's ExitStack. Do
                     # not apply publish-failure backoff to an input format change.
                     continue
@@ -273,9 +277,9 @@ def stream(
                             state.publish_failed(message, None)
                             return returncode or 1
                     if not recover:
-                        if returncode:
+                        if returncode or managed:
                             state.publish_failed(message, None)
-                        return returncode
+                        return returncode or int(managed)
                 if state.output_is_stable():
                     failures = 0
                     # Stable output completes the old recovery cycle. Treat its
