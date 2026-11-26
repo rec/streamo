@@ -575,6 +575,50 @@ def test_rate_change_requires_new_encoder_before_new_pcm(
             audio.close_capture()
 
 
+@pytest.mark.parametrize('input_state', ['missing', 'stale', 'quiet'])
+def test_stream_waits_for_fresh_recs_samples_before_publishing(
+    input_state: str,
+    config: Streamo,
+    settings: RecsInput,
+    clock: list[float],
+    samples: np.ndarray,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from streamo.control import ControlController
+
+    controller = ControlController(RuntimeState())
+    audio = RecsAudio(settings, 48_000, None, controller.state)
+    if input_state != 'missing':
+        quiet = np.zeros_like(samples)
+        write_wav(tmp_path / 'quiet.wav', quiet)
+        age = 5 if input_state == 'stale' else 0
+        feed(audio, quiet[:960], clock[0] - age, 0)
+    monkeypatch.setattr(audio.receiver, 'start', mock.Mock())
+    monkeypatch.setattr(streamer, 'RecsAudio', mock.Mock(return_value=audio))
+
+    def advance_clock(seconds: float) -> None:
+        clock[0] += seconds
+
+    monkeypatch.setattr(streamer.time, 'sleep', advance_clock)
+    attempt = mock.Mock(return_value=(0, True))
+    monkeypatch.setattr(streamer, 'run_attempt', attempt)
+    service = mock.Mock(service=config.streaming_service, capabilities=[])
+
+    result = streamer.stream(config, controller, service, initial_image_paths=set())
+
+    if input_state == 'quiet':
+        assert result == 0
+        service.prepare.assert_called_once()
+        attempt.assert_called_once()
+    else:
+        assert result == 1
+        service.prepare.assert_not_called()
+        service.output.assert_not_called()
+        attempt.assert_not_called()
+        assert 'No fresh recs audio' in controller.state.snapshot()['publish_error']
+
+
 def test_stream_uses_recs_only_and_input_loss_does_not_enter_publish_retry(
     config: Streamo, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -582,6 +626,7 @@ def test_stream_uses_recs_only_and_input_loss_does_not_enter_publish_retry(
 
     audio = mock.Mock(spec=RecsAudio)
     audio.receiver = mock.Mock()
+    audio.has_fresh_input.return_value = True
     monkeypatch.setattr(streamer, 'RecsAudio', mock.Mock(return_value=audio))
     monkeypatch.setattr(
         streamer,

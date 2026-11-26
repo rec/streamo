@@ -184,7 +184,7 @@ class RecsReceiver:
         self.connected = False
         self.intentional = False
         self.error = 'Waiting for recs audio'
-        self.last_received = float('-inf')
+        self.last_offered_at = float('-inf')
         self.dropped_frames = 0
         self.clock_id: str | None = None
 
@@ -239,7 +239,7 @@ class RecsReceiver:
                 self.epoch += 1
                 self.connected = True
                 self.intentional = False
-                self.last_received = float('-inf')
+                self.last_offered_at = float('-inf')
             end_frame: int | None = None
             while not self.stopped.is_set():
                 header, pcm = client.receive()
@@ -270,7 +270,7 @@ class RecsReceiver:
             old, _ = self.received.popleft()
             self.dropped_frames += old.frames
         self.received.append((header, pcm))
-        self.last_received = time.monotonic()
+        self.last_offered_at = header.offered_at
         self.error = (
             f'recs capture status: {header.input_status}' if header.input_status else ''
         )
@@ -319,6 +319,17 @@ class RecsAudio(AudioOutput):
         self.silence_due = time.monotonic()
         self.pending_since: float | None = None
 
+    def has_fresh_input(self) -> bool:
+        receiver = self.receiver
+        with receiver.lock:
+            return (
+                receiver.connected
+                and not receiver.intentional
+                and not receiver.error
+                and receiver.sample_rate == self.sample_rate
+                and time.monotonic() - receiver.last_offered_at <= MAX_AUDIO_AGE_SECONDS
+            )
+
     def attach_output(self, output: IO[bytes] | None) -> None:
         with self.receiver.lock:
             self.receiver.dropped_frames += sum(
@@ -360,7 +371,7 @@ class RecsAudio(AudioOutput):
                 receiver.dropped_frames += old.frames
             healthy = (
                 receiver.connected
-                and now - receiver.last_received <= MAX_AUDIO_AGE_SECONDS
+                and now - receiver.last_offered_at <= MAX_AUDIO_AGE_SECONDS
             )
             if receiver.intentional or healthy:
                 self.outage_since = None

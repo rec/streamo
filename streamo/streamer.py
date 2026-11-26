@@ -27,7 +27,7 @@ from .network import twitch_ingest_failure
 from .overlays import LiveOverlays, write_overlay_frames
 from .provider_config import StreamingServiceConfiguration
 from .providers import FfmpegOutput, StreamingServiceAdapter, tee_escape
-from .recs_input import AudioFormatChanged, RecsAudio, RecsInputLost
+from .recs_input import OUTAGE_SECONDS, AudioFormatChanged, RecsAudio, RecsInputLost
 from .runtime import RuntimeState
 from .twitch_api import TwitchApiError
 
@@ -153,11 +153,6 @@ def stream(
             controller.overlays = producer
             prepared = None
             output = None
-            if not preview:
-                resources.callback(service.finish)
-                prepared = service.prepare(config.streaming_service.metadata)
-                state.configure_service(service)
-                output = local_display_output(config, service.output(prepared))
             recs_audio = (
                 None
                 if config.recs_input is None
@@ -184,6 +179,15 @@ def stream(
             resources.callback(audio.close_capture)
             if recs_audio is not None:
                 recs_audio.receiver.start()
+            if not preview:
+                if recs_audio is not None and not wait_for_recs_audio(
+                    recs_audio, controller
+                ):
+                    return 0
+                resources.callback(service.finish)
+                prepared = service.prepare(config.streaming_service.metadata)
+                state.configure_service(service)
+                output = local_display_output(config, service.output(prepared))
             preview_process = None
             if preview:
                 preview_process = subprocess.Popen(
@@ -214,6 +218,12 @@ def stream(
 
             failures = 0
             while not should_stop(controller):
+                if (
+                    not preview
+                    and recs_audio is not None
+                    and not wait_for_recs_audio(recs_audio, controller)
+                ):
+                    return 0
                 # The irregular delay sequence is streamO policy, not exponential
                 # backoff. Each attempt gets a schedule for its failure's wait.
                 retry = RetrySchedule(
@@ -474,6 +484,18 @@ def should_stop(controller: ControlController) -> bool:
         command = controller.commands.get_nowait()
         if command.name == 'stop':
             return True
+    return False
+
+
+def wait_for_recs_audio(audio: RecsAudio, controller: ControlController) -> bool:
+    deadline = time.monotonic() + OUTAGE_SECONDS
+    while not should_stop(controller):
+        if time.monotonic() >= deadline:
+            raise RecsInputLost('No fresh recs audio arrived before publishing')
+        audio.update()
+        if audio.has_fresh_input():
+            return not should_stop(controller)
+        time.sleep(0.01)
     return False
 
 
