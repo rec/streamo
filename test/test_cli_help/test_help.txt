@@ -7,14 +7,15 @@ Use `streamo daemon ACTION` to manage the background service, or
 `streamo auth youtube --help` / `streamo auth kick --help` to authorize provider access. Without a command, streamO runs in the foreground. Use `streamo preflight --help` to check readiness without publishing. Use `streamo daemon validate` to validate configuration and movie cadence.
 
  positional arguments
- ----------------------------------------------------------------------
+ ----------------------------------------------------------------------------------------------------------------------
   [{run,preview,validate,install,uninstall,start,stop,restart,status}]
-                 action (default: run)
+                         action (default: run)
 
  options
- ----------------------------------------------------------------------
-  -h, --help     show this help message and exit
-  --config PATH  (default: '~/.config/streamo/config.toml')
+ ----------------------------------------------------------------------------------------------------------------------
+  -h, --help             show this help message and exit
+  --config PATH          (default: '~/.config/streamo/config.toml')
+  --manual, --no-manual  Install the Linux service without starting it or enabling automatic restarts. (default: False)
 
 
 $ streamo auth --help
@@ -48,14 +49,15 @@ Use `streamo daemon ACTION` to manage the background service, or
 `streamo auth youtube --help` / `streamo auth kick --help` to authorize provider access. Without a command, streamO runs in the foreground. Use `streamo preflight --help` to check readiness without publishing. Use `streamo daemon validate` to validate configuration and movie cadence.
 
  positional arguments
- ----------------------------------------------------------------------
+ ----------------------------------------------------------------------------------------------------------------------
   [{run,preview,validate,install,uninstall,start,stop,restart,status}]
-                 action (default: run)
+                         action (default: run)
 
  options
- ----------------------------------------------------------------------
-  -h, --help     show this help message and exit
-  --config PATH  (default: '~/.config/streamo/config.toml')
+ ----------------------------------------------------------------------------------------------------------------------
+  -h, --help             show this help message and exit
+  --config PATH          (default: '~/.config/streamo/config.toml')
+  --manual, --no-manual  Install the Linux service without starting it or enabling automatic restarts. (default: False)
 
 
 $ streamo preflight --help

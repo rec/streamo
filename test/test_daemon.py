@@ -41,27 +41,30 @@ def test_service_exit_code_matches_requested_action(
         )
 
 
-def test_install_creates_daemon_service_with_absolute_config_path() -> None:
+@pytest.mark.parametrize('manual', [False, True])
+def test_install_creates_service_with_requested_start_policy(manual: bool) -> None:
     config = Path('private/config.toml')
     with (
         mock.patch.object(
             Streamo,
             'service_status',
-            return_value=StatusResult(installed=True, running=True),
+            return_value=StatusResult(installed=True, running=not manual),
         ),
         mock.patch.object(Streamo, 'install_service') as install_service,
         mock.patch('streamo.daemon.print_service_status'),
     ):
-        result = daemon.run(daemon.DaemonOptions(action='install', config=config))
+        flags = ['--manual'] if manual else []
+        result = daemon.main(['install', '--config', str(config), *flags])
 
     assert result == 0
-    assert install_service.call_args.args == (
+    install_service.assert_called_once_with(
         [
             'daemon',
             'run',
             '--config',
             str(config.resolve()),
         ],
+        manual=manual,
     )
 
 

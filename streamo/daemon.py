@@ -36,6 +36,8 @@ class DaemonOptions(BaseModel, frozen=True):
         tyro.conf.Positional,
     ] = 'run'
     config: Path = Path('~/.config/streamo/config.toml')
+    # Install the Linux service without starting it or enabling automatic restarts.
+    manual: bool = False
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -44,6 +46,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def run(options: DaemonOptions) -> int:
+    if options.manual and options.action != 'install':
+        sys.exit('--manual requires daemon install')
     streamo = Streamo.model_construct()
     if options.action in {'run', 'preview', 'validate'}:
         try:
@@ -88,7 +92,8 @@ def run(options: DaemonOptions) -> int:
                 'run',
                 '--config',
                 str(options.config.expanduser().resolve()),
-            ]
+            ],
+            manual=options.manual,
         )
     elif options.action != 'status':
         getattr(streamo, f'{options.action}_service')()
@@ -99,7 +104,9 @@ def run(options: DaemonOptions) -> int:
     if options.action == 'stop':
         return int(result.running is not False)
     if options.action == 'install':
-        return int(not result.installed)
+        return int(
+            not result.installed or (options.manual and result.running is not False)
+        )
     return int(result.running is not True)
 
 
