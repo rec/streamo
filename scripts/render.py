@@ -120,7 +120,7 @@ def execute_prepared_plan(config: Render, plan: RenderPlan) -> None:
 
 def render_segments(config: Render, plan: RenderPlan, output: Path) -> None:
     starts = [start for start, _ in scene_start_times(plan)]
-    chunks: list[Path] = []
+    chunks: list[str] = []
     first = 0
     beginning = 0.0
     while beginning < config.duration:
@@ -151,7 +151,9 @@ def render_segments(config: Render, plan: RenderPlan, output: Path) -> None:
             last -= 1
         if ending <= beginning:
             sys.exit('render plan has no forward segment boundary')
-        frames = round(ending * config.fps) - round(beginning * config.fps)
+        first_frame = round(beginning * config.fps)
+        end_frame = round(ending * config.fps)
+        frames = end_frame - first_frame
         if frames <= 0:
             sys.exit('render segment is shorter than one output frame')
         chunk = output.parent / f'chunk-{len(chunks):04}.mp4'
@@ -167,14 +169,18 @@ def render_segments(config: Render, plan: RenderPlan, output: Path) -> None:
             ),
             subplan,
             title_offset=starts[first],
-            first_frame=round(beginning * config.fps),
+            first_frame=first_frame,
             frame_count=frames,
         )
-        chunks.append(chunk)
+        # The concat demuxer adds durations in whole microseconds. Round
+        # cumulative frame times so rounding errors cannot build up at joins.
+        start_us = round(first_frame * 1_000_000 / config.fps)
+        end_us = round(end_frame * 1_000_000 / config.fps)
+        chunks.append(f"file '{chunk.name}'\nduration {end_us - start_us}us\n")
         first = last
         beginning = ending
     manifest = output.parent / 'chunks.txt'
-    manifest.write_text(''.join(f"file '{p.name}'\n" for p in chunks))
+    manifest.write_text(''.join(chunks))
     run_silent(
         [
             'ffmpeg',

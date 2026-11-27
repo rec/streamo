@@ -223,6 +223,58 @@ def test_segmented_render_meets_strict_movie_cadence(
     validate_cadence(output, video, expected)
 
 
+def test_many_render_segments_keep_exact_frame_cadence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    chunk = tmp_path / 'source.mp4'
+    sp.run(
+        [
+            'ffmpeg',
+            '-v',
+            'error',
+            '-f',
+            'lavfi',
+            '-i',
+            'color=s=64x48:r=30',
+            '-frames:v',
+            '31',
+            '-c:v',
+            'libx264',
+            str(chunk),
+        ],
+        check=True,
+    )
+    output = tmp_path / 'joined.mp4'
+    config = Render(
+        inputs=[chunk], output=output, duration=310, width=64, height=48, fps=30
+    )
+    segment_duration = 31 / config.fps
+    scene = Scene(
+        media=Media(path=chunk, duration=segment_duration), duration=segment_duration
+    )
+    plan = RenderPlan(
+        render=config,
+        scenes=[scene] * 301,
+        transitions=[Transition(duration=0)] * 300,
+    )
+
+    def reuse_encoded_chunk(
+        settings: Render, plan: RenderPlan, **options: object
+    ) -> None:
+        assert options['frame_count'] == 31
+        assert settings.output is not None
+        settings.output.hardlink_to(chunk)
+
+    monkeypatch.setattr(render, 'run_render_command', reuse_encoded_chunk)
+    monkeypatch.setattr(render, 'MAX_RENDER_INPUTS', 4)
+    render.execute_prepared_plan(config, plan)
+
+    expected = VideoEncoding(resolution='64x48', frame_rate=30)
+    video = VideoProbe.read(output).video()
+    video.validate_format(output, expected)
+    validate_cadence(output, video, expected)
+
+
 def test_segmented_render_preserves_title_across_segments(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
