@@ -31,6 +31,7 @@ from .providers import FfmpegOutput, StreamingServiceAdapter, tee_escape
 from .recs_input import OUTAGE_SECONDS, AudioFormatChanged, RecsAudio, RecsInputLost
 from .runtime import RuntimeState
 from .twitch_api import TwitchApiError
+from .twitch_transport import TwitchTransport
 
 LOGGER = get_logger(__name__)
 DRM_STATUS_ROOT = Path('/sys/class/drm')
@@ -423,6 +424,15 @@ def run_attempt(
         state.set_ffmpeg(alive=True)
         started()
         next_display_poll = 0.0
+        transport = None
+        if (
+            sys.platform == 'linux'
+            and service.service.service == 'twitch'
+            and output is not None
+        ):
+            transport = TwitchTransport(
+                ffmpeg.pid, output.destinations[0].url, time.monotonic()
+            )
         while ffmpeg.poll() is None:
             if controller.closing is not None and controller.closing.tick():
                 state.set_state('stopping')
@@ -434,11 +444,17 @@ def run_attempt(
             ):
                 state.set_state('stopping')
                 return 0, True
+            now = time.monotonic()
+            if transport is not None and (failure := transport.failure(now)):
+                LOGGER.warning('%s while FFmpeg was still running', failure)
+                resources.close()
+                state.publish_failed(failure, None)
+                return 1, False
             audio.update()
             state.evaluate_warnings()
-            if local_display is not None and time.monotonic() >= next_display_poll:
+            if local_display is not None and now >= next_display_poll:
                 local_display.update()
-                next_display_poll = time.monotonic() + DISPLAY_POLL_INTERVAL
+                next_display_poll = now + DISPLAY_POLL_INTERVAL
             time.sleep(0.01)
         returncode = ffmpeg.wait()
         for thread in threads:

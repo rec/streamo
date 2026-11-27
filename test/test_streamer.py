@@ -401,6 +401,35 @@ def test_dead_overlay_worker_fails_attempt_without_waiting_for_ffmpeg(
             )
 
 
+def test_twitch_transport_failure_supersedes_running_local_preview() -> None:
+    config = _config()
+    controller = ControlController(RuntimeState())
+    service = providers.adapter_for(config.streaming_service)
+    output = composition.local_display_output(
+        config, ingest_output(config.streaming_service)
+    )
+    ffmpeg = mock.Mock(stdin=mock.Mock(), stderr=None, pid=123)
+    ffmpeg.poll.return_value = None
+    audio = mock.Mock(sample_rate=48_000)
+    with (
+        mock.patch.object(streamer.sys, 'platform', 'linux'),
+        mock.patch.object(streamer.subprocess, 'Popen', return_value=ffmpeg),
+        mock.patch.object(streamer, 'close_encoder') as close_encoder,
+        mock.patch.object(streamer, 'TwitchTransport') as transport,
+    ):
+        transport.return_value.failure.return_value = 'Twitch ingest connection dropped'
+        code, stopped = streamer.run_attempt(
+            config, controller, service, audio, None, output, None, None, lambda: None
+        )
+    assert code == 1 and not stopped
+    assert (
+        controller.state.snapshot()['publish_error']
+        == 'Twitch ingest connection dropped'
+    )
+    close_encoder.assert_called_once()
+    audio.attach_output.assert_called_with(None)
+
+
 def test_failed_encoder_reports_the_network_cause_in_status() -> None:
     config = _config()
     controller = ControlController(RuntimeState())
