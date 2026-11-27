@@ -7,7 +7,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-11-19T16:49:47.058465Z"
+exclude-newer = "2026-11-20T23:13:58.748296Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -980,7 +980,7 @@ dependencies = [
 [[package]]
 name = "recs"
 version = "0.13.1"
-source = { git = "https://github.com/rec/recs.git?branch=main#8f1d44684fec711ba28703cba5b4ccf2c33026c0" }
+source = { git = "https://github.com/rec/recs.git?branch=main#626dfc7ea49db413ea6e3a6b1a317c397252db79" }
 dependencies = [
     { name = "dvice" },
     { name = "humanfriendly" },
