@@ -88,6 +88,8 @@ class FakeRpc:
         self.enabled = True
         self.sample_rate = 48_000
         self.generation = 0
+        self.sources = ['X18']
+        self.unsubscribed_source: object | None = None
 
     def call(self, command: str, **params: object) -> dict[str, object]:
         self.commands.append(command)
@@ -104,7 +106,8 @@ class FakeRpc:
                 'enabled': self.enabled,
                 'paused': self.paused,
                 'sources': [
-                    {'source': 'X18', 'state': self.state, 'muted': self.muted}
+                    {'source': n, 'state': self.state, 'muted': self.muted}
+                    for n in self.sources
                 ],
             }
         if command == 'list_devices':
@@ -112,18 +115,20 @@ class FakeRpc:
                 'type': 'devices',
                 'devices': [
                     {
-                        'name': 'X18',
+                        'name': n,
                         'channels': 18,
                         'sample_rate': self.sample_rate,
                         'online': True,
                     }
+                    for n in self.sources
                 ],
             }
         if command == 'subscribe_audio':
+            assert params['source'] in self.sources
             self.generation += 1
             offer = AudioSubscription(
                 subscription_id=f'offer-{self.generation}',
-                source='X18',
+                source=str(params['source']),
                 clock_id='clock',
                 instance_token=self.identity.start_token,
                 port=12345,
@@ -139,6 +144,7 @@ class FakeRpc:
                 'subscription': offer.model_dump(),
             }
         if command == 'unsubscribe_audio':
+            self.unsubscribed_source = params['source']
             return {'type': 'audio_unsubscribed', 'stopped': True}
         raise AssertionError(command)
 
@@ -245,6 +251,34 @@ def test_connection_verifies_instance_selection_and_format(
     assert response.subscription.sample_rate == 48_000
     connection.cancel(response.subscription.subscription_id)
     assert rpc_server.commands[-1] == 'unsubscribe_audio'
+
+
+def test_connection_recovers_the_same_mixer_after_alsa_renumbering(
+    settings: RecsInput, rpc_server: FakeRpc
+) -> None:
+    original = 'X18: USB Audio (hw:0,0)'
+    current = 'X18: USB Audio (hw:1,0)'
+    rpc_server.sources = ['FLOW 8: USB Audio (hw:0,0)', current]
+    connection = RecsConnection(settings.model_copy(update={'source': original}))
+
+    inspection = connection.inspect()
+    offer = connection.subscribe(inspection).subscription
+    connection.cancel(offer.subscription_id, source=inspection.source)
+
+    assert offer.source == current
+    assert offer.channels == [17, 18]
+    assert rpc_server.unsubscribed_source == current
+
+
+def test_alsa_renumbering_rejects_multiple_matching_mixers(
+    settings: RecsInput, rpc_server: FakeRpc
+) -> None:
+    original = 'X18: USB Audio (hw:0,0)'
+    rpc_server.sources = ['X18: USB Audio (hw:1,0)', 'X18: USB Audio (hw:2,0)']
+    connection = RecsConnection(settings.model_copy(update={'source': original}))
+
+    with pytest.raises(ValueError, match='Multiple recs devices'):
+        connection.inspect()
 
 
 def test_explicit_pid_is_pinned_and_never_reselected(

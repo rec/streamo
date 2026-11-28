@@ -224,7 +224,7 @@ def check_recs_audio(config: Streamo) -> list[Check]:
         ]
     status: Literal['pass', 'fail', 'warning'] = 'pass'
     detail = (
-        f'{config.recs_input.source}: {inspection.sample_rate} Hz, '
+        f'{inspection.source}: {inspection.sample_rate} Hz, '
         f'channels {config.recs_input.channels}'
     )
     if not inspection.enabled:

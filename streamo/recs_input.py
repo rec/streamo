@@ -1,6 +1,7 @@
 """Local recs subscription, isolated from encoder writes and provider control."""
 
 import os
+import re
 import threading
 import time
 from collections import deque
@@ -46,6 +47,7 @@ class RecsInput(BaseModel, frozen=True):
 
 class RecsInspection(BaseModel, frozen=True):
     instance: instances.InstanceIdentity
+    source: str
     sample_rate: int = Field(gt=0, le=192_000)
     available_channels: int = Field(gt=0)
     paused: bool
@@ -91,22 +93,32 @@ class RecsConnection:
         status = gui_protocol.AudioStatusResult.model_validate(
             self.client.call('audio_status')
         )
-        source = next(
-            (s for s in status.sources if s.get('source') == self.settings.source), None
-        )
+        selected = self.settings.source
+        source = next((s for s in status.sources if s.get('source') == selected), None)
+        if source is None and (identity := _alsa_device_identity(selected)) != selected:
+            matches = [
+                s
+                for s in status.sources
+                if isinstance(n := s.get('source'), str)
+                and _alsa_device_identity(n) == identity
+            ]
+            if len(matches) > 1:
+                raise ValueError('Multiple recs devices match the requested ALSA input')
+            if matches:
+                source = matches[0]
+                selected = str(source['source'])
         if source is None:
             raise ValueError('The requested hardware source is not present in recs')
         if self.cancelled.is_set():
             raise InterruptedError('recs input stopped')
         devices = gui_protocol.Devices.model_validate(self.client.call('list_devices'))
-        device = next(
-            (d for d in devices.devices if d.get('name') == self.settings.source), None
-        )
+        device = next((d for d in devices.devices if d.get('name') == selected), None)
         if device is None:
             raise ValueError('The requested device is unavailable in recs')
         inspection = RecsInspection.model_validate(
             {
                 'instance': caps.instance,
+                'source': selected,
                 'sample_rate': device['sample_rate'],
                 'available_channels': device['channels'],
                 'paused': status.paused,
@@ -126,7 +138,7 @@ class RecsConnection:
         response = gui_protocol.AudioSubscribed.model_validate(
             self.client.call(
                 'subscribe_audio',
-                source=self.settings.source,
+                source=inspection.source,
                 channels=self.settings.channels,
             )
         )
@@ -134,23 +146,23 @@ class RecsConnection:
         if (
             response.instance != inspection.instance
             or offer.instance_token != inspection.instance.start_token
-            or offer.source != self.settings.source
+            or offer.source != inspection.source
             or offer.channels != self.settings.channels
             or offer.sample_rate != inspection.sample_rate
         ):
-            self.cancel(offer.subscription_id)
+            self.cancel(offer.subscription_id, source=inspection.source)
             raise ValueError(
                 'recs subscription does not match the selected instance, source, '
                 'channels, or format'
             )
         return response
 
-    def cancel(self, subscription_id: str) -> None:
+    def cancel(self, subscription_id: str, *, source: str | None = None) -> None:
         assert self.client is not None
         try:
             self.client.call(
                 'unsubscribe_audio',
-                source=self.settings.source,
+                source=source or self.settings.source,
                 subscription_id=subscription_id,
             )
         except (rpc.RemoteError, OSError, ValueError):
@@ -172,6 +184,7 @@ class RecsConnection:
 class RecsReceiver:
     def __init__(self, settings: RecsInput) -> None:
         self.connection = RecsConnection(settings)
+        self.source = settings.source
         self.lock = threading.Lock()
         self.stopped = self.connection.cancelled
         self.thread = threading.Thread(
@@ -233,6 +246,7 @@ class RecsReceiver:
                 if self.stopped.is_set():
                     return
                 self.client = client
+                self.source = inspection.source
                 self.received.clear()
                 self.sample_rate = response.subscription.sample_rate
                 self.clock_id = response.subscription.clock_id
@@ -256,7 +270,9 @@ class RecsReceiver:
             self.lost('recs input disconnected', intentional=False)
             if client is not None:
                 client.close()
-            self.connection.cancel(response.subscription.subscription_id)
+            self.connection.cancel(
+                response.subscription.subscription_id, source=inspection.source
+            )
 
     def accept_packet(self, header: AudioHeader, pcm: bytes) -> None:
         """Called with the receiver lock held; keep at most 100 ms of packets."""
@@ -390,7 +406,7 @@ class RecsAudio(AudioOutput):
             self.state.set_audio_input(
                 {
                     'kind': 'recs',
-                    'source': receiver.connection.settings.source,
+                    'source': receiver.source,
                     'channels': list(receiver.connection.settings.channels),
                     'connected': healthy,
                     'intentional_pause': receiver.intentional,
@@ -433,3 +449,8 @@ class RecsAudio(AudioOutput):
     def close_capture(self) -> None:
         self.receiver.close()
         self.discard_audio(align=False)
+
+
+def _alsa_device_identity(source: str) -> str:
+    """Ignore the card index assigned at enumeration, retaining the PCM device."""
+    return re.sub(r'(?<= \(hw:)\d+(?=,\d+\)$)', '*', source)
